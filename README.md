@@ -1,4 +1,4 @@
-# PNetLab v8 6.8.84
+# PNetLab v8 6.8.85
 
 PNetLab is a self-hosted network emulation platform for building and running
 virtual labs (routers, switches, firewalls, servers, and more) in your browser.
@@ -6,9 +6,7 @@ virtual labs (routers, switches, firewalls, servers, and more) in your browser.
 This repository is a landing page for **PNetLab v8** downloads and upgrade
 instructions. It does not host the application source.
 
-The signed network-install channel serves `6.8.84resolute1`. This release fixes
-the fresh-install Guac key startup race reported in [#35](https://codeberg.org/netkillui/Pnetlabv8/issues/35)
-and [#19](https://codeberg.org/netkillui/Pnetlabv8/issues/19).
+The signed network-install channel serves `6.8.85resolute1`. This release fixes some bugs in webconsole and adds new animation to Network Watcher.
 
 ## Downloads
 
