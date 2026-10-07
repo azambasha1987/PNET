@@ -9,14 +9,14 @@ instructions. It does not host the application source.
 The signed network-install channel serves `6.8.86resolute1`. 
 
 Changelog:
-Canvas: Bezier Curviness and Flowchart Mid point link controls (Codeberg #54); each link on a multi-device network keeps its own style.
-Canvas: Delete selected also removes selected networks; dragged network nodes stay in place and only live nodes count as running.
-Clear stale node running flags at boot.
-IOL: interfaces go down when the peer link drops, via an L1 keepalive relay (pnetlab-iol-l1d); keepalive is on by default for new IOL nodes.
-Web console: two-way clipboard for VNC/RDP, typed paste, and a collapsible toolbar.
-Startup Configs: download the selected node's config as .txt.
-Windows and Windows 11 templates use the Windows desktop icon.
-Network Watcher: name many more packet types and their message kinds, show real frame sizes, animate the correct direction on curved links, and show one pass per packet.
+1. Canvas: Bezier Curviness and Flowchart Mid point link controls (Codeberg #54); each link on a multi-device network keeps its own style.
+2. Canvas: Delete selected also removes selected networks; dragged network nodes stay in place and only live nodes count as running.
+3. Clear stale node running flags at boot.
+4. IOL: interfaces go down when the peer link drops, via an L1 keepalive relay (pnetlab-iol-l1d); keepalive is on by default for new IOL nodes.
+5. Web console: two-way clipboard for VNC/RDP, typed paste, and a collapsible toolbar.
+6. Startup Configs: download the selected node's config as .txt.
+7. Windows and Windows 11 templates use the Windows desktop icon.
+8. Network Watcher: name many more packet types and their message kinds, show real frame sizes, animate the correct direction on curved links, and show one pass per packet.
 
 ## Downloads
 
