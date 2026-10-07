@@ -1,4 +1,4 @@
-# PNetLab v8 6.8.85
+# PNetLab v8 6.8.86
 
 PNetLab is a self-hosted network emulation platform for building and running
 virtual labs (routers, switches, firewalls, servers, and more) in your browser.
@@ -6,7 +6,17 @@ virtual labs (routers, switches, firewalls, servers, and more) in your browser.
 This repository is a landing page for **PNetLab v8** downloads and upgrade
 instructions. It does not host the application source.
 
-The signed network-install channel serves `6.8.85resolute1`. This release fixes some bugs in webconsole and adds new animation to Network Watcher.
+The signed network-install channel serves `6.8.86resolute1`. 
+
+Changelog:
+Canvas: Bezier Curviness and Flowchart Mid point link controls (Codeberg #54); each link on a multi-device network keeps its own style.
+Canvas: Delete selected also removes selected networks; dragged network nodes stay in place and only live nodes count as running.
+Clear stale node running flags at boot.
+IOL: interfaces go down when the peer link drops, via an L1 keepalive relay (pnetlab-iol-l1d); keepalive is on by default for new IOL nodes.
+Web console: two-way clipboard for VNC/RDP, typed paste, and a collapsible toolbar.
+Startup Configs: download the selected node's config as .txt.
+Windows and Windows 11 templates use the Windows desktop icon.
+Network Watcher: name many more packet types and their message kinds, show real frame sizes, animate the correct direction on curved links, and show one pass per packet.
 
 ## Downloads
 
