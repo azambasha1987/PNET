@@ -17,6 +17,10 @@ Changelog:
 6. Startup Configs: download the selected node's config as .txt.
 7. Windows and Windows 11 templates use the Windows desktop icon.
 8. Network Watcher: name many more packet types and their message kinds, show real frame sizes, animate the correct direction on curved links, and show one pass per packet.
+9. Canvas: parallel links between the same two nodes fan apart again, bowed in slot order (Codeberg #60).
+10. Canvas: hovering a link's interface chip raises the link, glows both nodes and brings both chips above every stroke; the hover ring follows the chip colour (Codeberg #60).
+11. cEOS and SR Linux telnet consoles pass the node name, so external telnet clients (PuTTY, SecureCRT) show it in the tab title (Codeberg #61).
+12. SD-WAN: Export config works for catmanager, catcontrol and catvalid. A cloud-init seed is never overwritten by a CLI export, and the exported CLI config is restored after boot. Known limits: the vManage restore can exceed the 300 s script timeout, and the script logs in as admin/admin or reuses an already logged-in CLI.
 
 ## Downloads
 
@@ -24,7 +28,7 @@ Changelog:
 | --- | --- | --- |
 | Network Install Script | Hands-off installer for a fresh Ubuntu 26.04 (27H1 "Resolute") host — pulls and installs the latest PNetLab v8 release over the network. | [download](https://codeberg.org/api/packages/netkillui/generic/pnetlab-core-assets/0.channel/pnetlab-network-install-latest.sh) |
 | OVA (autoinstaller) | Minimal Ubuntu 26.04 image with an unattended autoinstaller — boots and installs PNetLab v8 itself. | [download](https://mega.nz/file/uNAz3JDb#CQA93KkaU3XrCs6EIosChOjYonn1W4ELgnLm7NcZ2Wg) |
-| Desktop Install Bundle | Installs PNetLab v8 on Ubuntu Desktop workstation environment on bare metal. Tested on Ubuntu 26.04 Desktop and Xubuntu 26.04 Desktop — Xubuntu is recommended for its lighter resource footprint. Dual boot alongside Widows or external SSD setup works. | [download](https://mega.nz/file/aZBwBIgK#sa8PRWSggYYm4NX05FVL_3sfdNcb-61qz1z3BCyOMEo) |
+| Desktop Install Bundle | Installs PNetLab v8 on Ubuntu Desktop workstation environment on bare metal. Tested on Ubuntu 26.04 Desktop and Xubuntu 26.04 Desktop — Xubuntu is recommended for its lighter resource footprint. Dual boot alongside Widows or external SSD setup works. | [download](https://mega.nz/file/aBxWRTgJ#QRKrtyDTNIqSv1WMJ3P04Woy6NkL_NKY-MSZ0oHfy48) |
 | Custom Images | Lab images for wifi access point, client, OpenBMP, and ROCEv2 client with RXE configured. | [download](https://mega.nz/folder/3dQ3SIhL#MX518yID5GuuLUkDbCRa0g) |
 
 ## Requirements
