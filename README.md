@@ -1,4 +1,4 @@
-# PNetLab v8 6.8.87
+# PNetLab v8 6.8.88
 
 PNetLab is a self-hosted network emulation platform for building and running
 virtual labs (routers, switches, firewalls, servers, and more) in your browser.
@@ -6,7 +6,7 @@ virtual labs (routers, switches, firewalls, servers, and more) in your browser.
 This repository is a landing page for **PNetLab v8** downloads and upgrade
 instructions. It does not host the application source.
 
-The signed network-install channel serves `6.8.87resolute1`. 
+The signed network-install channel serves `6.8.88resolute1`. 
 
 Changelog:
 1. Canvas: Bezier Curviness and Flowchart Mid point link controls (Codeberg #54); each link on a multi-device network keeps its own style.
