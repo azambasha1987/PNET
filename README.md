@@ -6,7 +6,7 @@ virtual labs (routers, switches, firewalls, servers, and more) in your browser.
 This repository is a landing page for **PNetLab v8** downloads and upgrade
 instructions. It does not host the application source.
 
-The signed network-install channel serves `6.8.89resolute1`. 
+The signed network-install channel serves `6.8.89resolute1`. See the [changelog](CHANGELOG.md) for what changed.
 
 ## Downloads
 
@@ -55,7 +55,7 @@ sudo pnetlab-update
 ```
 
 This checks the configured release channel, downloads the newest package, and
-applies it in place. Review the changelog before updating a production lab
+applies it in place. Review the [changelog](CHANGELOG.md) before updating a production lab
 host.
 
 ### Manual upgrade (if `pnetlab-update` is unavailable)
