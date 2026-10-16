@@ -1,4 +1,4 @@
-# PNetLab v8 6.8.88
+# PNetLab v8 6.8.89
 
 PNetLab is a self-hosted network emulation platform for building and running
 virtual labs (routers, switches, firewalls, servers, and more) in your browser.
@@ -6,21 +6,7 @@ virtual labs (routers, switches, firewalls, servers, and more) in your browser.
 This repository is a landing page for **PNetLab v8** downloads and upgrade
 instructions. It does not host the application source.
 
-The signed network-install channel serves `6.8.88resolute1`. 
-
-Changelog:
-1. Canvas: Bezier Curviness and Flowchart Mid point link controls (Codeberg #54); each link on a multi-device network keeps its own style.
-2. Canvas: Delete selected also removes selected networks; dragged network nodes stay in place and only live nodes count as running.
-3. Clear stale node running flags at boot.
-4. IOL: interfaces go down when the peer link drops, via an L1 keepalive relay (pnetlab-iol-l1d); keepalive is on by default for new IOL nodes.
-5. Web console: two-way clipboard for VNC/RDP, typed paste, and a collapsible toolbar.
-6. Startup Configs: download the selected node's config as .txt.
-7. Windows and Windows 11 templates use the Windows desktop icon.
-8. Network Watcher: name many more packet types and their message kinds, show real frame sizes, animate the correct direction on curved links, and show one pass per packet.
-9. Canvas: parallel links between the same two nodes fan apart again, bowed in slot order (Codeberg #60).
-10. Canvas: hovering a link's interface chip raises the link, glows both nodes and brings both chips above every stroke; the hover ring follows the chip colour (Codeberg #60).
-11. cEOS and SR Linux telnet consoles pass the node name, so external telnet clients (PuTTY, SecureCRT) show it in the tab title (Codeberg #61).
-12. SD-WAN: Export config works for catmanager, catcontrol and catvalid. A cloud-init seed is never overwritten by a CLI export, and the exported CLI config is restored after boot. Known limits: the vManage restore can exceed the 300 s script timeout, and the script logs in as admin/admin or reuses an already logged-in CLI.
+The signed network-install channel serves `6.8.89resolute1`. 
 
 ## Downloads
 
