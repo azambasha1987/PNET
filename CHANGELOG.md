@@ -1,5 +1,36 @@
 # PNetLab v8 changelog
 
+## 6.8.90resolute1
+
+### Canvas and annotations
+- **Annotations v2**: typed annotations (rectangle, ellipse, line, text, and cards with sanitised Markdown), edited inline on the canvas or in the inspector. Annotation tools live in a quickbar flyout. Also adds a lab poster and a converter for legacy decorations.
+- **Smart annotations**: tag nodes and outline each tag group with a labelled shape. Labels sit on themed chips that stack when they collide and can be dragged. The panel docks right, with separate tag rows and a redesigned tag dialog.
+- **Annotation fonts**: font presets (and a custom font) for annotation text and smart-annotation labels, plus bold/italic for labels.
+- **Keyboard shortcuts**: F2 renames the selected node, Delete or Backspace deletes the selection after the usual confirmation, and Ctrl+A selects everything. Running or locked nodes still can't be deleted. The canvas's built-in Backspace delete, which skipped the confirmation and the server save, is off. Shortcuts are ignored while typing in a field or editing text in place.
+- **Align / Distribute** line items up on their real icon centre (annotations, shapes and text on their own centre) instead of a fixed 90×70 box.
+- Centred dialogs (Help, Confirm, Connect, Rename, Commit) open in place instead of jumping from the corner. The Help panel is wider, with a four-column legend that fits 1366×768 without scrolling.
+- Add / Edit Node field labels wrap instead of being cut off.
+- Edit Node on a docker node shows the real state of its container: the existing container's image, "No container yet" for a node that has never started, or a note that a node on a cluster satellite is not checked here. The check previously never ran, so every docker node showed "Existing container image could not be checked".
+
+### Lab sidebar
+- Layout Settings and Lab Tasks collapse when the sidebar closes, and hovering highlights only the row under the pointer.
+- **Large Text** (Layout Settings, off by default): larger right-click menus in both canvas themes.
+
+### Lab tasks
+- Rich task editor: text colour and highlight, inline images, and one PDF per task, rendered in-page with a download option.
+
+### Dashboard and administration
+- **System Status** shows the real number of running IOL, Dynamips, QEMU and VPCS nodes. It showed 0 for every type because it only counted processes started by PID 1, and nodes are started by the broker.
+- History charts show the exact value and time on hover (CPU %, Memory and Disk in GB with share of total).
+- **Branding** is in Platform → Branding. New options: footer text, hiding the version menu from non-admins, and no flash of the stock name on refresh. Saving, logo upload and reset now require a same-origin request.
+- Users: the "Blocked" status is now called "Disabled".
+- Users without an email address: a second user with a blank email no longer fails with "1062 Duplicate entry". Blank emails are stored as NULL (existing blanks converted on upgrade), and an email already used by another account gets a clear message.
+- The topology page no longer logs you out on a single refused request (401/412). It checks the session first (`POST /api/auth/check`) and only goes to the login page when the session has really ended; otherwise the refused request is recorded in the activity log.
+
+### Nodes and updates
+- IOL nodes with 8 or more ethernet groups start again: higher broker batch and request limits (Codeberg #74).
+- `pnetlab-update` installs missing Ubuntu archive dependencies of the target release, including ones satisfied by Provides, instead of failing.
+
 ## 6.8.89resolute1
 
 ### Nodes and labs
