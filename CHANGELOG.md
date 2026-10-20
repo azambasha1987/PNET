@@ -31,6 +31,8 @@
 - IOL nodes with 8 or more ethernet groups start again: higher broker batch and request limits (Codeberg #74).
 - `pnetlab-update` installs missing Ubuntu archive dependencies of the target release, including ones satisfied by Provides, instead of failing.
 
+Credits to Hanamylab for some of the bug fixes and improvements above.
+
 ## 6.8.89resolute1
 
 ### Nodes and labs
