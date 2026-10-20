@@ -74,7 +74,7 @@ The signed network-install channel serves `6.8.90resolute1`. See the [changelog]
 |---|---|---|
 | Network Install Script | Hands-off installer for a fresh Ubuntu 26.04 (27H1 "Resolute") host. Pulls and installs the latest PNetLab v8 release over the network. | [download](https://codeberg.org/api/packages/netkillui/generic/pnetlab-core-assets/0.channel/pnetlab-network-install-latest.sh) |
 | OVA (autoinstaller) | Minimal Ubuntu 26.04 image with an unattended autoinstaller. Boots and installs PNetLab v8 itself. | [download](https://mega.nz/file/uNAz3JDb#CQA93KkaU3XrCs6EIosChOjYonn1W4ELgnLm7NcZ2Wg) |
-| Desktop Install Bundle | Installs PNetLab v8 on an Ubuntu Desktop workstation environment on bare metal. Tested on Ubuntu 26.04 Desktop and Xubuntu 26.04 Desktop. Xubuntu is recommended for its lighter resource footprint. Dual boot alongside Windows or an external SSD setup works. | [download](https://mega.nz/file/KMQTBJDK#S8w2GgY5UE6KrccSubJXw0dg9ATBl1nLfycMlo7kA8k) |
+| Desktop Install Bundle | Installs PNetLab v8 on an Ubuntu Desktop workstation environment on bare metal. Tested on Ubuntu 26.04 Desktop and Xubuntu 26.04 Desktop. Xubuntu is recommended for its lighter resource footprint. Dual boot alongside Windows or an external SSD setup works. | [download](https://mega.nz/file/rNRnBQSC#ZYanyTipzuPHya6JcUQV4oZWteJzyngBJM3CB9Sldvw) |
 | Custom Images | Lab images for Wi-Fi access point, client, OpenBMP, and RoCEv2 client with RXE configured. | [download](https://mega.nz/folder/3dQ3SIhL#MX518yID5GuuLUkDbCRa0g) |
 
 ## Requirements
