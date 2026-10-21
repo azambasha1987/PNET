@@ -1,5 +1,38 @@
 # PNetLab v8 changelog
 
+## 6.8.91resolute1
+
+### Security
+- **PHP remote code execution fix**: PNetLab and the satellite package now require Ubuntu's
+  patched PHP 8.5 build (`8.5.4-0ubuntu1.5` or newer). It fixes CVE-2026-109618 and
+  CVE-2026-109619, two critical unauthenticated remote code execution bugs from the
+  21 Oct 2026 php.net advisory. Upgrading PNetLab pulls in the patched PHP automatically. The
+  offline installer bundle now ships the patched `php8.5-fpm` too. On a host you don't upgrade
+  yet, run `apt update && apt upgrade` to get it.
+- **Compromised eMudhra certificates distrusted**: PNetLab and the satellite package now require
+  Ubuntu's updated `ca-certificates` (`20260816ubuntu0.26.04.1` or newer). It stops trusting the
+  "emSign ECC Root CA - G3" root, whose eMudhra intermediate CA keys were compromised
+  (disclosed 20 Oct 2026). Without it, an attacker on the network path could impersonate any
+  HTTPS site the server talks to. Upgrading PNetLab pulls in the update automatically. Docker
+  lab images carry their own certificate stores and are not changed by this.
+
+### Canvas and annotations
+- **Rounded smart-annotation outlines**: the pill outline (now listed as "Rounded") follows the
+  shape of the tag group with fully rounded corners: two nodes or a row of nodes get a capsule at
+  any angle, three nodes a rounded triangle, a single node a circle. Existing labs need no change.
+- Smart-annotation outlines are measured from the centre of each node icon, so a row of nodes gets
+  equal room above and below while the name label and action bar stay inside.
+- New tags default to padding 10 and group distance 1000 px (was 35 and 400). Tags already saved
+  in a lab keep their values.
+- **Add Node** has the same Tags field as Edit Node, including when adding several nodes at once.
+- **Edit network** (right-click a network) opens the themed network dialog instead of the old
+  form, with the ID and type read-only. dot1q, router and wireless networks still open their own
+  settings dialogs.
+
+### Fixes
+- Networks moved past the top or left edge of the canvas, by dragging or with Align, keep their
+  position. The server rejected negative coordinates, so they jumped back on reload.
+
 ## 6.8.90resolute1
 
 ### Canvas and annotations
