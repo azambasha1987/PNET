@@ -1,5 +1,39 @@
 # PNetLab v8 changelog
 
+## 6.8.92resolute1
+
+### Lab page and consoles
+- **Docked Console** (optional, off by default; turn it on under Layout Settings): node consoles open
+  as tabs in a resizable panel docked at the bottom of the lab. Split it into two halves, each with its
+  own tab strip, and drag tabs between them. The panel can be maximized, collapsed or popped out to its
+  own window. With the toggle off, consoles open exactly as before.
+- **Lab Layout** page on the dashboard (Workspace): set global defaults for every Layout Settings
+  toggle, including Link Utilization, Dark Canvas, Grid, Structured Links and Snap to Grid. Changing a
+  toggle inside a lab overrides it for that lab only; **Reset to Global** (lab sidebar or dashboard)
+  drops a lab's overrides. HTML5 Console stays an account-wide setting.
+
+### Canvas
+- **Structured Links** (Layout Settings, off by default): every link is drawn as a square,
+  grid-aligned route between node faces, for tidy topology diagrams. Parallel links between the same
+  two nodes keep separate lanes and stay individually clickable. Turn it off to get each link's own
+  curve type back.
+- **Snap to Grid** (Layout Settings, off by default): dragged nodes snap to the 20 px canvas grid, so
+  aligned nodes get perfectly straight links.
+- **VPCS link labels glow**: with Traffic Glow on, a VPCS interface label glows green while the node
+  is running. VPCS interfaces cannot be shut down, so a running VPCS interface is always up. Suspended
+  links keep their amber style.
+
+### Fixes
+- **IOL multi-config (#81)**: the startup-config editor reads and saves the node's active multi-config
+  profile, so exported configs show up in the editor and edits take effect after wipe + start.
+- **IOL / Dynamips config export (#81)**: export no longer leaves the node console stuck in
+  configuration mode when it exits early.
+- **Net Services node (#79)**: DHCP now works. The container gets the NET_ADMIN capability it needs
+  through a validated template setting. A missing Net Services (or other managed `pnet-*`) image is
+  now downloaded automatically when the node starts, with a clear error if the download fails.
+- **Advanced WAN (netem) panel**: reopening it shows the link's saved impairment values, and saving
+  the basic Quality dialog no longer wipes the advanced settings.
+
 ## 6.8.91resolute1
 
 ### Security

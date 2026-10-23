@@ -9,7 +9,7 @@
 **Build, run and break real network labs in your browser.**
 Routers, switches, firewalls and servers on one canvas, with live protocol overlays, link impairment and in-browser consoles.
 
-![Release](https://img.shields.io/badge/release-6.8.91-blue)
+![Release](https://img.shields.io/badge/release-6.8.92-blue)
 ![Platform](https://img.shields.io/badge/Ubuntu-26.04-orange)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)
 
@@ -23,7 +23,7 @@ Routers, switches, firewalls and servers on one canvas, with live protocol overl
 
 This repository is a landing page for **PNetLab v8** downloads and upgrade instructions. It does not host the application source.
 
-The signed network-install channel serves `6.8.91resolute1`. See the [changelog](CHANGELOG.md) for what changed.
+The signed network-install channel serves `6.8.92resolute1`. See the [changelog](CHANGELOG.md) for what changed.
 
 ## Why PNetLab
 
