@@ -1,5 +1,125 @@
 # PNetLab v8 changelog
 
+## 6.8.93resolute1
+
+### Security and kernel
+- **Security updates**: this release raises the minimum versions of the Ubuntu packages behind its
+  exposed and root services, so `pnetlab-update` brings them to the current security fixes: Apache,
+  OpenSSL, OpenSSH, Python 3.14, curl, libssh2, libxml2, expat, GnuTLS, sudo, PAM, GLib, zlib, Kerberos,
+  Perl, util-linux, urllib3 and OVMF.
+- **During this update** SSH, Apache, PHP-FPM, MySQL, the web consoles and PNetLab services restart.
+  Running nodes keep running. Open browser consoles may need reconnecting.
+- **Kernel security floor**: `pnetlab-update --check` warns when the running kernel is below 7.0.0-38
+  and prints the commands to move to it. The updater never installs a kernel or reboots the host.
+  Fresh installs now get kernel 7.0.0-38, active after the first reboot, instead of staying on the
+  kernel from the install media.
+- **Kernel 7.0.0-42 supported**: `pnetlab-bridge-dkms` carries a separate source tree for this kernel,
+  because its bridge internals changed. It is release-confirmed: IOL and vIOS-L2 LACP port-channels
+  formed and carried traffic on it, including member failover.
+- **Listed kernels only**: the patched bridge is built only for kernels 7.0.0-14, -30, -31, -38 and -42.
+  Any other kernel keeps the stock bridge, which runs labs without LACP or pause passthrough.
+  `pnetlab-bridge-dkms-status`, `pnetlab-update --check` and the login notice say so.
+- **Web interface libraries**: security updates to Bootstrap 3.4.1, Bootstrap-select 1.13.18, jQuery
+  Validation 1.22.1 and Moment 2.31.0. Validation error messages are now always shown as plain text.
+
+### Updater
+- **Dropped sessions (#86)**: `pnetlab-update` now runs the apply as a systemd unit, so a dropped SSH or
+  web console no longer stops an update part-way. It prints the command to follow the log;
+  `--foreground` keeps the old attached behaviour.
+- **Interrupted runs**: a run that stopped part-way is reported at the start of the next run, with the
+  last stage reached, before it is completed.
+- **Clearer output**: the help text, `--check` and the apply output now say that required Ubuntu packages
+  and their dependencies can be upgraded and that services may restart. `--check` lists the exact
+  packages and versions.
+- **Bridge updates**: when `pnetlab-bridge-dkms` is updated while lab nodes are running, the updater asks
+  first (`--force` for non-interactive runs). At the end it says whether a reboot is needed to activate
+  the new bridge module.
+- **Secure Boot**: with the DKMS signing key not enrolled, the kernel rejected the patched bridge module,
+  which left the host without its `pnet0` bridge and network after a reboot. `pnetlab-bridge-dkms` now
+  installs the in-tree bridge module in that case, also for kernels installed later, and labs run
+  without LACP forwarding. After enrolling the key, `dpkg-reconfigure pnetlab-bridge-dkms` installs the
+  patched module again. The updater prints these steps, and the install guide has a Secure Boot section.
+
+### Network Watcher
+- **VLAN filter**: filters can be limited to a VLAN. Enter a VLAN ID (1-4094) on its own or with any
+  protocol, for example ICMP in VLAN 20. Only 802.1Q-tagged frames match, so access ports and a trunk's
+  native VLAN do not light. On QinQ frames the outer tag is the one matched. Samples and packet labels
+  show the VLAN of tagged traffic.
+- **"802.1Q tagged" filter**: it now works. Before, it matched nothing.
+- **Even lanes (#83)**: lit lanes sit evenly either side of the link, whatever their position in the
+  filter list. Packet markers and the hover label naming the packet types are smaller.
+- **Reduced motion (#83)**: with animations turned off in the OS or browser, dashes hold still and each
+  lane shows one direction arrow at its midpoint.
+- **Filter edits**: a second filter edit made right after the first is no longer lost.
+
+### Lab page
+- **Annotation handles**: rectangle, ellipse, text and card annotations now resize from one small grip at
+  the bottom-right corner, with a rotate button above them, the same as older lab shapes. Both show on
+  hover or selection.
+- **Compact text annotations**: new text annotations start as a small box around their text and grow as
+  you type, up to 320 pixels wide and then taller. A box you sized yourself never gets smaller.
+- **Themed menus and dialogs**: the Setup Nodes menu, the other lab right-click menus and the Router,
+  Switch (dot1q), Wireless Cell and Add/Edit Network dialogs now follow the selected theme, in both
+  light and dark.
+- **Lab Layout**: a new Mini Map toggle joins the Canvas group, and as with the others a change inside a
+  lab overrides it for that lab only. The toggles now sit in two columns on wide screens.
+- **Lab sidebar**: the logo is gone, including a custom logo set in Custom Branding. Custom branding
+  still applies to the login page, the dashboard, the lab favicon and the lab loading screen.
+
+### Web console
+- **Right-click menu**: right-clicking an HTML5 telnet or host shell console opens a menu with Copy,
+  Paste and Preferences. Preferences set syntax coloring, font size, background and text color, or one
+  of five presets, for the current terminal or for every console, and global changes reach open consoles
+  at once.
+- **Copy on select**: selecting text now copies it as soon as the mouse is released, and a later click no
+  longer copies the old selection over the clipboard.
+- **Highlighting by device type**: telnet and serial consoles no longer use the Cisco colours for
+  everything. Juniper, Arista, NX-OS, IOS XR, ASA, Palo Alto and Linux or VPCS nodes get their own rules,
+  and other nodes get a general set. The colours follow the terminal colour preset, so they stay readable
+  on light backgrounds. Cisco IOS colours are unchanged on dark backgrounds.
+- **Minimized consoles**: minimized consoles and captures now sit as tabs on a full-width strip along the
+  bottom of the lab page. Each tab restores on click and has its own close button. While the strip is
+  showing, the resource monitor, canvas controls, minimap and docked console move up to clear it.
+- **Single-node consoles**: single-node and host shell consoles no longer show a tab with the node's name,
+  since the window title gives it. Opened in a browser tab, the console names that tab after the node.
+
+### Themes
+- **New themes**: Solarized Light, High Contrast and High Contrast Light, in System settings and across
+  the login page, dashboard, lab page and web consoles.
+- **Nord by default**: fresh installs start on the Nord theme. Upgrades keep their current theme.
+
+### Dashboard
+- **Icons page**: new admin page under Resources. It shows every node icon with search, and adds PNG, JPG
+  or SVG icons by upload or drag and drop.
+- **Logs search**: the Logs page has a search box. It filters lab, node and session entries across the
+  whole log by user, IP, event, lab or node.
+- **Workspace Select All (#90)**: a Select All checkbox for folders and labs, in list and grid view. It
+  covers what the current folder, search and state filter show, and works with the existing Move, Export
+  and Delete actions.
+- **Bulk Export icon**: it now points up, matching the toolbar Export button.
+
+### Nodes and images
+- **Router (NAT) node**: a router that has never been configured now works as a NAT router out of the box:
+  10.10.10.1/24, DHCP from .50 to .150, host uplink and NAT. The Configure dialog shows these values and
+  can change them. A router with saved settings keeps them.
+- **VPCS shared console**: a VPCS node's console now takes up to 8 clients at once, so a second telnet
+  client or browser console no longer disconnects the first. All of them see the same output and can type
+  into the same line, and Ctrl+C from any of them stops a running ping. A ninth client is told the console
+  is full, and a client that stops reading is disconnected without affecting the others.
+- **QEMU image links (#85)**: symlinks in a QEMU image folder work again when they point to a file under
+  `/opt/unetlab/addons/qemu`, such as a shared `iso-images` folder. QEMU options can also name a file
+  there, read-only. Writing through a link is refused, as is any link pointing elsewhere. A refused node
+  now reports the reason instead of `Failed to start node (12)`.
+
+### Network settings
+- **Missing `pnet0` (#87)**: the Network page warns when the `pnet0` bridge is missing, or when the saved
+  static address is not the one in use, instead of showing the saved values as if they applied. Saving an
+  address is refused, with a reason, when `pnet0` does not exist. `pnetlab-netcfg` does the same, and
+  `pnet-bridges` now logs when `pnet0` could not be created.
+- **Saving from the Network page**: it keeps the format the console tool expects, so a later
+  `pnetlab-netcfg` run no longer drops the `pnet1-9` and NAT stanzas. DHCP saved from the page no longer
+  slows boot, and a DNS-only save no longer reboots the appliance.
+
 ## 6.8.92resolute1
 
 ### Lab page and consoles
