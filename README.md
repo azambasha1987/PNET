@@ -13,7 +13,7 @@ Routers, switches, firewalls and servers on one canvas, with live protocol overl
 ![Platform](https://img.shields.io/badge/Ubuntu-26.04-orange)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)
 
-[Download](#downloads) · [Install](#installation) · [Local / Offline Install](docs/LOCAL_INSTALLATION.md) · [Workstation edition](#install-on-a-desktop-workstation-edition) · [Updating](#updating) · [Changelog](CHANGELOG.md)
+[Documentation](docs/README.md) · [Local / Offline Install](docs/LOCAL_INSTALLATION.md) · [Downloads](#downloads) · [Workstation edition](#install-on-a-desktop-workstation-edition) · [Updating](#updating) · [Changelog](CHANGELOG.md)
 
 <img src="docs/img/canvas-running.jpg" alt="A six-router lab running on the PNetLab canvas, with green links and status LEDs" width="900">
 

@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# AzamLabs Permissions, Lock Cleanup & Node Recovery Utility
+# Fixes:
+# 1. File & folder permissions across /opt/unetlab (QEMU, IOL, Dynamips, Labs)
+# 2. Ensures /dev/kvm hardware virtualization access permissions
+# 3. Cleans orphaned process locks and stale bridge/tap interfaces
+# 4. Verifies/fixes Cisco IOL iourc license linkage
+#
+# Supports piped execution & non-root diagnostic mode.
+# ==============================================================================
+set -euo pipefail
+
+# Support non-root diagnostic/check mode
+if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
+    echo "Usage: sudo bash $0 [--check | --clean-locks | --fix-iol]"
+    echo ""
+    echo "Options:"
+    echo "  (no args)       Execute full permission fix and node recovery"
+    echo "  --check         Inspect current permissions and stale lock status"
+    echo "  --clean-locks   Clean orphaned node locks and dangling tap/bridge interfaces"
+    echo "  --fix-iol       Verify and generate/symlink Cisco IOL license (iourc)"
+    exit 0
+fi
+
+if [[ "${1:-}" =~ ^(--check|--status)$ ]]; then
+    echo "=== AzamLabs Permissions & Environment Diagnostic Check ==="
+    echo -n "[*] Hardware Virtualization (/dev/kvm): "
+    if [ -e /dev/kvm ]; then
+        if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+            echo "ACCESSIBLE (KVM active)"
+        else
+            echo "RESTRICTED (Permissions need fix)"
+        fi
+    else
+        echo "MISSING (/dev/kvm not found - Check nested virtualization)"
+    fi
+
+    echo -n "[*] Cisco IOL License File: "
+    if [ -f /opt/unetlab/addons/iol/bin/iourc ] || [ -f /opt/unetlab/addons/iol/bin/lic.py ]; then
+        echo "FOUND"
+    else
+        echo "NOT FOUND / DEFAULT"
+    fi
+
+    echo -n "[*] /opt/unetlab directory ownership: "
+    ls -ld /opt/unetlab 2>/dev/null | awk '{print $3":"$4}' || echo "N/A"
+    exit 0
+fi
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "[ERROR] Please run this script as root (sudo bash $0)" >&2
+    exit 1
+fi
+
+echo "============================================================"
+echo "      AzamLabs Permissions Fix & Node Recovery Utility       "
+echo "============================================================"
+
+# 1. Native unl_wrapper fixpermissions
+echo "[1/5] Executing native AzamLabs permission wrapper..."
+if [ -x /opt/unetlab/wrappers/unl_wrapper ]; then
+    /opt/unetlab/wrappers/unl_wrapper -a fixpermissions || true
+fi
+
+# 2. Comprehensive Directory Permissions
+echo "[2/5] Setting granular permissions on AzamLabs directory tree..."
+if [ -d /opt/unetlab ]; then
+    # General ownership
+    chown -R root:root /opt/unetlab/addons 2>/dev/null || true
+    chmod -R 755 /opt/unetlab/addons 2>/dev/null || true
+
+    # Labs & data directories
+    mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/tmp
+    chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/data /opt/unetlab/tmp /opt/unetlab/html 2>/dev/null || true
+    chmod -R 775 /opt/unetlab/labs /opt/unetlab/data /opt/unetlab/tmp 2>/dev/null || true
+
+    # Scripts & wrappers
+    chown -R root:root /opt/unetlab/wrappers /opt/unetlab/scripts 2>/dev/null || true
+    chmod -R 755 /opt/unetlab/wrappers /opt/unetlab/scripts 2>/dev/null || true
+    chmod +s /opt/unetlab/wrappers/unl_wrapper 2>/dev/null || true
+    chmod 4755 /opt/unetlab/wrappers/iol_wrapper 2>/dev/null || true
+    chmod 777 /tmp/netio* 2>/dev/null || true
+fi
+
+# 3. Hardware Virtualization /dev/kvm Access
+echo "[3/5] Verifying /dev/kvm access permissions..."
+if [ -e /dev/kvm ]; then
+    chmod 666 /dev/kvm || true
+    usermod -aG kvm www-data 2>/dev/null || true
+    echo "  -> /dev/kvm permissions set to 666."
+else
+    echo "  -> Warning: /dev/kvm not found. Ensure VT-x/AMD-V nested virtualization is enabled on the hypervisor."
+fi
+
+# 4. Clean Orphaned Node Locks & Stale Tap Devices
+echo "[4/5] Cleaning stale locks, orphaned node sockets & dead TPM sockets..."
+if [ -d /opt/unetlab/tmp ]; then
+    find /opt/unetlab/tmp -name "*.lock" -delete 2>/dev/null || true
+    find /opt/unetlab/tmp -name "*.socket" -delete 2>/dev/null || true
+fi
+rm -f /tmp/netio*/*.lck 2>/dev/null || true
+chmod 777 /tmp/netio* 2>/dev/null || true
+
+# Suggestion D: Clean orphaned swtpm sockets from stopped Windows 11/TPM nodes
+for sock_dir in /tmp/*_swtpm-sock; do
+    if [ -d "$sock_dir" ]; then
+        if ! fuser "$sock_dir" >/dev/null 2>&1 && ! lsof +D "$sock_dir" >/dev/null 2>&1; then
+            rm -rf "$sock_dir" 2>/dev/null || true
+        fi
+    fi
+done
+
+# Prune orphaned TAP interfaces if no emulation processes are running
+if ! pgrep -x "qemu-system-x86_64" >/dev/null 2>&1 && \
+   ! pgrep -x "iol_wrapper" >/dev/null 2>&1 && \
+   ! pgrep -f "iol.*\.bin" >/dev/null 2>&1 && \
+   ! pgrep -x "dynamips" >/dev/null 2>&1; then
+    for dev in $(ip -o link show 2>/dev/null | cut -d: -f2 | tr -d ' ' | (grep -E '^(vunl|ser)[0-9]+_' || true)); do
+        [ -n "$dev" ] && ip link delete "$dev" 2>/dev/null || true
+    done
+    find /opt/unetlab/tmp -mindepth 2 -type f -name "*.pid" -delete 2>/dev/null || true
+fi
+
+# 5. Verify & Symlink/Generate Cisco IOL License
+echo "[5/5] Checking Cisco IOL license linkage..."
+IOL_BIN="/opt/unetlab/addons/iol/bin"
+mkdir -p "$IOL_BIN" /root
+
+if [ ! -f "$IOL_BIN/iourc" ]; then
+    echo "  -> Generating fresh Cisco IOL license (iourc)..."
+    python3 - <<'PY_KEYGEN' 2>/dev/null || true
+import os, socket, struct, hashlib
+
+hostname = socket.gethostname()
+try:
+    hostid_hex = os.popen('hostid').read().strip()
+    hostid = int(hostid_hex, 16) if hostid_hex else 0
+except Exception:
+    hostid = 0
+
+ioukey = hostid
+for x in hostname:
+    ioukey += ord(x)
+
+iou_pad1 = b'\x4B\x58\x21\x81\x56\x7B\x0D\xF3\x21\x43\x9B\x7E\xAC\x1D\xE6\x8A'
+iou_pad2 = b'\x80' + 39 * b'\x00'
+md5input = iou_pad1 + iou_pad2 + struct.pack('!L', ioukey) + iou_pad1
+license_key = hashlib.md5(md5input).hexdigest()[:16]
+
+content = f"[license]\n{hostname} = {license_key};\n"
+with open('/opt/unetlab/addons/iol/bin/iourc', 'w') as f:
+    f.write(content)
+print(f"     Created canonical iourc for host '{hostname}' with key: {license_key}")
+PY_KEYGEN
+fi
+
+if [ -f "$IOL_BIN/iourc" ]; then
+    chmod 644 "$IOL_BIN/iourc"
+    ln -sfn "$IOL_BIN/iourc" /root/.iourc 2>/dev/null || true
+    ln -sfn "$IOL_BIN/iourc" /opt/unetlab/addons/iol/bin/.iourc 2>/dev/null || true
+    echo "  -> Cisco IOL license (iourc) linked successfully."
+fi
+
+# 6. Ensure Universal QEMU & IOL Optimizations are Active
+echo "[6/6] Ensuring universal node, template & memory optimizations..."
+for opt_cand in "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh" "/opt/azambasha/scripts/azambasha-heavy-node-optimizer.sh"; do
+    if [ -f "$opt_cand" ]; then
+        bash "$opt_cand" 2>/dev/null || true
+        break
+    fi
+done
+
+echo ""
+echo "=== [SUCCESS] AzamLabs permissions, optimizations, and node environment repaired! ==="

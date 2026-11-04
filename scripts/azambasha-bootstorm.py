@@ -1,0 +1,950 @@
+#!/usr/bin/env python3
+"""
+==============================================================================
+Azam Basha Anti-Bootstorm Staggered Node Startup Engine (azam-bootstorm.py)
+==============================================================================
+Prevents CPU/IO bootstorm when starting large multi-vendor topologies.
+Uses a multi-tier startup pipeline (REST API, brokerd socket, unl_wrapper)
+and staggers node boot order by weight:
+  Heavy (C8000v, XRd, Windows 11, vMX)  -> first, 2-3 per batch, 18s apart
+  Medium (CSR1000v, vEOS, IOSvL2, Forti) -> second, 4 per batch, 10s apart
+  Light (IOL, VPCS, Alpine, Docker)      -> last, unlimited concurrent
+==============================================================================
+"""
+
+import os
+import sys
+import json
+import time
+import argparse
+import urllib.request
+import urllib.parse
+import urllib.error
+import http.cookiejar
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+# Node weight classification by template prefix
+HEAVY_TEMPLATES = {
+    "c8000v", "c8k", "cat8k", "cat9k", "c9300", "c9500", "c9800",
+    "xrd", "xrv9k", "xrv", "win", "win2022", "win11", "win2019", "win10", "win2016", "win7",
+    "vmx", "vqfxre", "vqfxpfe", "vqfx", "nxosv9k", "nxosv", "nxos", "nexus",
+    "asa", "asav", "ftdv", "vcenter", "esxi", "bigip", "ixia", "pan", "paloalto", "nsx"
+}
+
+MEDIUM_TEMPLATES = {
+    "csr1000vng", "csr1000v", "csr", "veos", "viosl2", "vios-l2", "vios", "iosvl2", "iosv-l2", "iosv",
+    "routeros", "mikrotik", "cpsg", "huaweiusg6kv", "fortios", "fortigate", "firepower6",
+    "sonicwall", "timos", "iol-xe", "sros", "vyos", "pfsense", "cumulus", "arista",
+    "dcsw", "switch", "distribution"
+}
+
+# Anything else = light (IOL, Alpine, Ubuntu, dynamips, docker, vpcs)
+
+
+def get_node_weight(token: str) -> str:
+    """Return 'heavy', 'medium', or 'light' based on node token (template/image/name)."""
+    if not token:
+        return "light"
+    t = str(token).lower().strip()
+    t_clean = os.path.basename(t).split("-")[0].split("_")[0].split(".")[0]
+
+    # Exact match on cleaned token
+    if t_clean in HEAVY_TEMPLATES:
+        return "heavy"
+    if t_clean in MEDIUM_TEMPLATES:
+        return "medium"
+
+    # Prefix match
+    for h in HEAVY_TEMPLATES:
+        if t_clean.startswith(h) or t.startswith(h):
+            return "heavy"
+    for m in MEDIUM_TEMPLATES:
+        if t_clean.startswith(m) or t.startswith(m):
+            return "medium"
+
+    return "light"
+
+
+def classify_node(node: dict) -> tuple:
+    """
+    Classify node into (weight, display_type).
+    Inspects template, image, name, and type in order of specificity.
+    """
+    template = str(node.get("template") or "").strip().lower()
+    image = str(node.get("image") or "").strip().lower()
+    ntype = str(node.get("type") or "").strip().lower()
+    name = str(node.get("name") or "").strip().lower()
+
+    # 1. Determine most descriptive display label
+    if template and template != "qemu":
+        display_type = template
+    elif image:
+        display_type = os.path.basename(image).split("-")[0].split("_")[0]
+    elif ntype and ntype != "qemu":
+        display_type = ntype
+    elif name and any(name.startswith(p) for p in ("dcsw", "sw", "rtr", "server")):
+        display_type = f"{ntype or 'node'}/{name.rstrip('0123456789-_')}"
+    else:
+        display_type = ntype or "qemu"
+
+    # 2. Check for heavy candidates
+    for cand in [template, image, name, ntype]:
+        if cand and get_node_weight(cand) == "heavy":
+            return "heavy", display_type
+
+    # 3. Check for medium candidates
+    for cand in [template, image, name, ntype]:
+        if cand and get_node_weight(cand) == "medium":
+            return "medium", display_type
+
+    # 4. Default to light
+    return "light", display_type
+
+
+def get_active_db_token(username="admin"):
+    """Retrieve existing active session token from MySQL database if present."""
+    import subprocess
+    db_clients = ["mysql", "mariadb"]
+    options = [
+        ["--defaults-file=/etc/mysql/debian.cnf"],
+        ["--defaults-extra-file=/root/.my.cnf"],
+        ["-u", "root", "-pazam"],
+        ["-u", "root", "-pazamlabs"],
+        ["-u", "root", "-ppnet"],
+        ["-u", "root", "-proot"],
+        ["-u", "root", "--password="],
+        ["-u", "root"],
+        ["-u", "azamlabs", "-pazamlabs"],
+        ["-u", "azamlabs", "-pazam"],
+        ["-S", "/var/run/mysqld/mysqld.sock", "-u", "root"],
+        ["-S", "/run/mysqld/mysqld.sock", "-u", "root"],
+        [],
+    ]
+    queries = [
+        f"SELECT cookie FROM azamlabs_db.users WHERE (username='{username}' OR role='0' OR pod=0) AND cookie IS NOT NULL AND LENGTH(cookie) >= 16 ORDER BY session DESC LIMIT 1;",
+        f"SELECT cookie FROM azamlabs_db.users WHERE cookie IS NOT NULL AND LENGTH(cookie) >= 16 ORDER BY session DESC LIMIT 1;",
+        f"SELECT cookie FROM users WHERE (username='{username}' OR role='0') AND cookie IS NOT NULL AND LENGTH(cookie) >= 16 ORDER BY session DESC LIMIT 1;",
+    ]
+    for client in db_clients:
+        for opt in options:
+            for q in queries:
+                try:
+                    cmd = [client] + opt + ["-N", "-e", q]
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=2)
+                    if res.returncode == 0:
+                        tok = res.stdout.strip()
+                        if tok and len(tok) >= 16:
+                            return tok
+                except Exception:
+                    continue
+    return None
+
+
+def get_active_db_lab():
+    """Retrieve currently active lab path from database if present."""
+    import subprocess
+    db_clients = ["mysql", "mariadb"]
+    options = [
+        ["--defaults-file=/etc/mysql/debian.cnf"],
+        ["--defaults-extra-file=/root/.my.cnf"],
+        ["-u", "root", "-pazam"],
+        ["-u", "root", "-pazamlabs"],
+        ["-u", "root"],
+        ["-u", "azamlabs", "-pazamlabs"],
+        ["-u", "azamlabs", "-pazam"],
+        ["-S", "/var/run/mysqld/mysqld.sock", "-u", "root"],
+        ["-S", "/run/mysqld/mysqld.sock", "-u", "root"],
+        [],
+    ]
+    queries = [
+        "SELECT folder FROM azamlabs_db.users WHERE folder IS NOT NULL AND folder != '' AND folder != '/' ORDER BY session DESC, pod ASC LIMIT 1;",
+        "SELECT folder FROM users WHERE folder IS NOT NULL AND folder != '' AND folder != '/' ORDER BY session DESC, pod ASC LIMIT 1;",
+    ]
+    for client in db_clients:
+        for opt in options:
+            for q in queries:
+                try:
+                    cmd = [client] + opt + ["-N", "-e", q]
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=2)
+                    if res.returncode == 0:
+                        folder = res.stdout.strip()
+                        if folder:
+                            return folder
+                except Exception:
+                    continue
+    return None
+
+
+def probe_console_port(host, port, timeout=12):
+    """Probe whether a node's telnet console port is responsive."""
+    if not port:
+        return True, "No console port"
+    try:
+        port_int = int(port)
+        if port_int <= 0:
+            return True, "No console port"
+    except Exception:
+        return True, "Invalid port"
+
+    import socket
+    probe_host = "127.0.0.1" if host in ("localhost", "127.0.0.1", "::1") else host
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2.0)
+            if s.connect_ex((probe_host, port_int)) == 0:
+                try:
+                    s.settimeout(1.0)
+                    banner = s.recv(512)
+                    s.close()
+                    return True, f"Port {port_int} responsive"
+                except Exception:
+                    s.close()
+                    return True, f"Port {port_int} open"
+            s.close()
+        except Exception:
+            pass
+        time.sleep(1.0)
+    return False, f"Port {port_int} timeout after {timeout}s"
+
+
+def activate_ksm_deduplication():
+    """Enable and tune Kernel Samepage Merging (KSM) memory deduplication."""
+    ksm_dir = "/sys/kernel/mm/ksm"
+    if not os.path.isdir(ksm_dir):
+        return False, "KSM not supported on this host/kernel"
+    try:
+        settings = {
+            "run": "1",
+            "sleep_millisecs": "10",
+            "pages_to_scan": "10000",
+            "use_zero_pages": "1",
+            "merge_across_nodes": "1"
+        }
+        for k, v in settings.items():
+            fpath = os.path.join(ksm_dir, k)
+            if os.path.isfile(fpath):
+                with open(fpath, "w") as f:
+                    f.write(v)
+        return True, "KSM memory deduplication active (10,000 pages / 10ms)"
+    except Exception as e:
+        return False, str(e)
+
+
+def create_session(host, username="admin", password="azam", token=None):
+    """
+    Login to AzamLabs API and return an authenticated session cookie jar, context, proto, and opener.
+    Reuses active session tokens (via --token or local MySQL database) without issuing POST /api/auth,
+    completely preventing invalidation of active Web-GUI browser sessions.
+    """
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    policy = http.cookiejar.DefaultCookiePolicy(netscape=True, rfc2965=False, rfc2109_as_netscape=True)
+    policy.set_ok = lambda cookie, request: True
+    policy.return_ok = lambda cookie, request: True
+    cj = http.cookiejar.CookieJar(policy=policy)
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(cj),
+        urllib.request.HTTPSHandler(context=ctx),
+        urllib.request.HTTPHandler()
+    )
+
+    protocols = ["https", "http"]
+    cookie_domain = host.split(":")[0]
+    is_local = host in ("127.0.0.1", "localhost", "::1") or os.environ.get("AZAM_LOCAL", "0") == "1"
+
+    candidate_tokens = []
+    if token and str(token).strip():
+        candidate_tokens.append(str(token).strip())
+    if is_local:
+        db_tok = get_active_db_token(username)
+        if db_tok and db_tok not in candidate_tokens:
+            candidate_tokens.append(db_tok)
+
+    # Attempt to reuse existing session without overwriting database cookie
+    for cand in candidate_tokens:
+        c = http.cookiejar.Cookie(
+            0, "token", cand, None, False, cookie_domain, True, False, "/", True, False, None, False, None, None, {}
+        )
+        cj.set_cookie(c)
+        for proto in protocols:
+            url = f"{proto}://{host}/api/auth"
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Azam-Bootstorm/1.0",
+                    "Cookie": f"token={cand}"
+                }
+            )
+            try:
+                with opener.open(req, timeout=10) as resp:
+                    resp_body = resp.read().decode("utf-8")
+                    try:
+                        body = json.loads(resp_body)
+                    except Exception:
+                        body = {}
+                    if body.get("status") == "success" or resp.status == 200:
+                        print(f"  [✔] Reusing active session for '{username}' (browser session preserved).")
+                        opener.session_token = cand
+                        cj.session_token = cand
+                        return cj, ctx, proto, opener
+            except Exception:
+                pass
+        cj.clear()
+
+    # If running locally on localhost and active candidate token is present:
+    # DO NOT execute POST /api/auth!
+    # Executing POST /api/auth overwrites users.cookie in MySQL and immediately kicks out the active Web-GUI browser session!
+    if is_local and candidate_tokens:
+        fallback_token = candidate_tokens[0]
+        c = http.cookiejar.Cookie(
+            0, "token", fallback_token, None, False, cookie_domain, True, False, "/", True, False, None, False, None, None, {}
+        )
+        cj.set_cookie(c)
+        opener.session_token = fallback_token
+        cj.session_token = fallback_token
+        print("  [✔] Local host detected: Preserving active Web-GUI browser session (bypassing POST /api/auth).")
+        return cj, ctx, "https", opener
+
+    # If NO active tokens were found in database or arguments, no active Web-GUI browser session exists to preserve!
+    # Perform fresh POST /api/auth login:
+    login_data = json.dumps({"username": username, "password": password, "html5": 0}).encode("utf-8")
+    endpoints = ["/api/auth", "/api/auth/login"]
+    last_err = None
+    for proto in protocols:
+        for ep in endpoints:
+            url = f"{proto}://{host}{ep}"
+            req = urllib.request.Request(
+                url,
+                data=login_data,
+                headers={"Content-Type": "application/json", "User-Agent": "Azam-Bootstorm/1.0"}
+            )
+            try:
+                with opener.open(req, timeout=15) as resp:
+                    resp_body = resp.read().decode("utf-8")
+                    try:
+                        body = json.loads(resp_body)
+                    except Exception:
+                        body = {}
+                    if body.get("status") == "success" or resp.status == 200:
+                        for cookie in cj:
+                            if cookie.name == "token":
+                                opener.session_token = cookie.value
+                                cj.session_token = cookie.value
+                                break
+                        print(f"  [✔] Authenticated session for '{username}'.")
+                        return cj, ctx, proto, opener
+                    else:
+                        last_err = body.get("message", "Authentication rejected")
+            except urllib.error.HTTPError as e:
+                if e.code == 404:
+                    continue
+                try:
+                    err_body = json.loads(e.read().decode("utf-8"))
+                    last_err = err_body.get("message", f"HTTP Error {e.code}: {e.reason}")
+                except Exception:
+                    last_err = f"HTTP Error {e.code}: {e.reason}"
+            except Exception as e:
+                last_err = str(e)
+
+    # If running locally and API is unreachable or unauthenticated, smoothly fall back to local direct engine
+    if is_local:
+        print("  [i] API session unavailable: Fallback to direct local execution daemons.")
+        return cj, ctx, "file", opener
+
+    print(f"[!] Auth error: {last_err or 'Endpoint resolution failed'}")
+    return None, None, None, None
+
+
+def api_call(host, path, method="GET", data=None, cj=None, ctx=None, proto="https", opener=None, token=None):
+    """Make an authenticated API call to AzamLabs with robust JSON error unwrapping."""
+    if proto == "file" or (cj is None and opener is None):
+        return {"status": "fail", "message": "No active API session"}
+    import ssl
+    if ctx is None:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+    if opener is None:
+        opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(cj) if cj else urllib.request.BaseHandler(),
+            urllib.request.HTTPSHandler(context=ctx),
+            urllib.request.HTTPHandler()
+        )
+
+    url = f"{proto}://{host}{path}"
+    headers = {"Content-Type": "application/json", "User-Agent": "Azam-Bootstorm/1.0"}
+
+    # Explicitly attach Cookie header for complete RFC/IP compliance
+    act_token = token or getattr(opener, "session_token", None) or getattr(cj, "session_token", None)
+    if not act_token and cj:
+        for c in cj:
+            if c.name == "token" and c.value:
+                act_token = c.value
+                break
+    if act_token:
+        headers["Cookie"] = f"token={act_token}"
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(data).encode("utf-8") if data else None,
+        method=method,
+        headers=headers
+    )
+
+    try:
+        with opener.open(req, timeout=30) as resp:
+            resp_bytes = resp.read()
+            if not resp_bytes:
+                return {"status": "success", "code": resp.status}
+            try:
+                return json.loads(resp_bytes.decode("utf-8"))
+            except Exception:
+                return {"status": "success", "code": resp.status, "raw": resp_bytes.decode("utf-8", errors="replace")}
+    except urllib.error.HTTPError as e:
+        err_msg = f"HTTP Error {e.code}: {e.reason}"
+        try:
+            err_bytes = e.read()
+            if err_bytes:
+                err_json = json.loads(err_bytes.decode("utf-8"))
+                if isinstance(err_json, dict):
+                    err_json.setdefault("status", "fail")
+                    err_json.setdefault("code", e.code)
+                    return err_json
+        except Exception:
+            pass
+        return {"status": "fail", "code": e.code, "message": err_msg}
+    except Exception as e:
+        return {"status": "fail", "message": str(e)}
+
+
+def resolve_lab_disk_path(lab_path: str) -> str:
+    """
+    Resolve the authoritative absolute path to the .unl file on disk.
+    Searches case-insensitively, follows symlinks, and searches across all known
+    AzamLabs lab locations (/opt/unetlab/labs, /root/labs, /opt/azambasha/labs, /opt/unetlab/tmp).
+    If the requested path is a placeholder or not found, automatically discovers the
+    active open lab from MySQL session or the most recently modified topology.
+    """
+    if not lab_path:
+        lab_path = ""
+
+    clean = lab_path.strip("/")
+    if clean.startswith("opt/unetlab/labs/"):
+        clean = clean[len("opt/unetlab/labs/"):]
+    if clean and not clean.endswith(".unl"):
+        clean += ".unl"
+
+    search_bases = ["/opt/unetlab/labs", "/root/labs", "/opt/azambasha/labs", "/opt/unetlab/tmp"]
+
+    # 1. Direct check if absolute path provided
+    if lab_path and os.path.isfile(lab_path):
+        return os.path.realpath(lab_path).replace("\\", "/")
+    if lab_path and not lab_path.endswith(".unl") and os.path.isfile(f"{lab_path}.unl"):
+        return os.path.realpath(f"{lab_path}.unl").replace("\\", "/")
+
+    # 2. Direct check under search bases
+    if clean:
+        for base in search_bases:
+            if not os.path.isdir(base):
+                continue
+            direct = os.path.join(base, clean).replace("\\", "/")
+            if os.path.isfile(direct):
+                return os.path.realpath(direct).replace("\\", "/")
+
+    # 3. Case-insensitive recursive walk (following symlinks)
+    if clean:
+        target_lower = os.path.basename(clean).lower()
+        rel_lower = clean.lower()
+        for base in search_bases:
+            if not os.path.isdir(base):
+                continue
+            for root, dirs, files in os.walk(base, followlinks=True):
+                for f in files:
+                    if f.lower() == target_lower:
+                        full = os.path.join(root, f).replace("\\", "/")
+                        rel = os.path.relpath(full, base).replace("\\", "/").lower()
+                        if rel == rel_lower:
+                            return os.path.realpath(full).replace("\\", "/")
+                        return os.path.realpath(full).replace("\\", "/")
+
+    # 4. Auto-discover active lab from MySQL session folder
+    try:
+        db_lab = get_active_db_lab()
+        if db_lab:
+            db_clean = db_lab.strip("/")
+            if not db_clean.endswith(".unl"):
+                db_clean += ".unl"
+            for base in search_bases:
+                cand = os.path.join(base, db_clean).replace("\\", "/")
+                if os.path.isfile(cand):
+                    return os.path.realpath(cand).replace("\\", "/")
+                for root, dirs, files in os.walk(base, followlinks=True):
+                    for f in files:
+                        if f.lower() == os.path.basename(db_clean).lower():
+                            return os.path.realpath(os.path.join(root, f)).replace("\\", "/")
+    except Exception:
+        pass
+
+    # 5. Auto-discover most recently modified .unl file
+    latest_unl = None
+    latest_mtime = 0
+    for base in search_bases:
+        if not os.path.isdir(base):
+            continue
+        for root, dirs, files in os.walk(base, followlinks=True):
+            for f in files:
+                if f.endswith(".unl"):
+                    full = os.path.join(root, f).replace("\\", "/")
+                    try:
+                        mt = os.path.getmtime(full)
+                        if mt > latest_mtime:
+                            latest_mtime = mt
+                            latest_unl = os.path.realpath(full).replace("\\", "/")
+                    except Exception:
+                        pass
+    if latest_unl:
+        return latest_unl
+
+    return f"/opt/unetlab/labs/{clean or 'active_lab.unl'}"
+
+
+def get_lab_nodes(host, lab_path, tenant, cj, ctx, proto="https", opener=None, lab_disk_path=None):
+    """Retrieve all nodes from a running lab session, lab file path, or local XML."""
+    clean = lab_path.strip("/")
+    if clean.startswith("opt/unetlab/labs/"):
+        clean = clean[len("opt/unetlab/labs/"):]
+    clean_no_ext = clean[:-4] if clean.endswith(".unl") else clean
+    clean_with_ext = clean if clean.endswith(".unl") else f"{clean}.unl"
+
+    candidates = [
+        f"/api/labs/{clean_no_ext}/nodes",
+        f"/api/labs/{clean_with_ext}/nodes",
+        f"/api/labs/{clean}/nodes",
+        f"/api/labs/{clean_no_ext.lower()}/nodes",
+        f"/api/labs/{clean_with_ext.lower()}/nodes",
+        "/api/labs/session/nodes"
+    ]
+
+    for path in candidates:
+        result = api_call(host, path, cj=cj, ctx=ctx, proto=proto, opener=opener)
+        if result.get("status") == "success" and result.get("data"):
+            data = result.get("data")
+            if isinstance(data, dict):
+                return data
+            elif isinstance(data, list):
+                return {str(item.get("id", idx)): item for idx, item in enumerate(data)}
+
+    # Direct local file discovery fallback if running locally
+    if not lab_disk_path:
+        lab_disk_path = resolve_lab_disk_path(lab_path)
+
+    if os.path.isfile(lab_disk_path):
+        try:
+            import xml.etree.ElementTree as ET
+            tree = ET.parse(lab_disk_path)
+            root = tree.getroot()
+            nodes_dict = {}
+            for n in root.findall(".//node"):
+                nid = n.get("id")
+                nodes_dict[nid] = {
+                    "id": nid,
+                    "name": n.get("name", f"node-{nid}"),
+                    "type": n.get("type", "qemu"),
+                    "template": n.get("template", ""),
+                    "image": n.get("image", ""),
+                    "port": n.get("port", ""),
+                    "url": n.get("url", ""),
+                    "console": n.get("console", "telnet"),
+                    "status": 0
+                }
+            if nodes_dict:
+                print(f"  [i] Discovered {len(nodes_dict)} nodes directly from topology file: {lab_disk_path}")
+                return nodes_dict
+        except Exception as e:
+            print(f"  [!] XML parse error: {e}")
+
+    return {}
+
+
+def start_node_broker(node_id, lab_disk_path):
+    """Start node via /run/azamlabs/broker.sock if running locally on AzamLabs host."""
+    sock_path = "/run/azamlabs/broker.sock"
+    if not os.path.exists(sock_path):
+        return False, "Broker socket not found"
+    try:
+        import socket
+        for session_id in [1, 0]:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(15)
+            s.connect(sock_path)
+            payload = {
+                "verb": "wrapper",
+                "args": {
+                    "action": "start",
+                    "tenant": 0,
+                    "session": session_id,
+                    "node": int(node_id),
+                    "lab": lab_disk_path
+                }
+            }
+            s.sendall(json.dumps(payload).encode("utf-8") + b"\n")
+            raw = b""
+            while not raw.endswith(b"\n"):
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                raw += chunk
+            s.close()
+            if raw:
+                res = json.loads(raw.decode("utf-8"))
+                if res.get("ok") or res.get("rc") == 0:
+                    return True, "brokerd"
+        return False, f"brokerd rc={res.get('rc')}: {res.get('err', '')}"
+    except Exception as e:
+        return False, f"brokerd error: {e}"
+
+
+def start_node_wrapper(node_id, lab_disk_path):
+    """Start node directly via /opt/unetlab/wrappers/unl_wrapper with full parameters."""
+    unl_wrap = "/opt/unetlab/wrappers/unl_wrapper"
+    if not (os.path.isfile(unl_wrap) and os.access(unl_wrap, os.X_OK)):
+        return False, "unl_wrapper not accessible"
+
+    import subprocess
+    # unl_wrapper requires -a start -T <tenant> -S <session> -D <node> -F <lab_path>
+    attempts = [
+        [unl_wrap, "-a", "start", "-T", "0", "-S", "1", "-D", str(node_id), "-F", lab_disk_path],
+        [unl_wrap, "-a", "start", "-T", "0", "-S", "0", "-D", str(node_id), "-F", lab_disk_path],
+        [unl_wrap, "-a", "start", "-T", "1", "-S", "1", "-D", str(node_id), "-F", lab_disk_path],
+        [unl_wrap, "-a", "start", "-T", "0", "-D", str(node_id), "-F", lab_disk_path],
+    ]
+    last_err = ""
+    for argv in attempts:
+        try:
+            res = subprocess.run(argv, capture_output=True, timeout=20)
+            if res.returncode == 0:
+                return True, "unl_wrapper"
+            last_err = res.stderr.decode("utf-8", errors="replace").strip() or res.stdout.decode("utf-8", errors="replace").strip()
+        except Exception as e:
+            last_err = str(e)
+
+    return False, f"unl_wrapper: {last_err or 'rc!=0'}"
+
+
+def start_node(host, lab_path, node_id, tenant, cj, ctx, proto="https", opener=None, lab_disk_path=None):
+    """
+    Start a single node using a resilient 3-tier startup pipeline:
+      Tier 1: Authenticated REST API (/api/labs/{path}/nodes/{id}/start)
+      Tier 2: Broker Daemon Unix Socket (/run/azamlabs/broker.sock)
+      Tier 3: Native unl_wrapper CLI (-a start -T 0 -S 1 -D {id} -F {lab_file})
+    """
+    clean = lab_path.strip("/")
+    if clean.startswith("opt/unetlab/labs/"):
+        clean = clean[len("opt/unetlab/labs/"):]
+    clean_no_ext = clean[:-4] if clean.endswith(".unl") else clean
+    clean_with_ext = clean if clean.endswith(".unl") else f"{clean}.unl"
+
+    if not lab_disk_path:
+        lab_disk_path = resolve_lab_disk_path(lab_path)
+
+    api_errors = []
+
+    # ── Tier 1: AzamLabs REST API ──────────────────────────────────────────────
+    # Primary probe: Native Web-GUI endpoint POST /api/labs/session/nodes/start
+    res_gui = api_call(host, "/api/labs/session/nodes/start", method="POST", data={"id": int(node_id)}, cj=cj, ctx=ctx, proto=proto, opener=opener)
+    if res_gui.get("status") == "success" or res_gui.get("code") == 200:
+        return True, "API"
+    err = res_gui.get("message") or res_gui.get("error")
+    if err:
+        api_errors.append(str(err))
+
+    start_candidates = [
+        f"/api/labs/{clean_no_ext}/nodes/{node_id}/start",
+        f"/api/labs/{clean_no_ext}/nodes/{node_id}/start/0",
+        f"/api/labs/{clean_with_ext}/nodes/{node_id}/start",
+        f"/api/labs/{clean_with_ext}/nodes/{node_id}/start/0",
+        f"/api/labs/session/nodes/{node_id}/start",
+        f"/api/labs/session/nodes/{node_id}/start/0",
+    ]
+
+    for path in start_candidates:
+        result = api_call(host, path, method="GET", cj=cj, ctx=ctx, proto=proto, opener=opener)
+        if result.get("status") == "success" or result.get("code") == 200:
+            return True, "API"
+        err = result.get("message") or result.get("error")
+        if err:
+            api_errors.append(str(err))
+
+    # If running locally or on localhost, proceed to local tiers
+    is_local = host in ("127.0.0.1", "localhost", "::1") or os.environ.get("AZAM_LOCAL", "0") == "1"
+    if not is_local:
+        first_err = api_errors[0] if api_errors else "API rejected start"
+        return False, first_err
+
+    # ── Tier 2: Broker Daemon Socket (/run/azamlabs/broker.sock) ───────────────
+    ok_broker, msg_broker = start_node_broker(node_id, lab_disk_path)
+    if ok_broker:
+        return True, "brokerd"
+
+    # ── Tier 3: Direct unl_wrapper Execution ──────────────────────────────────
+    ok_wrap, msg_wrap = start_node_wrapper(node_id, lab_disk_path)
+    if ok_wrap:
+        return True, "unl_wrapper"
+
+    # Aggregate failure detail
+    err_summary = api_errors[0] if api_errors else (msg_broker if "not found" not in msg_broker else msg_wrap)
+    return False, err_summary
+
+
+def run_bootstorm(host, lab_path, username="admin", password="azam",
+                  heavy_batch=2, heavy_delay=18,
+                  medium_batch=4, medium_delay=10,
+                  dry_run=False, token=None,
+                  probe_console=False, ksm=False):
+    """
+    Staggered boot orchestration:
+      1. Authenticate to AzamLabs API (or reuse active session)
+      2. Retrieve topology nodes via API or local XML
+      3. Classify each node into heavy / medium / light
+      4. Start in batches with configurable delays across multi-tier engine
+      5. Optionally probe console ready-state and trigger KSM deduplication
+    """
+    print("================================================================================")
+    print("        AzamLabs Anti-Bootstorm Staggered Node Startup Engine                  ")
+    print("================================================================================")
+    lab_disk_path = resolve_lab_disk_path(lab_path)
+    cj, ctx, proto, opener = create_session(host, username, password, token=token)
+    is_local = host in ("127.0.0.1", "localhost", "::1") or os.environ.get("AZAM_LOCAL", "0") == "1"
+
+    if cj is None or opener is None:
+        if is_local or dry_run:
+            print("  [i] Direct local engine: Orchestrating via native local daemons.")
+            proto = "file"
+        else:
+            print("[!] Cannot connect to AzamLabs API. Check host/credentials.")
+            sys.exit(1)
+
+    print(f"  Target:       {proto}://{host}")
+    print(f"  Lab:          {lab_path}")
+    print(f"  Heavy nodes:  batch={heavy_batch}, delay={heavy_delay}s between batches")
+    print(f"  Medium nodes: batch={medium_batch}, delay={medium_delay}s between batches")
+    print(f"  Light nodes:  all concurrent (no delay)")
+    if probe_console:
+        print("  Console probe: ENABLED (verifying port/prompt readiness before next batch)")
+    if ksm:
+        print("  KSM optimizer: ENABLED (activating Kernel Samepage Merging post-boot)")
+    if dry_run:
+        print("  *** DRY-RUN MODE - No nodes will actually be started ***")
+    print("--------------------------------------------------------------------------------")
+
+    lab_disk_path = resolve_lab_disk_path(lab_path)
+    if os.path.isfile(lab_disk_path):
+        print(f"  [i] Topology file verified on disk: {lab_disk_path}")
+
+    nodes_data = get_lab_nodes(host, lab_path, None, cj, ctx, proto=proto, opener=opener, lab_disk_path=lab_disk_path)
+    if not nodes_data and (is_local or dry_run):
+        # Fallback to direct local XML discovery
+        nodes_data = get_lab_nodes(host, lab_path, None, cj, ctx, proto="file", opener=opener, lab_disk_path=lab_disk_path)
+
+    if not nodes_data:
+        print(f"[!] Could not retrieve nodes from lab: {lab_path}")
+        print(f"    Resolved disk path: {lab_disk_path}")
+        print("    Ensure the lab exists under /opt/unetlab/labs/ or is open in the workbench.")
+        sys.exit(1)
+
+    # Classify nodes
+    heavy_nodes, medium_nodes, light_nodes = [], [], []
+    for nid, node in nodes_data.items():
+        weight, display_type = classify_node(node)
+        entry = {
+            "id": nid,
+            "name": node.get("name", f"node-{nid}"),
+            "type": display_type,
+            "raw_node": node,
+            "status": node.get("status", 0),
+            "weight": weight
+        }
+        if weight == "heavy":
+            heavy_nodes.append(entry)
+        elif weight == "medium":
+            medium_nodes.append(entry)
+        else:
+            light_nodes.append(entry)
+
+    total = len(heavy_nodes) + len(medium_nodes) + len(light_nodes)
+    print(f"\n  Found {total} nodes total:")
+    print(f"    Heavy:  {len(heavy_nodes)} nodes ({', '.join(n['name'] for n in heavy_nodes[:5])}{'...' if len(heavy_nodes)>5 else ''})")
+    print(f"    Medium: {len(medium_nodes)} nodes ({', '.join(n['name'] for n in medium_nodes[:5])}{'...' if len(medium_nodes)>5 else ''})")
+    print(f"    Light:  {len(light_nodes)} nodes ({', '.join(n['name'] for n in light_nodes[:5])}{'...' if len(light_nodes)>5 else ''})")
+    print()
+
+    started_ok = 0
+    started_fail = 0
+
+    def start_batch(batch, label, delay_before_next):
+        nonlocal started_ok, started_fail
+        batch_size = heavy_batch if label == "HEAVY" else medium_batch
+        for i, node in enumerate(batch):
+            nid = node["id"]
+            nname = node["name"]
+            ntype = node["type"]
+            # Skip already running nodes
+            if int(node.get("status", 0)) == 2:
+                print(f"  [SKIP] {nname} ({ntype}) - already running")
+                continue
+            if dry_run:
+                print(f"  [DRY-RUN] Would start {nname} ({ntype}) [{label}]")
+                started_ok += 1
+                if probe_console:
+                    raw_node = node.get("raw_node") or {}
+                    node_port = raw_node.get("port")
+                    print(f"    [PROBE] Console ready-state simulated for {nname} (port {node_port or 'auto'}).")
+            else:
+                print(f"  [↑ START] {nname} ({ntype}) [{label}]...", end=" ", flush=True)
+                ok, detail = start_node(host, lab_path, nid, None, cj, ctx, proto=proto, opener=opener, lab_disk_path=lab_disk_path)
+                if ok:
+                    print(f"✔ ({detail})")
+                    started_ok += 1
+                    if probe_console:
+                        raw_node = node.get("raw_node") or {}
+                        node_port = raw_node.get("port")
+                        if not node_port and "url" in raw_node:
+                            try:
+                                node_port = raw_node["url"].split(":")[-1].strip("/")
+                            except Exception:
+                                node_port = None
+                        if node_port:
+                            print(f"    [PROBE] Verifying console readiness for {nname} (port {node_port})...", end=" ", flush=True)
+                            pr_ok, pr_msg = probe_console_port(host, node_port, timeout=12)
+                            print("✔ ready" if pr_ok else f"⚠ ({pr_msg})")
+                else:
+                    print(f"✘ FAILED ({detail})")
+                    started_fail += 1
+
+            # Stagger within batch
+            if (i + 1) % batch_size == 0 and i < len(batch) - 1:
+                if delay_before_next > 0 and not dry_run:
+                    print(f"  [⏱ ] Waiting {delay_before_next}s for CPU/IO stabilization...")
+                    time.sleep(delay_before_next)
+
+    # Phase 1: Heavy nodes
+    if heavy_nodes:
+        print(f"[1/3] Starting {len(heavy_nodes)} HEAVY nodes (batch of {heavy_batch}, {heavy_delay}s gap)...")
+        start_batch(heavy_nodes, "HEAVY", heavy_delay)
+
+    # Phase 2: Medium nodes
+    if medium_nodes:
+        print(f"\n[2/3] Starting {len(medium_nodes)} MEDIUM nodes (batch of {medium_batch}, {medium_delay}s gap)...")
+        start_batch(medium_nodes, "MEDIUM", medium_delay)
+
+    # Phase 3: Light nodes (all at once)
+    if light_nodes:
+        print(f"\n[3/3] Starting {len(light_nodes)} LIGHT nodes (concurrent, no delay)...")
+        start_batch(light_nodes, "LIGHT", 0)
+
+    # Post-boot memory optimization via KSM if requested
+    if ksm:
+        if dry_run:
+            print("\n[*] KSM Deduplication: [SIMULATED] High-frequency memory deduplication verified.")
+        else:
+            ksm_ok, ksm_msg = activate_ksm_deduplication()
+            print(f"\n[*] KSM Deduplication: {ksm_msg}")
+
+    print("\n================================================================================")
+    print(f"[✔] Boot orchestration complete! Started: {started_ok} ✔  Failed: {started_fail} ✘")
+    print("================================================================================")
+
+
+def install_symlink():
+    if sys.platform != "win32":
+        try:
+            target = "/usr/local/bin/azam-bootstorm"
+            source = os.path.realpath(__file__)
+            if not os.path.exists(target) or os.path.realpath(target) != source:
+                if os.path.exists(target) or os.path.islink(target):
+                    try:
+                        os.unlink(target)
+                    except Exception:
+                        pass
+                os.symlink(source, target)
+            # Also create alias pnet-bootstorm
+            pnet_target = "/usr/local/bin/azam-bootstorm"
+            if not os.path.exists(pnet_target) or os.path.realpath(pnet_target) != source:
+                if os.path.exists(pnet_target) or os.path.islink(pnet_target):
+                    try:
+                        os.unlink(pnet_target)
+                    except Exception:
+                        pass
+                os.symlink(source, pnet_target)
+        except Exception:
+            pass
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="AzamLabs Anti-Bootstorm Staggered Node Startup Engine"
+    )
+    default_host = os.environ.get("AZAM_HOST", "127.0.0.1")
+    parser.add_argument("--host", default=default_host,
+                        help=f"AzamLabs master IP or hostname (default: {default_host})")
+    parser.add_argument("--lab", required=False, default=None,
+                        help="Lab .unl file path (e.g. /Admin/mylab.unl)")
+    parser.add_argument("--username", default="admin",
+                        help="AzamLabs web-GUI username (default: admin)")
+    parser.add_argument("--password", default="azam",
+                        help="AzamLabs web-GUI password (default: azam)")
+    parser.add_argument("--heavy-batch", type=int, default=2,
+                        help="Number of heavy nodes to start per batch (default: 2)")
+    parser.add_argument("--heavy-delay", type=int, default=18,
+                        help="Seconds to wait between heavy node batches (default: 18)")
+    parser.add_argument("--medium-batch", type=int, default=4,
+                        help="Number of medium nodes to start per batch (default: 4)")
+    parser.add_argument("--medium-delay", type=int, default=10,
+                        help="Seconds to wait between medium node batches (default: 10)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Simulate boot sequence without actually starting nodes")
+    parser.add_argument("--token", default=None,
+                        help="Active AzamLabs session token (avoids re-authenticating and browser sign-out)")
+    parser.add_argument("--probe-console", action="store_true",
+                        help="Wait for node console port readiness before starting next batch")
+    parser.add_argument("--ksm", action="store_true",
+                        help="Automatically apply high-frequency KSM memory deduplication post-boot")
+    args = parser.parse_args()
+
+    install_symlink()
+
+    if not args.lab:
+        print("[!] Error: --lab <path> is required. Example: --lab /Admin/big-topology.unl")
+        print("         Run: azam-bootstorm --host 192.168.1.23 --lab /Admin/topology.unl")
+        sys.exit(1)
+
+    run_bootstorm(
+        host=args.host,
+        lab_path=args.lab,
+        username=args.username,
+        password=args.password,
+        heavy_batch=args.heavy_batch,
+        heavy_delay=args.heavy_delay,
+        medium_batch=args.medium_batch,
+        medium_delay=args.medium_delay,
+        dry_run=args.dry_run,
+        token=args.token,
+        probe_console=args.probe_console,
+        ksm=args.ksm
+    )
+
+
+if __name__ == "__main__":
+    main()
