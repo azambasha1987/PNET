@@ -1,0 +1,18 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Ensure shell scripts always have Unix line endings (LF)
+*.sh text eol=lf
+*.bash text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+
+# Binary packages and archives
+*.deb binary
+*.tar.zst binary
+*.zst binary
+*.sig binary
+*.key binary
+*.jpg binary
+*.png binary
