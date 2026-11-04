@@ -20,13 +20,19 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if not os.path.isdir(os.path.join(ROOT_DIR, "scripts")):
     ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
+PERF_SCRIPTS_DIR = os.path.join(ROOT_DIR, "Custom-Performance", "scripts")
+FEAT_SCRIPTS_DIR = os.path.join(ROOT_DIR, "Custom-Features", "scripts")
+CUSTOM_SCRIPTS_DIR = os.path.join(ROOT_DIR, "Custom-Customization", "scripts")
+OPS_WEB_DIR = os.path.join(ROOT_DIR, "Custom-Features", "web-ui", "ops-center")
 
 class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_ksm_service_configuration(self):
         """Verify KSM service tunes pages_to_scan, sleep_millisecs, and THP madvise."""
-        speed_opt_sh = os.path.join(SCRIPTS_DIR, "azambasha-speed-optimizer.sh")
-        self.assertTrue(os.path.isfile(speed_opt_sh), "azambasha-speed-optimizer.sh must exist")
+        speed_opt_sh = os.path.join(PERF_SCRIPTS_DIR, "pnet-speed-optimizer.sh")
+        if not os.path.isfile(speed_opt_sh):
+            speed_opt_sh = os.path.join(SCRIPTS_DIR, "pnet-speed-optimizer.sh")
+        self.assertTrue(os.path.isfile(speed_opt_sh), "pnet-speed-optimizer.sh must exist")
 
         with open(speed_opt_sh, "r", encoding="utf-8") as f:
             content = f.read()
@@ -39,7 +45,9 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_iol_shim_source_integrity(self):
         """Verify pnet-iol-shim.c contains LD_PRELOAD interceptors and memory merge hooks."""
-        shim_c = os.path.join(SCRIPTS_DIR, "pnet-iol-shim.c")
+        shim_c = os.path.join(PERF_SCRIPTS_DIR, "pnet-iol-shim.c")
+        if not os.path.isfile(shim_c):
+            shim_c = os.path.join(SCRIPTS_DIR, "pnet-iol-shim.c")
         self.assertTrue(os.path.isfile(shim_c), "pnet-iol-shim.c must exist")
 
         with open(shim_c, "r", encoding="utf-8") as f:
@@ -57,8 +65,10 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_dataplane_netfilter_bypass_and_mtu(self):
         """Verify Silicon Dataplane Engine configures netfilter bypass and MTU 9000."""
-        dataplane_sh = os.path.join(SCRIPTS_DIR, "azambasha-dataplane-engine.sh")
-        self.assertTrue(os.path.isfile(dataplane_sh), "azambasha-dataplane-engine.sh must exist")
+        dataplane_sh = os.path.join(PERF_SCRIPTS_DIR, "pnet-dataplane-engine.sh")
+        if not os.path.isfile(dataplane_sh):
+            dataplane_sh = os.path.join(SCRIPTS_DIR, "pnet-dataplane-engine.sh")
+        self.assertTrue(os.path.isfile(dataplane_sh), "pnet-dataplane-engine.sh must exist")
 
         with open(dataplane_sh, "r", encoding="utf-8") as f:
             content = f.read()
@@ -71,11 +81,13 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_cgroups_governor_logic(self):
         """Test the CPU Governor decision engine and classification patterns."""
-        gov_path = os.path.join(SCRIPTS_DIR, "azambasha-cpu-governor.py")
-        self.assertTrue(os.path.isfile(gov_path), "azambasha-cpu-governor.py must exist")
+        gov_path = os.path.join(PERF_SCRIPTS_DIR, "pnet-cpu-governor.py")
+        if not os.path.isfile(gov_path):
+            gov_path = os.path.join(SCRIPTS_DIR, "pnet-cpu-governor.py")
+        self.assertTrue(os.path.isfile(gov_path), "pnet-cpu-governor.py must exist")
 
         # Import governor dynamically
-        spec = importlib.util.spec_from_file_location("azambasha_cpu_gov", gov_path)
+        spec = importlib.util.spec_from_file_location("pnet_cpu_gov", gov_path)
         gov_mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(gov_mod)
 
@@ -93,10 +105,12 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_anti_bootstorm_node_classification(self):
         """Test Anti-Bootstorm weight classification across Heavy, Medium, and Light nodes."""
-        bootstorm_path = os.path.join(SCRIPTS_DIR, "azambasha-bootstorm.py")
-        self.assertTrue(os.path.isfile(bootstorm_path), "azambasha-bootstorm.py must exist")
+        bootstorm_path = os.path.join(PERF_SCRIPTS_DIR, "pnet-bootstorm.py")
+        if not os.path.isfile(bootstorm_path):
+            bootstorm_path = os.path.join(SCRIPTS_DIR, "pnet-bootstorm.py")
+        self.assertTrue(os.path.isfile(bootstorm_path), "pnet-bootstorm.py must exist")
 
-        spec = importlib.util.spec_from_file_location("azambasha_bootstorm", bootstorm_path)
+        spec = importlib.util.spec_from_file_location("pnet_bootstorm", bootstorm_path)
         bs_mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(bs_mod)
 
@@ -120,10 +134,12 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_anti_bootstorm_session_token_reuse_and_features(self):
         """Verify Anti-Bootstorm session token preservation, console readiness probing, and KSM."""
-        bootstorm_path = os.path.join(SCRIPTS_DIR, "azambasha-bootstorm.py")
-        self.assertTrue(os.path.isfile(bootstorm_path), "azambasha-bootstorm.py must exist")
+        bootstorm_path = os.path.join(PERF_SCRIPTS_DIR, "pnet-bootstorm.py")
+        if not os.path.isfile(bootstorm_path):
+            bootstorm_path = os.path.join(SCRIPTS_DIR, "pnet-bootstorm.py")
+        self.assertTrue(os.path.isfile(bootstorm_path), "pnet-bootstorm.py must exist")
 
-        spec = importlib.util.spec_from_file_location("azambasha_bootstorm", bootstorm_path)
+        spec = importlib.util.spec_from_file_location("pnet_bootstorm", bootstorm_path)
         bs_mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(bs_mod)
 
@@ -174,7 +190,11 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_php_opcache_and_jit_configuration(self):
         """Verify PHP OPcache bytecode accelerator and JIT tracing configs."""
-        speed_opt_sh = os.path.join(SCRIPTS_DIR, "azambasha-speed-optimizer.sh")
+        speed_opt_sh = os.path.join(PERF_SCRIPTS_DIR, "pnet-speed-optimizer.sh")
+        if not os.path.isfile(speed_opt_sh):
+            speed_opt_sh = os.path.join(SCRIPTS_DIR, "pnet-speed-optimizer.sh")
+        self.assertTrue(os.path.isfile(speed_opt_sh), "pnet-speed-optimizer.sh must exist")
+
         with open(speed_opt_sh, "r", encoding="utf-8") as f:
             content = f.read()
 
@@ -186,8 +206,13 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_sequenced_console_dispatcher_integrity(self):
         """Verify Sequenced Console Engine in pnet-features.js and pnet-sequenced-console.js."""
-        feat_js = os.path.join(ROOT_DIR, "html", "pnet-ops", "pnet-features.js")
-        seq_js = os.path.join(ROOT_DIR, "html", "pnet-ops", "pnet-sequenced-console.js")
+        feat_js = os.path.join(OPS_WEB_DIR, "pnet-features.js")
+        if not os.path.isfile(feat_js):
+            feat_js = os.path.join(ROOT_DIR, "html", "pnet-ops", "pnet-features.js")
+
+        seq_js = os.path.join(OPS_WEB_DIR, "pnet-sequenced-console.js")
+        if not os.path.isfile(seq_js):
+            seq_js = os.path.join(ROOT_DIR, "html", "pnet-ops", "pnet-sequenced-console.js")
 
         self.assertTrue(os.path.isfile(feat_js), "pnet-features.js must exist")
         self.assertTrue(os.path.isfile(seq_js), "pnet-sequenced-console.js must exist")
@@ -219,8 +244,12 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
     def test_setup_windows_securecrt_powershell_script(self):
         """Verify Windows 1-Click SecureCRT Protocol Integrator & tab-naming wrapper."""
-        ps1_path = os.path.join(SCRIPTS_DIR, "setup-windows-securecrt.ps1")
-        self.assertTrue(os.path.isfile(ps1_path), "setup-windows-securecrt.ps1 must exist")
+        ps1_path = os.path.join(CUSTOM_SCRIPTS_DIR, "pnet-setup-windows-securecrt.ps1")
+        if not os.path.isfile(ps1_path):
+            ps1_path = os.path.join(SCRIPTS_DIR, "pnet-setup-windows-securecrt.ps1")
+        if not os.path.isfile(ps1_path):
+            ps1_path = os.path.join(SCRIPTS_DIR, "setup-windows-securecrt.ps1")
+        self.assertTrue(os.path.isfile(ps1_path), "pnet-setup-windows-securecrt.ps1 must exist")
 
         with open(ps1_path, "r", encoding="utf-8") as f:
             ps1_code = f.read()
@@ -385,7 +414,9 @@ class TestPerformanceBenchmarks(unittest.TestCase):
         self.assertEqual(ascending_folders[11], "9 - CCIE")
 
         # Verify patch utility script exists
-        patch_script = os.path.join(ROOT_DIR, "scripts", "azambasha-fix-export-sort.py")
+        patch_script = os.path.join(FEAT_SCRIPTS_DIR, "pnet-fix-export-sort.py")
+        if not os.path.isfile(patch_script):
+            patch_script = os.path.join(ROOT_DIR, "scripts", "azambasha-fix-export-sort.py")
         self.assertTrue(os.path.isfile(patch_script), f"Missing patch utility: {patch_script}")
 
 if __name__ == "__main__":

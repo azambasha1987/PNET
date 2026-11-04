@@ -11,23 +11,23 @@ Custom-Customization/
 ├── apply-customization.sh            # Standalone idempotent deployment hook (+x)
 ├── README.md                         # This reference manual
 ├── scripts/                          # Customization, branding & template scripts (22 tools)
-│   ├── azambasha-apply-branding.sh   # Platform branding & favicon installer
-│   ├── azambasha-deploy-homelogo.sh  # Dynamic avatar logo injector
-│   ├── azambasha-dark-theme.sh       # Pure Black OLED Dark Theme Engine
-│   ├── azambasha-disable-logout.sh   # 10-year sliding session persistence
-│   ├── azambasha-fix-web-credentials.sh # Canonical web & cluster credentials
-│   ├── azambasha-update-banner.sh    # Console login dynamic telemetry banner
-│   ├── azambasha-fix-boot-and-banner.sh # Ubuntu bootloader & console branding
-│   ├── azambasha-sync-gui-version.sh # Web UI release version synchronizer
-│   ├── azambasha-ssl.sh              # SSL IP-SAN certificate generator
-│   ├── setup-windows-securecrt.ps1   # 1-Click SecureCRT telnet protocol registration
-│   ├── setup-windows-ssl-trust.ps1   # Windows Root CA & SSL trust generator
-│   ├── CiscoIOUKeygen3.py            # Cisco IOL license generator
-│   ├── cisco-heavy-node-tuning.cfg   # Cisco appliance baseline configuration
+│   ├── pnet-apply-branding.sh        # Platform branding & favicon installer
+│   ├── pnet-deploy-homelogo.sh       # Dynamic avatar logo injector
+│   ├── pnet-dark-theme.sh            # Pure Black OLED Dark Theme Engine
+│   ├── pnet-disable-logout.sh        # 10-year sliding session persistence
+│   ├── pnet-fix-web-credentials.sh   # Canonical web & cluster credentials
+│   ├── pnet-update-banner.sh         # Console login dynamic telemetry banner
+│   ├── pnet-fix-boot-and-banner.sh   # Ubuntu bootloader & console branding
+│   ├── pnet-sync-gui-version.sh      # Web UI release version synchronizer
+│   ├── pnet-ssl.sh                   # SSL IP-SAN certificate generator
+│   ├── pnet-setup-windows-securecrt.ps1 # 1-Click SecureCRT telnet protocol registration
+│   ├── pnet-setup-windows-ssl-trust.ps1 # Windows Root CA & SSL trust generator
+│   ├── pnet-cisco-iou-keygen.py      # Cisco IOL license generator
+│   ├── pnet-cisco-heavy-node-tuning.cfg # Cisco appliance baseline configuration
 │   ├── export-ova.ps1 / export-ova.bat # 1-Click Golden Master OVA appliance exporter
-│   ├── make-standalone-bundle.sh     # Standalone offline package bundler
-│   ├── azambasha-airgap-pack.sh      # Offline air-gap bundle packager
-│   └── generate_features_manual_pdf.py # PDF Operations manual compiler
+│   ├── pnet-make-standalone-bundle.sh # Standalone offline package bundler
+│   ├── pnet-airgap-pack.sh           # Offline air-gap bundle packager
+│   └── pnet-generate-manual-pdf.py   # PDF Operations manual compiler
 ├── login-portal/                     # Futuristic Cyber-Glass Dynamic Login Portal
 │   ├── index.html                    # Modern cyber-glass interface with console mode selector
 │   ├── login.css                     # Holographic circular avatar & dynamics

@@ -22,7 +22,22 @@ import os
 import sys
 import time
 import socket
-import pytest
+import unittest
+
+try:
+    import pytest
+except ImportError:
+    class _DummyPytest:
+        @staticmethod
+        def fixture(*args, **kwargs):
+            def decorator(fn):
+                return fn
+            return decorator
+
+        @staticmethod
+        def skip(reason="", allow_module_level=False):
+            pass
+    pytest = _DummyPytest()
 
 try:
     from playwright.sync_api import sync_playwright
@@ -32,7 +47,10 @@ except ImportError:
     sync_playwright = None
 
 if not PLAYWRIGHT_AVAILABLE:
-    pytest.skip("Playwright not installed in environment; skipping browser E2E tests.", allow_module_level=True)
+    try:
+        pytest.skip("Playwright not installed in environment; skipping browser E2E tests.", allow_module_level=True)
+    except Exception:
+        pass
 
 BASE_URL = "http://<MASTER_IP>"
 VM_HOST = "<MASTER_IP>"
@@ -282,6 +300,14 @@ def main():
     print("\n" + "=" * 70)
     print(" [✔] ALL 6/6 E2E PLAYWRIGHT REGRESSION TESTS PASSED SUCCESSFULLY! ")
     print("=" * 70)
+
+class TestPlaywrightE2E(unittest.TestCase):
+    def test_playwright_suite(self):
+        if not PLAYWRIGHT_AVAILABLE:
+            self.skipTest("Playwright not installed in environment; skipping browser E2E tests.")
+        if not is_vm_online():
+            self.skipTest(f"Master VM at {VM_HOST}:{VM_PORT} is OFFLINE or unreachable.")
+        main()
 
 if __name__ == "__main__":
     main()

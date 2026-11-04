@@ -20,14 +20,14 @@ class TestHousekeeping(unittest.TestCase):
 
     def test_housekeeping_scripts_exist(self):
         """Assert both bash and python housekeeping utilities exist in scripts/."""
-        py_script = os.path.join(SCRIPTS_DIR, "azambasha-housekeeping.py")
-        sh_script = os.path.join(SCRIPTS_DIR, "azambasha-housekeeping.sh")
-        self.assertTrue(os.path.exists(py_script), "Missing azambasha-housekeeping.py")
-        self.assertTrue(os.path.exists(sh_script), "Missing azambasha-housekeeping.sh")
+        py_script = os.path.join(SCRIPTS_DIR, "pnet-housekeeping.py")
+        sh_script = os.path.join(SCRIPTS_DIR, "pnet-housekeeping.sh")
+        self.assertTrue(os.path.exists(py_script), "Missing pnet-housekeeping.py")
+        self.assertTrue(os.path.exists(sh_script), "Missing pnet-housekeeping.sh")
 
     def test_housekeeping_sh_truncates_all_logs(self):
-        """Assert azambasha-housekeeping.sh includes access.txt, api.txt, error.txt, ssl logs."""
-        sh_script = os.path.join(SCRIPTS_DIR, "azambasha-housekeeping.sh")
+        """Assert pnet-housekeeping.sh includes access.txt, api.txt, error.txt, ssl logs."""
+        sh_script = os.path.join(SCRIPTS_DIR, "pnet-housekeeping.sh")
         with open(sh_script, "r", encoding="utf-8") as f:
             content = f.read()
         self.assertIn("access.txt", content)
@@ -37,8 +37,8 @@ class TestHousekeeping(unittest.TestCase):
         self.assertIn("journalctl", content)
 
     def test_housekeeping_dry_run_executes(self):
-        """Assert azambasha-housekeeping.py --dry-run --local executes cleanly with code 0."""
-        py_script = os.path.join(SCRIPTS_DIR, "azambasha-housekeeping.py")
+        """Assert pnet-housekeeping.py --dry-run --local executes cleanly with code 0."""
+        py_script = os.path.join(SCRIPTS_DIR, "pnet-housekeeping.py")
         res = subprocess.run(
             [PYTHON_EXE, py_script, "--dry-run", "--local"],
             stdout=subprocess.PIPE,

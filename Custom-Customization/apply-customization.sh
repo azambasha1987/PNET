@@ -49,9 +49,9 @@ if [ -d "${SCRIPT_DIR}/scripts" ]; then
 fi
 chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 
-ln -sf /opt/unetlab/scripts/azambasha-dark-theme.sh          /usr/local/bin/pnet-dark
-ln -sf /opt/unetlab/scripts/azambasha-fix-web-credentials.sh /usr/local/bin/pnet-credentials
-ln -sf /opt/unetlab/scripts/azambasha-ssl.sh                 /usr/local/bin/pnet-ssl
+ln -sf /opt/unetlab/scripts/pnet-dark-theme.sh          /usr/local/bin/pnet-dark
+ln -sf /opt/unetlab/scripts/pnet-fix-web-credentials.sh /usr/local/bin/pnet-credentials
+ln -sf /opt/unetlab/scripts/pnet-ssl.sh                 /usr/local/bin/pnet-ssl
 ln -sf "${SCRIPT_DIR}/apply-customization.sh"               /usr/local/bin/pnet-apply-customization
 chmod +x /usr/local/bin/pnet-* 2>/dev/null || true
 log_ok "Registered customization CLI commands."

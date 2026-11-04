@@ -69,12 +69,15 @@ ln -sf /opt/unetlab/scripts/pnet-mod.sh                 /usr/local/bin/pnet-mod
 ln -sf "${SCRIPT_DIR}/apply-all-custom.sh"              /usr/local/bin/pnet-apply-all
 chmod +x /usr/local/bin/pnet-* /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 
-# Provide backward compatibility for any external scripts expecting legacy azambasha-* names
+# Provide backward compatibility for any external scripts expecting legacy azambasha-* or azamlabs-* names
 for pnet_tool in /opt/unetlab/scripts/pnet-*.sh /opt/unetlab/scripts/pnet-*.py; do
     [ -f "$pnet_tool" ] || continue
     t_base="$(basename "$pnet_tool")"
-    azam_name="/opt/unetlab/scripts/azambasha-${t_base#pnet-}"
-    [ ! -e "$azam_name" ] && ln -sf "$pnet_tool" "$azam_name" 2>/dev/null || true
+    suffix="${t_base#pnet-}"
+    for legacy_prefix in "azambasha-" "azamlabs-" "azam-"; do
+        old_name="/opt/unetlab/scripts/${legacy_prefix}${suffix}"
+        [ ! -e "$old_name" ] && ln -sf "$pnet_tool" "$old_name" 2>/dev/null || true
+    done
 done
 
 # ── 1. Execute Pillar 3: Custom-Performance ──────────────────────────────────

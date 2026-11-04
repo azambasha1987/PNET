@@ -34,8 +34,11 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if not os.path.isdir(os.path.join(ROOT_DIR, "scripts")):
     ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-TEMPLATES_DIR = os.path.join(ROOT_DIR, "html", "templates")
+TEMPLATES_DIR = os.path.join(ROOT_DIR, "Custom-Customization", "templates")
+if not os.path.isdir(TEMPLATES_DIR):
+    TEMPLATES_DIR = os.path.join(ROOT_DIR, "html", "templates")
 SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
+PERF_SCRIPTS_DIR = os.path.join(ROOT_DIR, "Custom-Performance", "scripts")
 
 class TestNodeEmulationLifecycle(unittest.TestCase):
 
@@ -61,7 +64,9 @@ class TestNodeEmulationLifecycle(unittest.TestCase):
 
     def test_iol_wrapper_script_logic(self):
         """Verify heavy node optimizer builds pnet-iol-launcher and ksm_merge_exec."""
-        optimizer_sh = os.path.join(SCRIPTS_DIR, "azambasha-heavy-node-optimizer.sh")
+        optimizer_sh = os.path.join(PERF_SCRIPTS_DIR, "pnet-heavy-node-optimizer.sh")
+        if not os.path.isfile(optimizer_sh):
+            optimizer_sh = os.path.join(SCRIPTS_DIR, "azambasha-heavy-node-optimizer.sh")
         self.assertTrue(os.path.isfile(optimizer_sh))
 
         with open(optimizer_sh, "r", encoding="utf-8") as f:
@@ -74,8 +79,10 @@ class TestNodeEmulationLifecycle(unittest.TestCase):
     def test_bootstorm_schedule_simulation(self):
         """Simulate Anti-Bootstorm queue calculation for a complex 20-node enterprise topology."""
         import importlib.util
-        bootstorm_path = os.path.join(SCRIPTS_DIR, "azambasha-bootstorm.py")
-        spec = importlib.util.spec_from_file_location("azambasha_bootstorm", bootstorm_path)
+        bootstorm_path = os.path.join(PERF_SCRIPTS_DIR, "pnet-bootstorm.py")
+        if not os.path.isfile(bootstorm_path):
+            bootstorm_path = os.path.join(SCRIPTS_DIR, "azambasha-bootstorm.py")
+        spec = importlib.util.spec_from_file_location("pnet_bootstorm", bootstorm_path)
         bs = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(bs)
 

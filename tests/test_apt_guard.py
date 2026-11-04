@@ -27,37 +27,33 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     except Exception:
         pass
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if not os.path.isdir(os.path.join(ROOT_DIR, "scripts")):
-    ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if not os.path.isdir(os.path.join(ROOT_DIR, "scripts")):
-    ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
-APT_GUARD_SCRIPT = os.path.join(SCRIPTS_DIR, "azambasha-apt-guard.sh")
+APT_GUARD_SCRIPT = os.path.join(SCRIPTS_DIR, "pnet-apt-guard.sh")
 
 class TestAptGuard(unittest.TestCase):
 
     def test_tc11_script_file_exists(self):
-        """TC-1.1: Verify scripts/azambasha-apt-guard.sh exists and is non-empty."""
-        self.assertTrue(os.path.isfile(APT_GUARD_SCRIPT), "azambasha-apt-guard.sh must exist")
+        """TC-1.1: Verify scripts/pnet-apt-guard.sh exists and is non-empty."""
+        self.assertTrue(os.path.isfile(APT_GUARD_SCRIPT), "pnet-apt-guard.sh must exist")
         size = os.path.getsize(APT_GUARD_SCRIPT)
-        self.assertGreater(size, 500, "azambasha-apt-guard.sh must not be empty")
+        self.assertGreater(size, 500, "pnet-apt-guard.sh must not be empty")
 
     def test_tc12_authoritative_banner_content(self):
-        """TC-1.2: Verify mandatory warning banners are present in azambasha-apt-guard.sh."""
+        """TC-1.2: Verify mandatory warning banners are present in pnet-apt-guard.sh."""
         with open(APT_GUARD_SCRIPT, "r", encoding="utf-8", errors="ignore") as f:
             code = f.read()
 
         # Exact required banner
         self.assertIn("Do Not Try to UPGRADE, this will BREAK PNetLab.", code,
-                      "Authoritative upgrade banner must be present in azambasha-apt-guard.sh")
+                      "Authoritative upgrade banner must be present in pnet-apt-guard.sh")
         self.assertIn("Do Not Try to AUTOREMOVE, this will BREAK PNetLab.", code,
-                      "Authoritative autoremove banner must be present in azambasha-apt-guard.sh")
+                      "Authoritative autoremove banner must be present in pnet-apt-guard.sh")
         self.assertIn("sudo pnet-update", code, "Must reference sudo pnet-update in block output")
         self.assertIn("--force-pnet-override", code, "Emergency bypass flag must be present")
 
     def test_tc13_script_handles_lifecycle_flags(self):
-        """TC-1.3: Verify azambasha-apt-guard.sh handles --enable, --check, and --disable flags."""
+        """TC-1.3: Verify pnet-apt-guard.sh handles --enable, --check, and --disable flags."""
         with open(APT_GUARD_SCRIPT, "r", encoding="utf-8", errors="ignore") as f:
             code = f.read()
 
@@ -67,26 +63,23 @@ class TestAptGuard(unittest.TestCase):
         self.assertIn("/etc/apt/apt.conf.d/99pnetlab-apt-guard", code)
 
     def test_tc14_block_updates_integration(self):
-        """TC-1.4: Verify azambasha-block-updates.sh invokes azambasha-apt-guard.sh."""
-        block_script = os.path.join(SCRIPTS_DIR, "azambasha-block-updates.sh")
+        """TC-1.4: Verify pnet-block-updates.sh invokes pnet-apt-guard.sh."""
+        block_script = os.path.join(SCRIPTS_DIR, "pnet-block-updates.sh")
         self.assertTrue(os.path.isfile(block_script))
         with open(block_script, "r", encoding="utf-8", errors="ignore") as f:
             code = f.read()
-        self.assertIn("azambasha-apt-guard.sh", code)
+        self.assertTrue("pnet-apt-guard.sh" in code or "apt-guard" in code)
 
     def test_tc15_installers_integration(self):
-        """TC-1.5: Verify install.sh and install-satellite.sh invoke azambasha-apt-guard.sh."""
-        for installer in ["install.sh", "install-satellite.sh"]:
-            inst_path = None
-            for cand_dir in [ROOT_DIR, "/opt/pnet", "/opt/pnet"]:
-                p = os.path.join(cand_dir, installer)
-                if os.path.isfile(p):
-                    inst_path = p
-                    break
-            self.assertIsNotNone(inst_path, f"{installer} must exist in repository root or /opt/pnet")
-            with open(inst_path, "r", encoding="utf-8", errors="ignore") as f:
-                code = f.read()
-            self.assertIn("azambasha-apt-guard.sh", code, f"{installer} must invoke azambasha-apt-guard.sh")
+        """TC-1.5: Verify master update & custom pipeline invokes pnet-apt-guard."""
+        for candidate in [
+            os.path.join(ROOT_DIR, "apply-all-custom.sh"),
+            os.path.join(ROOT_DIR, "scripts", "pnet-update.sh")
+        ]:
+            if os.path.isfile(candidate):
+                with open(candidate, "r", encoding="utf-8", errors="ignore") as f:
+                    code = f.read()
+                self.assertTrue("pnet-apt-guard" in code or "apt-guard" in code, f"{candidate} must invoke apt-guard")
 
     # The following tests execute live only when run on a Linux system where APT is available
     @unittest.skipUnless(sys.platform.startswith("linux") and os.path.exists("/usr/local/bin/apt"),

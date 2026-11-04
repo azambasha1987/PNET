@@ -115,7 +115,7 @@ audit_mode() {
     echo "[*] Cisco IOL Virtual Appliances (Multiarch 32-bit & 64-bit):"
     IOL_BIN_DIR="/opt/unetlab/addons/iol/bin"
     IOL_SHIM_ACTIVE=0
-    [ -x /opt/unetlab/wrappers/azam-iol-launcher ] && [ -x /opt/unetlab/wrappers/ksm_merge_exec ] && IOL_SHIM_ACTIVE=1
+    { [ -x /opt/unetlab/wrappers/pnet-iol-launcher ] || [ -x /opt/unetlab/wrappers/azam-iol-launcher ]; } && [ -x /opt/unetlab/wrappers/ksm_merge_exec ] && IOL_SHIM_ACTIVE=1
 
     if [ -d "$IOL_BIN_DIR" ]; then
         IOL_COUNT=0
@@ -594,7 +594,7 @@ if os.path.isfile(dev_iol):
         changed_iol = False
         target_iol_cmd = '$cmd = "/opt/unetlab/wrappers/iol_wrapper ";'
         target_iol_cmd_sq = "$cmd = '/opt/unetlab/wrappers/iol_wrapper ';"
-        repl_iol_cmd = """// AzamLabs Universal Runtime Interceptor: Ultra-KSM & azam-iol-launcher
+        repl_iol_cmd = """// PNetLab Universal Runtime Interceptor: Ultra-KSM & pnet-iol-launcher
         $ksmWrap = '/opt/unetlab/wrappers/ksm_merge_exec';
         $ksmLauncher = (is_executable($ksmWrap) && !file_exists('/opt/unetlab/wrappers/.ksm_merge_off')) ? $ksmWrap . ' ' : '';
         $cmd = $ksmLauncher . '/opt/unetlab/wrappers/iol_wrapper ';"""
@@ -606,15 +606,17 @@ if os.path.isfile(dev_iol):
                 code_iol = code_iol.replace(target_iol_cmd_sq, repl_iol_cmd)
                 changed_iol = True
 
-        # Hook image launcher wrapper so iol_wrapper executes azam-iol-launcher & azam-iol-shim
-        if 'azam-iol-launcher' not in code_iol:
+        # Hook image launcher wrapper so iol_wrapper executes pnet-iol-launcher & pnet-iol-shim
+        if 'pnet-iol-launcher' not in code_iol and 'azam-iol-launcher' not in code_iol:
             symlink_pattern = r'symlink\(\s*"/opt/unetlab/addons/iol/bin/"\s*\.\s*\$this->image,\s*\$this->getRunningPath\(\)\s*\.\s*"/"\s*\.\s*\$this->image\s*\);'
             symlink_repl = """@symlink(
                     "/opt/unetlab/addons/iol/bin/" . $this->image,
                     $this->getRunningPath() . "/" . $this->image . ".bin"
                 );
                 $launcher_content = "#!/bin/sh\\n" .
-                    "if [ -x /opt/unetlab/wrappers/azam-iol-launcher ]; then\\n" .
+                    "if [ -x /opt/unetlab/wrappers/pnet-iol-launcher ]; then\\n" .
+                    "    exec /opt/unetlab/wrappers/pnet-iol-launcher \\\"$0.bin\\\" \\\"$@\\\"\\n" .
+                    "elif [ -x /opt/unetlab/wrappers/azam-iol-launcher ]; then\\n" .
                     "    exec /opt/unetlab/wrappers/azam-iol-launcher \\\"$0.bin\\\" \\\"$@\\\"\\n" .
                     "else\\n" .
                     "    exec \\\"$0.bin\\\" \\\"$@\\\"\\n" .
@@ -627,23 +629,25 @@ if os.path.isfile(dev_iol):
 
         if changed_iol:
             if dry_run:
-                print("  [DRY-RUN] Would patch device_iol.php with KSM whole-process merge & azam-iol-launcher")
+                print("  [DRY-RUN] Would patch device_iol.php with KSM whole-process merge & pnet-iol-launcher")
             else:
                 with open(dev_iol, 'w', encoding='utf-8') as f:
                     f.write(code_iol)
-                print("  [✔] Patched device_iol.php: KSM whole-process merge & azam-iol-launcher active")
+                print("  [✔] Patched device_iol.php: KSM whole-process merge & pnet-iol-launcher active")
         else:
             print("  [✔] device_iol.php: Universal runtime IOL interceptor already active")
     except Exception as e:
         print(f"  [!] device_iol patch note: {e}")
 PYEOF
 
-# Compile and deploy ksm_merge_exec wrapper, azam-iol-shim and azam-iol-launcher
-echo "  [*] Compiling AzamLabs 100:1 Cisco IOL CPU Governor & KSM Deduplication Shim..."
+# Compile and deploy ksm_merge_exec wrapper, pnet-iol-shim and pnet-iol-launcher
+echo "  [*] Compiling PNetLab 100:1 Cisco IOL CPU Governor & KSM Deduplication Shim..."
 mkdir -p /opt/unetlab/wrappers /opt/unetlab/scripts 2>/dev/null || true
 
 # Compile ksm_merge_exec wrapper
-KSM_EXEC_SRC="$SCRIPT_DIR/ksm_merge_exec.c"
+KSM_EXEC_SRC="$SCRIPT_DIR/pnet-ksm-merge-exec.c"
+[ ! -f "$KSM_EXEC_SRC" ] && KSM_EXEC_SRC="/opt/unetlab/scripts/pnet-ksm-merge-exec.c"
+[ ! -f "$KSM_EXEC_SRC" ] && KSM_EXEC_SRC="$SCRIPT_DIR/ksm_merge_exec.c"
 [ ! -f "$KSM_EXEC_SRC" ] && KSM_EXEC_SRC="/opt/unetlab/scripts/ksm_merge_exec.c"
 [ ! -f "$KSM_EXEC_SRC" ] && KSM_EXEC_SRC="$SCRIPT_DIR/azambasha-ksm-merge-exec.c"
 [ ! -f "$KSM_EXEC_SRC" ] && KSM_EXEC_SRC="/opt/unetlab/scripts/azambasha-ksm-merge-exec.c"
@@ -656,28 +660,33 @@ elif [ -f "$KSM_EXEC_SRC" ] && command -v gcc >/dev/null 2>&1; then
     echo "  [✔] Compiled /opt/unetlab/wrappers/ksm_merge_exec"
 fi
 
-SHIM_SRC="$SCRIPT_DIR/azam-iol-shim.c"
+SHIM_SRC="$SCRIPT_DIR/pnet-iol-shim.c"
+[ ! -f "$SHIM_SRC" ] && SHIM_SRC="/opt/unetlab/scripts/pnet-iol-shim.c"
+[ ! -f "$SHIM_SRC" ] && SHIM_SRC="$SCRIPT_DIR/azam-iol-shim.c"
 [ ! -f "$SHIM_SRC" ] && SHIM_SRC="/opt/unetlab/scripts/azam-iol-shim.c"
 [ ! -f "$SHIM_SRC" ] && SHIM_SRC="$SCRIPT_DIR/azambasha-iol-shim.c"
 [ ! -f "$SHIM_SRC" ] && SHIM_SRC="/opt/unetlab/scripts/azambasha-iol-shim.c"
 
 if [ "$DRY_RUN" -eq 1 ]; then
-    echo "  [DRY-RUN] Would compile multiarch azam-iol-shim (64-bit and 32-bit)"
+    echo "  [DRY-RUN] Would compile multiarch pnet-iol-shim (64-bit and 32-bit)"
 elif [ -f "$SHIM_SRC" ] && command -v gcc >/dev/null 2>&1; then
-    gcc -O3 -shared -fPIC -Wall -Wextra "$SHIM_SRC" -o /opt/unetlab/wrappers/azam-iol-shim64.so -ldl 2>/dev/null || true
-    cp -f /opt/unetlab/wrappers/azam-iol-shim64.so /opt/unetlab/wrappers/azam-iol-shim.so 2>/dev/null || true
-    gcc -m32 -O3 -shared -fPIC -Wall -Wextra "$SHIM_SRC" -o /opt/unetlab/wrappers/azam-iol-shim32.so -ldl 2>/dev/null || true
-    chmod 755 /opt/unetlab/wrappers/azam-iol-shim*.so 2>/dev/null || true
-    echo "  [✔] Compiled azam-iol-shim.so (64-bit and 32-bit multiarch)"
+    gcc -O3 -shared -fPIC -Wall -Wextra "$SHIM_SRC" -o /opt/unetlab/wrappers/pnet-iol-shim64.so -ldl 2>/dev/null || true
+    cp -f /opt/unetlab/wrappers/pnet-iol-shim64.so /opt/unetlab/wrappers/pnet-iol-shim.so 2>/dev/null || true
+    cp -f /opt/unetlab/wrappers/pnet-iol-shim64.so /opt/unetlab/wrappers/azam-iol-shim64.so 2>/dev/null || true
+    cp -f /opt/unetlab/wrappers/pnet-iol-shim64.so /opt/unetlab/wrappers/azam-iol-shim.so 2>/dev/null || true
+    gcc -m32 -O3 -shared -fPIC -Wall -Wextra "$SHIM_SRC" -o /opt/unetlab/wrappers/pnet-iol-shim32.so -ldl 2>/dev/null || true
+    cp -f /opt/unetlab/wrappers/pnet-iol-shim32.so /opt/unetlab/wrappers/azam-iol-shim32.so 2>/dev/null || true
+    chmod 755 /opt/unetlab/wrappers/*iol-shim*.so 2>/dev/null || true
+    echo "  [✔] Compiled pnet-iol-shim.so (64-bit and 32-bit multiarch)"
 fi
 
-# Deploy universal azam-iol-launcher
+# Deploy universal pnet-iol-launcher
 if [ "$DRY_RUN" -eq 1 ]; then
-    echo "  [DRY-RUN] Would deploy /opt/unetlab/wrappers/azam-iol-launcher"
+    echo "  [DRY-RUN] Would deploy /opt/unetlab/wrappers/pnet-iol-launcher"
 else
-    cat << 'EOF_LAUNCHER' > /opt/unetlab/wrappers/azam-iol-launcher
+    cat << 'EOF_LAUNCHER' > /opt/unetlab/wrappers/pnet-iol-launcher
 #!/bin/sh
-# AzamLabs IOL 100:1 CPU Idle Governor & Ultra-KSM Launcher
+# PNetLab IOL 100:1 CPU Idle Governor & Ultra-KSM Launcher
 REAL_BIN="$1"
 shift
 
@@ -686,12 +695,12 @@ if [ -z "$REAL_BIN" ] || [ ! -e "$REAL_BIN" ]; then
 fi
 
 # Auto-detect ELF class (1 = 32-bit, 2 = 64-bit)
-SHIM="/opt/unetlab/wrappers/azam-iol-shim.so"
+SHIM="/opt/unetlab/wrappers/pnet-iol-shim.so"
 ELF_CLASS=$(od -An -j4 -N1 -tu1 "$REAL_BIN" 2>/dev/null | tr -d ' ' || echo "1")
-if [ "$ELF_CLASS" = "1" ] && [ -f /opt/unetlab/wrappers/azam-iol-shim32.so ]; then
-    SHIM="/opt/unetlab/wrappers/azam-iol-shim32.so"
-elif [ -f /opt/unetlab/wrappers/azam-iol-shim64.so ]; then
-    SHIM="/opt/unetlab/wrappers/azam-iol-shim64.so"
+if [ "$ELF_CLASS" = "1" ] && [ -f /opt/unetlab/wrappers/pnet-iol-shim32.so ]; then
+    SHIM="/opt/unetlab/wrappers/pnet-iol-shim32.so"
+elif [ -f /opt/unetlab/wrappers/pnet-iol-shim64.so ]; then
+    SHIM="/opt/unetlab/wrappers/pnet-iol-shim64.so"
 fi
 
 if [ -f "$SHIM" ]; then
@@ -704,13 +713,13 @@ else
     exec "$REAL_BIN" "$@"
 fi
 EOF_LAUNCHER
-    chmod 755 /opt/unetlab/wrappers/azam-iol-launcher
+    chmod 755 /opt/unetlab/wrappers/pnet-iol-launcher
+    ln -sf /opt/unetlab/wrappers/pnet-iol-launcher /opt/unetlab/wrappers/azam-iol-launcher 2>/dev/null || true
     [ -f /opt/unetlab/wrappers/ksm_merge_exec ] && chmod 755 /opt/unetlab/wrappers/ksm_merge_exec 2>/dev/null || true
 
-    # Ensure azam-bootstorm CLI symlink is active
-    for b_cand in /opt/unetlab/scripts/azambasha-bootstorm.py /opt/unetlab/scripts/azambasha-bootstorm.py "$SCRIPT_DIR/azambasha-bootstorm.py"; do
+    # Ensure pnet-bootstorm CLI symlink is active
+    for b_cand in /opt/unetlab/scripts/pnet-bootstorm.py "$SCRIPT_DIR/pnet-bootstorm.py" /opt/unetlab/scripts/azambasha-bootstorm.py "$SCRIPT_DIR/azambasha-bootstorm.py"; do
         if [ -f "$b_cand" ]; then
-            ln -sf "$b_cand" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
             ln -sf "$b_cand" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
             chmod +x "$b_cand" 2>/dev/null || true
             break
@@ -729,7 +738,7 @@ else
     # 1. Heavy Optimizer Service
     cat << 'EOF' > /etc/systemd/system/azambasha-heavy-optimizer.service
 [Unit]
-Description=Azam Basha High-Density Heavy Node Memory & KSM Optimizer
+Description=PNetLab High-Density Heavy Node Memory & KSM Optimizer
 After=network.target sys-kernel-mm-ksm.mount
 Wants=network.target
 
@@ -750,22 +759,25 @@ ExecStart=/bin/sh -c ' \
 [Install]
 WantedBy=multi-user.target
 EOF
+    ln -sf /etc/systemd/system/pnet-heavy-optimizer.service /etc/systemd/system/azambasha-heavy-optimizer.service 2>/dev/null || true
 
     # 2. Dynamic Lossless CPU Governor Service
-    GOV_SRC="$SCRIPT_DIR/azambasha-cpu-governor.py"
+    GOV_SRC="$SCRIPT_DIR/pnet-cpu-governor.py"
+    [ ! -f "$GOV_SRC" ] && GOV_SRC="/opt/unetlab/scripts/pnet-cpu-governor.py"
+    [ ! -f "$GOV_SRC" ] && GOV_SRC="$SCRIPT_DIR/azambasha-cpu-governor.py"
     [ ! -f "$GOV_SRC" ] && GOV_SRC="/opt/unetlab/scripts/azambasha-cpu-governor.py"
     if [ -f "$GOV_SRC" ]; then
-        cp -f "$GOV_SRC" /opt/unetlab/scripts/azambasha-cpu-governor.py 2>/dev/null || true
-        chmod +x /opt/unetlab/scripts/azambasha-cpu-governor.py 2>/dev/null || true
-        cat << 'EOF_GOV' > /etc/systemd/system/azambasha-cpu-governor.service
+        cp -f "$GOV_SRC" /opt/unetlab/scripts/pnet-cpu-governor.py 2>/dev/null || true
+        chmod +x /opt/unetlab/scripts/pnet-cpu-governor.py 2>/dev/null || true
+        cat << 'EOF_GOV' > /etc/systemd/system/pnet-cpu-governor.service
 [Unit]
-Description=Azam Basha Lossless Dynamic CPU Governor for Heavy Virtual Routers
+Description=PNetLab Lossless Dynamic CPU Governor for Heavy Virtual Routers
 After=network.target
 Wants=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/unetlab/scripts/azambasha-cpu-governor.py --daemon
+ExecStart=/usr/bin/python3 /opt/unetlab/scripts/pnet-cpu-governor.py --daemon
 Restart=always
 RestartSec=5
 KillMode=process
@@ -775,15 +787,16 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 EOF_GOV
+        ln -sf /etc/systemd/system/pnet-cpu-governor.service /etc/systemd/system/azambasha-cpu-governor.service 2>/dev/null || true
     fi
 
     systemctl daemon-reload
-    systemctl enable azambasha-heavy-optimizer.service 2>/dev/null || true
-    systemctl start azambasha-heavy-optimizer.service 2>/dev/null || true
+    systemctl enable pnet-heavy-optimizer.service 2>/dev/null || true
+    systemctl start pnet-heavy-optimizer.service 2>/dev/null || true
 
-    if [ -f "/opt/unetlab/scripts/azambasha-cpu-governor.py" ]; then
-        systemctl enable azambasha-cpu-governor.service 2>/dev/null || true
-        systemctl restart azambasha-cpu-governor.service 2>/dev/null || true
+    if [ -f "/opt/unetlab/scripts/pnet-cpu-governor.py" ]; then
+        systemctl enable pnet-cpu-governor.service 2>/dev/null || true
+        systemctl restart pnet-cpu-governor.service 2>/dev/null || true
         echo "  [✔] Lossless CPU Governor service enabled and active"
     fi
 fi
@@ -801,29 +814,50 @@ import os, sys, subprocess, json
 dry_run = len(sys.argv) > 1 and sys.argv[1] == "1"
 
 sync_files = [
-    "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh",
+    "/opt/unetlab/scripts/pnet-heavy-node-optimizer.sh",
     "/opt/unetlab/scripts/apply-heavy-node-optimizer.sh",
-    "/opt/unetlab/scripts/azam-iol-shim.c",
-    "/opt/unetlab/scripts/azambasha-iol-shim.c",
-    "/opt/unetlab/scripts/ksm_merge_exec.c",
-    "/opt/unetlab/scripts/azambasha-ksm-merge-exec.c",
-    "/opt/unetlab/scripts/azambasha-cpu-governor.py",
-    "/opt/unetlab/scripts/azambasha-fix-node-startup.sh",
-    "/opt/unetlab/scripts/cisco-heavy-node-tuning.cfg",
-    "/opt/unetlab/scripts/azambasha-image-doctor.sh"
+    "/opt/unetlab/scripts/pnet-iol-shim.c",
+    "/opt/unetlab/scripts/pnet-ksm-merge-exec.c",
+    "/opt/unetlab/scripts/pnet-cpu-governor.py",
+    "/opt/unetlab/scripts/pnet-fix-node-startup.sh",
+    "/opt/unetlab/scripts/pnet-cisco-heavy-node-tuning.cfg",
+    "/opt/unetlab/scripts/pnet-image-doctor.sh"
 ]
 
 satellites = []
 try:
     import pymysql
-    for db_pass in ['azamlabs', 'azam', '']:
-        try:
-            conn = pymysql.connect(host='localhost', user='azamlabs', password=db_pass, database='azamlabs_db')
-            with conn.cursor() as cur:
+    for db_name in ['pnetlab_db', 'azamlabs_db']:
+        for db_user in ['root', 'pnetlab', 'azamlabs']:
+            for db_pass in ['pnet', 'azamlabs', 'azam', '']:
                 try:
-                    cur.execute("SELECT host_ip FROM cluster_hosts WHERE host_ip != '127.0.0.1'")
-                    for row in cur.fetchall():
-                        if row[0] and row[0] not in satellites:
+                    conn = pymysql.connect(host='localhost', user=db_user, password=db_pass, database=db_name)
+                    with conn.cursor() as cur:
+                        try:
+                            cur.execute("SELECT host_ip FROM cluster_hosts WHERE host_ip != '127.0.0.1'")
+                            for row in cur.fetchall():
+                                if row[0] and row[0] not in satellites:
+                                    satellites.append(row[0])
+                        except Exception:
+                            pass
+                        try:
+                            cur.execute("SELECT ip FROM satellites WHERE status=1")
+                            for row in cur.fetchall():
+                                if row[0] and row[0] not in satellites:
+                                    satellites.append(row[0])
+                        except Exception:
+                            pass
+                    conn.close()
+                    if satellites:
+                        break
+                except Exception:
+                    continue
+            if satellites:
+                break
+        if satellites:
+            break
+except Exception:
+    pass
                             satellites.append(row[0])
                 except Exception:
                     pass

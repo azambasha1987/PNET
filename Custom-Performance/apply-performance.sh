@@ -50,57 +50,57 @@ if [ -d "${SCRIPT_DIR}/scripts" ]; then
 fi
 chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 
-ln -sf /opt/unetlab/scripts/azambasha-speed-optimizer.sh       /usr/local/bin/pnet-speed
-ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh  /usr/local/bin/pnet-optimizer
-ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh  /usr/local/bin/pnet-heavy-optimizer
-ln -sf /opt/unetlab/scripts/azambasha-bootstorm.py           /usr/local/bin/pnet-bootstorm
-ln -sf /opt/unetlab/scripts/azambasha-dataplane-engine.sh      /usr/local/bin/pnet-dataplane
-ln -sf /opt/unetlab/scripts/azambasha-roce-engine.sh           /usr/local/bin/pnet-roce
-ln -sf /opt/unetlab/scripts/azambasha-link-impairment.sh       /usr/local/bin/pnet-link-impair
-ln -sf /opt/unetlab/scripts/azambasha-cgroups-v2-engine.sh     /usr/local/bin/pnet-cgroups
-ln -sf /opt/unetlab/scripts/azambasha-cpu-governor.py          /usr/local/bin/pnet-cpu-governor
-ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh          /usr/local/bin/pnet-doctor
-ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh          /usr/local/bin/pnet-images
-ln -sf /opt/unetlab/scripts/azambasha-watchdog.py             /usr/local/bin/pnet-watchdog
-ln -sf /opt/unetlab/scripts/azambasha-perf.py                 /usr/local/bin/pnet-perf
-ln -sf /opt/unetlab/scripts/azambasha-bench.sh                /usr/local/bin/pnet-bench
-ln -sf /opt/unetlab/scripts/azambasha-cluster-capacity.py     /usr/local/bin/pnet-capacity
-ln -sf /opt/unetlab/scripts/azambasha-fleet-status.sh         /usr/local/bin/pnet-fleet
-ln -sf /opt/unetlab/scripts/azambasha-console-fix.sh          /usr/local/bin/pnet-console-fix
-ln -sf "${SCRIPT_DIR}/apply-performance.sh"                  /usr/local/bin/pnet-apply-performance
+ln -sf /opt/unetlab/scripts/pnet-speed-optimizer.sh       /usr/local/bin/pnet-speed
+ln -sf /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh  /usr/local/bin/pnet-optimizer
+ln -sf /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh  /usr/local/bin/pnet-heavy-optimizer
+ln -sf /opt/unetlab/scripts/pnet-bootstorm.py            /usr/local/bin/pnet-bootstorm
+ln -sf /opt/unetlab/scripts/pnet-dataplane-engine.sh      /usr/local/bin/pnet-dataplane
+ln -sf /opt/unetlab/scripts/pnet-roce-engine.sh           /usr/local/bin/pnet-roce
+ln -sf /opt/unetlab/scripts/pnet-link-impairment.sh       /usr/local/bin/pnet-link-impair
+ln -sf /opt/unetlab/scripts/pnet-cgroups-v2-engine.sh     /usr/local/bin/pnet-cgroups
+ln -sf /opt/unetlab/scripts/pnet-cpu-governor.py          /usr/local/bin/pnet-cpu-governor
+ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh          /usr/local/bin/pnet-doctor
+ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh          /usr/local/bin/pnet-images
+ln -sf /opt/unetlab/scripts/pnet-watchdog.py              /usr/local/bin/pnet-watchdog
+ln -sf /opt/unetlab/scripts/pnet-perf.py                  /usr/local/bin/pnet-perf
+ln -sf /opt/unetlab/scripts/pnet-bench.sh                 /usr/local/bin/pnet-bench
+ln -sf /opt/unetlab/scripts/pnet-cluster-capacity.py      /usr/local/bin/pnet-capacity
+ln -sf /opt/unetlab/scripts/pnet-fleet-status.sh          /usr/local/bin/pnet-fleet
+ln -sf /opt/unetlab/scripts/pnet-console-fix.sh           /usr/local/bin/pnet-console-fix
+ln -sf "${SCRIPT_DIR}/apply-performance.sh"               /usr/local/bin/pnet-apply-performance
 chmod +x /usr/local/bin/pnet-* 2>/dev/null || true
 log_ok "Registered 18 performance and diagnostic CLI commands."
 
 # 2. Ultra-KSM 4KB RAM Deduplication & Kernel Tuning
 log_info "[2/4] Enforcing Ultra-KSM, OPcache, and kernel socket queues..."
-if command -v gcc >/dev/null 2>&1 && [ -f /opt/unetlab/scripts/ksm_merge_exec.c ]; then
-    gcc -O3 -fPIC -shared /opt/unetlab/scripts/ksm_merge_exec.c -o /usr/local/lib/libksm_merge.so 2>/dev/null || true
+if command -v gcc >/dev/null 2>&1 && [ -f /opt/unetlab/scripts/pnet-ksm-merge-exec.c ]; then
+    gcc -O3 -fPIC -shared /opt/unetlab/scripts/pnet-ksm-merge-exec.c -o /usr/local/lib/libksm_merge.so 2>/dev/null || true
 fi
 
-if [ -f /opt/unetlab/scripts/azambasha-speed-optimizer.sh ]; then
-    bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh 2>/dev/null || true
+if [ -f /opt/unetlab/scripts/pnet-speed-optimizer.sh ]; then
+    bash /opt/unetlab/scripts/pnet-speed-optimizer.sh 2>/dev/null || true
 fi
 log_ok "Ultra-KSM 4KB page deduplication active."
 
 # 3. Dynamic Resource Governance (Cgroups v2 & CPU Governor)
 log_info "[3/4] Activating cgroups v2 resource governor and dynamic CPU scaling..."
-if [ -f /opt/unetlab/scripts/azambasha-cgroups-v2-engine.sh ]; then
-    bash /opt/unetlab/scripts/azambasha-cgroups-v2-engine.sh 2>/dev/null || true
+if [ -f /opt/unetlab/scripts/pnet-cgroups-v2-engine.sh ]; then
+    bash /opt/unetlab/scripts/pnet-cgroups-v2-engine.sh 2>/dev/null || true
 fi
 
-if [ -f /opt/unetlab/scripts/azambasha-cpu-governor.py ]; then
-    python3 /opt/unetlab/scripts/azambasha-cpu-governor.py --install 2>/dev/null || true
+if [ -f /opt/unetlab/scripts/pnet-cpu-governor.py ]; then
+    python3 /opt/unetlab/scripts/pnet-cpu-governor.py --install 2>/dev/null || true
 fi
 
-if [ -f /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh ]; then
-    bash /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh "--${MODE}" 2>/dev/null || true
+if [ -f /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh ]; then
+    bash /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh "--${MODE}" 2>/dev/null || true
 fi
 log_ok "Cgroups v2 governor and heavy node optimizer active."
 
 # 4. Autonomous 24/7 Watchdog Daemon & Storage Maintenance
 log_info "[4/4] Starting 24/7 autonomous watchdog and nightly TRIM maintenance..."
-if [ -f /opt/unetlab/scripts/azambasha-watchdog.py ]; then
-    python3 /opt/unetlab/scripts/azambasha-watchdog.py --install 2>/dev/null || true
+if [ -f /opt/unetlab/scripts/pnet-watchdog.py ]; then
+    python3 /opt/unetlab/scripts/pnet-watchdog.py --install 2>/dev/null || true
 fi
 
 cat << 'TRIMEOF' > /etc/cron.d/pnet-maintenance 2>/dev/null || true

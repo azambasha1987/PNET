@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AzamLabs Safe APT Guard & Command Interceptor Utility
+# PNetLab Safe APT Guard & Command Interceptor Utility
 # Ubuntu 24.04 / 26.04+ Native Architecture
 #
-# Prevents accidental destruction of AzamLabs virtualization environment:
+# Prevents accidental destruction of PNetLab virtualization environment:
 # 1. Diverts /usr/bin/apt and /usr/bin/apt-get via dpkg-divert to *.real.
 # 2. Intercepts 'apt upgrade', 'dist-upgrade', and 'full-upgrade' (prevents kernel/PHP break).
 # 3. Intercepts 'apt autoremove' (prevents purging 32-bit IOL libraries & DKMS headers).
 # 4. Permits all safe operations: 'apt update', 'apt install', 'apt search', 'apt show'.
-# 5. Supports emergency override: --force-azam-override
+# 5. Supports emergency override: --force-pnet-override
 #
 # Usage:
-#   sudo bash scripts/azambasha-apt-guard.sh --enable   # Install & engage guard (default)
-#   sudo bash scripts/azambasha-apt-guard.sh --check    # Check guard status
-#   sudo bash scripts/azambasha-apt-guard.sh --disable  # Remove guard & restore native APT
+#   sudo bash scripts/pnet-apt-guard.sh --enable   # Install & engage guard (default)
+#   sudo bash scripts/pnet-apt-guard.sh --check    # Check guard status
+#   sudo bash scripts/pnet-apt-guard.sh --disable  # Remove guard & restore native APT
 # ==============================================================================
 set -euo pipefail
 
@@ -21,8 +21,8 @@ APT_SYS_BIN="/usr/bin/apt"
 APT_GET_SYS_BIN="/usr/bin/apt-get"
 APT_LOCAL_BIN="/usr/local/bin/apt"
 APT_GET_LOCAL_BIN="/usr/local/bin/apt-get"
-APT_CONF_HOOK="/etc/apt/apt.conf.d/99azamlabs-apt-guard"
-PROFILE_HOOK="/etc/profile.d/azamlabs-apt-guard.sh"
+APT_CONF_HOOK="/etc/apt/apt.conf.d/99pnetlab-apt-guard"
+PROFILE_HOOK="/etc/profile.d/pnetlab-apt-guard.sh"
 
 # Color tokens
 BOLD="\033[1m"
@@ -41,7 +41,7 @@ log_err()  { echo -e "${RED}[✘]${RESET} $*"; }
 # --- Check Mode ---
 if [[ "${1:-}" =~ ^(--check|--status|-c)$ ]]; then
     echo "============================================================"
-    echo "         AzamLabs APT Guard Status Diagnostic Probe         "
+    echo "         PNetLab APT Guard Status Diagnostic Probe         "
     echo "============================================================"
     
     echo -n "[*] Binary Diversion (/usr/bin/apt)  : "
@@ -52,7 +52,7 @@ if [[ "${1:-}" =~ ^(--check|--status|-c)$ ]]; then
     fi
 
     echo -n "[*] /usr/bin/apt protective wrapper  : "
-    if [ -f "$APT_SYS_BIN" ] && grep -q "BREAK AzamLabs" "$APT_SYS_BIN" 2>/dev/null; then
+    if [ -f "$APT_SYS_BIN" ] && grep -q "BREAK PNetLab" "$APT_SYS_BIN" 2>/dev/null; then
         echo -e "${GREEN}ACTIVE (Intercepting upgrade & autoremove)${RESET}"
     else
         echo -e "${RED}DISABLED (Native binary)${RESET}"
@@ -91,7 +91,7 @@ fi
 # --- Disable / Unblock Mode ---
 if [[ "${1:-}" =~ ^(--disable|--unblock|--restore|-d)$ ]]; then
     echo "============================================================"
-    echo "           Disabling AzamLabs APT Guard Subsystem           "
+    echo "           Disabling PNetLab APT Guard Subsystem           "
     echo "============================================================"
     
     log_info "Removing protective wrappers..."
@@ -111,13 +111,13 @@ if [[ "${1:-}" =~ ^(--disable|--unblock|--restore|-d)$ ]]; then
     fi
     
     hash -d apt apt-get 2>/dev/null || true
-    log_ok "AzamLabs APT Guard has been disabled. Native APT restored."
+    log_ok "PNetLab APT Guard has been disabled. Native APT restored."
     exit 0
 fi
 
 # --- Enable / Engage Mode (Default) ---
 echo "============================================================"
-echo "          Engaging AzamLabs Safe APT Guard Subsystem         "
+echo "          Engaging PNetLab Safe APT Guard Subsystem         "
 echo "============================================================"
 
 mkdir -p /usr/local/bin /usr/bin /etc/apt/apt.conf.d /etc/profile.d
@@ -153,7 +153,7 @@ FORCE_OVERRIDE=0
 # Parse arguments to detect emergency override flag
 ARGS=()
 for arg in "$@"; do
-    if [ "$arg" = "--force-azam-override" ]; then
+    if [ "$arg" = "--force-pnet-override" ]; then
         FORCE_OVERRIDE=1
     else
         ARGS+=("$arg")
@@ -167,27 +167,27 @@ if [ "$FORCE_OVERRIDE" -eq 0 ]; then
     case "$CMD" in
         upgrade|dist-upgrade|full-upgrade)
             echo -e "\033[1;31m====================================================================\033[0m"
-            echo -e "\033[1;31m [BLOCKED] Do Not Try to UPGRADE, this will BREAK AzamLabs.\033[0m"
+            echo -e "\033[1;31m [BLOCKED] Do Not Try to UPGRADE, this will BREAK PNetLab.\033[0m"
             echo -e "\033[1;31m====================================================================\033[0m"
             echo -e " Running direct system upgrades overwrites custom PHP 8.5 tuning,"
             echo -e " breaks Cisco L2 DKMS bridge modules, and causes QEMU node failures."
             echo -e ""
             echo -e " \033[1;32mCanonical Update Procedure:\033[0m"
-            echo -e "   Please use the hardened AzamLabs one-step update command:"
-            echo -e "       \033[1;33msudo azam-update\033[0m"
+            echo -e "   Please use the hardened PNetLab one-step update command:"
+            echo -e "       \033[1;33msudo pnet-update\033[0m"
             echo -e ""
-            echo -e " \033[1;30m(Emergency override: add --force-azam-override to force execution)\033[0m"
+            echo -e " \033[1;30m(Emergency override: add --force-pnet-override to force execution)\033[0m"
             echo -e "\033[1;31m====================================================================\033[0m"
             exit 1
             ;;
         autoremove)
             echo -e "\033[1;31m====================================================================\033[0m"
-            echo -e "\033[1;31m [BLOCKED] Do Not Try to AUTOREMOVE, this will BREAK AzamLabs.\033[0m"
+            echo -e "\033[1;31m [BLOCKED] Do Not Try to AUTOREMOVE, this will BREAK PNetLab.\033[0m"
             echo -e "\033[1;31m====================================================================\033[0m"
             echo -e " This command will purge 32-bit libraries (libc6-i386) and kernel"
             echo -e " headers essential for Cisco IOL/IOU emulation and DKMS drivers."
             echo -e ""
-            echo -e " \033[1;30m(Emergency override: add --force-azam-override to force execution)\033[0m"
+            echo -e " \033[1;30m(Emergency override: add --force-pnet-override to force execution)\033[0m"
             echo -e "\033[1;31m====================================================================\033[0m"
             exit 1
             ;;
@@ -234,12 +234,12 @@ hash -d apt apt-get 2>/dev/null || true
 
 echo ""
 echo "============================================================"
-echo "    [SUCCESS] AzamLabs Safe APT Guard Successfully Active   "
+echo "    [SUCCESS] PNetLab Safe APT Guard Successfully Active   "
 echo "============================================================"
 echo "  - 'apt upgrade'    : BLOCKED (Educational barrier active)"
 echo "  - 'apt autoremove' : BLOCKED (32-bit IOL libraries protected)"
 echo "  - 'apt update'     : ALLOWED (Safe index queries permitted)"
 echo "  - 'apt install'    : ALLOWED (Benign package installations permitted)"
-echo "  - Override Switch  : --force-azam-override"
+echo "  - Override Switch  : --force-pnet-override"
 echo "============================================================"
 exit 0

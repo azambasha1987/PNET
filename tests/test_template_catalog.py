@@ -10,16 +10,25 @@ Enforces:
 import os
 import glob
 import unittest
-import yaml
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INTEL_TEMPLATES_DIR = os.path.join(ROOT_DIR, "html", "templates", "intel")
-AMD_TEMPLATES_DIR = os.path.join(ROOT_DIR, "html", "templates", "amd")
+INTEL_TEMPLATES_DIR = os.path.join(ROOT_DIR, "Custom-Customization", "templates", "intel")
+AMD_TEMPLATES_DIR = os.path.join(ROOT_DIR, "Custom-Customization", "templates", "amd")
+if not os.path.isdir(INTEL_TEMPLATES_DIR):
+    INTEL_TEMPLATES_DIR = os.path.join(ROOT_DIR, "html", "templates", "intel")
+if not os.path.isdir(AMD_TEMPLATES_DIR):
+    AMD_TEMPLATES_DIR = os.path.join(ROOT_DIR, "html", "templates", "amd")
 
 
 class TestTemplateCatalog(unittest.TestCase):
 
     def setUp(self):
+        if yaml is None:
+            self.skipTest("PyYAML not installed in environment")
         self.intel_files = glob.glob(os.path.join(INTEL_TEMPLATES_DIR, "*.yml"))
         self.amd_files = glob.glob(os.path.join(AMD_TEMPLATES_DIR, "*.yml"))
 

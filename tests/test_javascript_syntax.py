@@ -4,11 +4,25 @@ import subprocess
 import unittest
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MAIN_JS = os.path.join(BASE_DIR, "html", "main", "pnet-features.js")
-CANVAS_JS = os.path.join(BASE_DIR, "html", "pnet-ops", "pnet-features.js")
-DOCK_JS = os.path.join(BASE_DIR, "html", "pnet-ops", "pnet-docked-console.js")
-SEQ_JS = os.path.join(BASE_DIR, "html", "pnet-ops", "pnet-sequenced-console.js")
-SYNTAX_JS = os.path.join(BASE_DIR, "html", "pnet-ops", "pnet-cli-syntax.js")
+MAIN_JS = os.path.join(BASE_DIR, "Custom-Features", "web-ui", "main", "pnet-features.js")
+if not os.path.isfile(MAIN_JS):
+    MAIN_JS = os.path.join(BASE_DIR, "html", "main", "pnet-features.js")
+
+CANVAS_JS = os.path.join(BASE_DIR, "Custom-Features", "web-ui", "ops-center", "pnet-features.js")
+if not os.path.isfile(CANVAS_JS):
+    CANVAS_JS = os.path.join(BASE_DIR, "html", "pnet-ops", "pnet-features.js")
+
+DOCK_JS = os.path.join(BASE_DIR, "Custom-Features", "web-ui", "ops-center", "pnet-docked-console.js")
+if not os.path.isfile(DOCK_JS):
+    DOCK_JS = os.path.join(BASE_DIR, "html", "pnet-ops", "pnet-docked-console.js")
+
+SEQ_JS = os.path.join(BASE_DIR, "Custom-Features", "web-ui", "ops-center", "pnet-sequenced-console.js")
+if not os.path.isfile(SEQ_JS):
+    SEQ_JS = os.path.join(BASE_DIR, "html", "pnet-ops", "pnet-sequenced-console.js")
+
+SYNTAX_JS = os.path.join(BASE_DIR, "Custom-Features", "web-ui", "ops-center", "pnet-cli-syntax.js")
+if not os.path.isfile(SYNTAX_JS):
+    SYNTAX_JS = os.path.join(BASE_DIR, "html", "pnet-ops", "pnet-cli-syntax.js")
 
 ALL_JS_FILES = [MAIN_JS, CANVAS_JS, DOCK_JS, SEQ_JS, SYNTAX_JS]
 

@@ -10,8 +10,12 @@ import unittest
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
-TEMPLATES_INTEL = os.path.join(ROOT_DIR, "html", "templates", "intel")
-TEMPLATES_AMD = os.path.join(ROOT_DIR, "html", "templates", "amd")
+TEMPLATES_INTEL = os.path.join(ROOT_DIR, "Custom-Customization", "templates", "intel")
+TEMPLATES_AMD = os.path.join(ROOT_DIR, "Custom-Customization", "templates", "amd")
+if not os.path.isdir(TEMPLATES_INTEL):
+    TEMPLATES_INTEL = os.path.join(ROOT_DIR, "html", "templates", "intel")
+if not os.path.isdir(TEMPLATES_AMD):
+    TEMPLATES_AMD = os.path.join(ROOT_DIR, "html", "templates", "amd")
 
 
 class TestWorkstreams678(unittest.TestCase):
@@ -24,18 +28,20 @@ class TestWorkstreams678(unittest.TestCase):
         self.assertTrue(os.path.exists(amd_docker), "Missing amd/docker.yml")
 
     def test_workstream6_docker_provisioner_script(self):
-        """Assert azambasha-upload-and-docker-fix.sh exists and supports --check."""
-        fix_script = os.path.join(SCRIPTS_DIR, "azambasha-upload-and-docker-fix.sh")
-        self.assertTrue(os.path.exists(fix_script), "Missing azambasha-upload-and-docker-fix.sh")
+        """Assert pnet-upload-and-docker-fix.sh exists and supports --check."""
+        fix_script = os.path.join(ROOT_DIR, "Custom-Features", "scripts", "pnet-upload-and-docker-fix.sh")
+        if not os.path.exists(fix_script):
+            fix_script = os.path.join(SCRIPTS_DIR, "pnet-upload-and-docker-fix.sh")
+        self.assertTrue(os.path.exists(fix_script), "Missing pnet-upload-and-docker-fix.sh")
         with open(fix_script, "r", encoding="utf-8") as f:
             content = f.read()
         self.assertIn("--check", content)
         self.assertIn("net.ipv4.ip_forward", content)
 
     def test_workstream8_satd_script_and_verbs(self):
-        """Assert pnetlab-satd.py exists and defines cluster protocol verbs."""
-        satd_path = os.path.join(SCRIPTS_DIR, "pnetlab-satd.py")
-        self.assertTrue(os.path.exists(satd_path), "Missing pnetlab-satd.py")
+        """Assert pnet-satd.py exists and defines cluster protocol verbs."""
+        satd_path = os.path.join(SCRIPTS_DIR, "pnet-satd.py")
+        self.assertTrue(os.path.exists(satd_path), "Missing pnet-satd.py")
         with open(satd_path, "r", encoding="utf-8") as f:
             content = f.read()
         self.assertIn("FORWARD_VERBS", content)
@@ -45,9 +51,9 @@ class TestWorkstreams678(unittest.TestCase):
         self.assertIn("pkg_version", content)
 
     def test_workstream8_satellite_join_script(self):
-        """Assert azambasha-satellite-join.sh exists and enforces HMAC / TLS checks."""
-        join_path = os.path.join(SCRIPTS_DIR, "azambasha-satellite-join.sh")
-        self.assertTrue(os.path.exists(join_path), "Missing azambasha-satellite-join.sh")
+        """Assert pnet-satellite-join.sh exists and enforces HMAC / TLS checks."""
+        join_path = os.path.join(SCRIPTS_DIR, "pnet-satellite-join.sh")
+        self.assertTrue(os.path.exists(join_path), "Missing pnet-satellite-join.sh")
         with open(join_path, "r", encoding="utf-8") as f:
             content = f.read()
         self.assertIn("CLUSTER_PSK", content)

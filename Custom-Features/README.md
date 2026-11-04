@@ -11,32 +11,32 @@ Custom-Features/
 ├── apply-features.sh                 # Standalone idempotent deployment hook (+x)
 ├── README.md                         # This reference manual
 ├── scripts/                          # Feature automation and daemon scripts (24 tools)
-│   ├── azambasha-ai-copilot.py       # Local Ollama AI Lab Assistant & MCP server
-│   ├── setup-ollama.sh               # Ollama model downloader & runner
-│   ├── setup-ollama-host.ps1         # Windows host Ollama bridge
-│   ├── azambasha-topology-doc.py     # Automated topology documentation generator
-│   ├── azambasha-topology-git.py     # Topology Git versioning & snapshot engine
-│   ├── azambasha-config-diff.py      # Device configuration backup, diff & rollback
-│   ├── azambasha-ping-mesh.py        # Automated SLA ping mesh & synthetic traffic generator
-│   ├── azambasha-cloud-bridge.py     # Real-LAN transit, NAT & WireGuard cloud bridge
-│   ├── azambasha-capture-stream.sh   # Live Wireshark streaming & packet capture
-│   ├── azambasha-sniffer.py          # TAP interface packet sniffer
-│   ├── setup-windows-wireshark.ps1   # Wireshark live remote stream pipe
-│   ├── azambasha-scheduler.py        # Lab auto-shutdown & student quota engine
-│   ├── azambasha-setup-scheduler.sh  # Systemd timer installer for scheduler
-│   ├── azambasha-lab-grader.py       # Automated lab assessment & exam grading
-│   ├── azambasha-eve-lab-importer.py # EVE-NG to PNetLab lab archive converter
-│   ├── azambasha-fix-export-and-apt.sh # Multi-folder ZIP export engine
-│   ├── azambasha-fix-export-sort.py  # Lab export alphabetical sorting
-│   ├── azambasha-upload-and-docker-fix.sh # 512MB uploads & Docker CE engine
-│   ├── azambasha-ops-api.py          # Operations Center REST API daemon (:8889)
-│   ├── azambasha-gui-enhancements.sh # Web UI features registration
-│   ├── azambasha-ui-enhancements.sh  # UI enhancements helper
-│   ├── prep_frr.sh / config_frr.py   # FRRouting BGP/OSPF lab setup
-│   └── vpcs_mux.py                   # VPCS console multiplexer
+│   ├── pnet-ai-copilot.py            # Local Ollama AI Lab Assistant & MCP server
+│   ├── pnet-setup-ollama.sh          # Ollama model downloader & runner
+│   ├── pnet-setup-ollama-host.ps1    # Windows host Ollama bridge
+│   ├── pnet-topology-doc.py          # Automated topology documentation generator
+│   ├── pnet-topology-git.py          # Topology Git versioning & snapshot engine
+│   ├── pnet-config-diff.py           # Device configuration backup, diff & rollback
+│   ├── pnet-ping-mesh.py             # Automated SLA ping mesh & synthetic traffic generator
+│   ├── pnet-cloud-bridge.py          # Real-LAN transit, NAT & WireGuard cloud bridge
+│   ├── pnet-capture-stream.sh        # Live Wireshark streaming & packet capture
+│   ├── pnet-sniffer.py               # TAP interface packet sniffer
+│   ├── pnet-setup-windows-wireshark.ps1 # Wireshark live remote stream pipe
+│   ├── pnet-scheduler.py             # Lab auto-shutdown & student quota engine
+│   ├── pnet-setup-scheduler.sh       # Systemd timer installer for scheduler
+│   ├── pnet-lab-grader.py            # Automated lab assessment & exam grading
+│   ├── pnet-eve-lab-importer.py      # EVE-NG to PNetLab lab archive converter
+│   ├── pnet-fix-export-and-apt.sh    # Multi-folder ZIP export engine
+│   ├── pnet-fix-export-sort.py       # Lab export alphabetical sorting
+│   ├── pnet-upload-and-docker-fix.sh # 512MB uploads & Docker CE engine
+│   ├── pnet-ops-api.py               # Operations Center REST API daemon (:8889)
+│   ├── pnet-gui-enhancements.sh      # Web UI features registration
+│   ├── pnet-ui-enhancements.sh       # UI enhancements helper
+│   ├── pnet-prep-frr.sh / pnet-config-frr.py # FRRouting BGP/OSPF lab setup
+│   └── pnet-vpcs-mux.py              # VPCS console multiplexer
 ├── mcp/                              # Model Context Protocol (MCP) AI Subsystem
-│   ├── azamlabs-mcp.py               # Local MCP server bridge
-│   ├── azamlabs-mcp.service          # MCP server background service
+│   ├── pnet-mcp.py                   # Local MCP server bridge
+│   ├── pnet-mcp.service              # MCP server background service
 │   ├── ai_lab_agent.py               # Autonomous AI lab architect agent
 │   ├── ai_plans.py                   # Automated topology execution plans
 │   ├── ai_ledger.py                  # Token usage & interaction ledger

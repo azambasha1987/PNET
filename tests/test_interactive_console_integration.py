@@ -1,12 +1,27 @@
 import os
 import time
-import pytest
+import unittest
+
+try:
+    import pytest
+except ImportError:
+    pytest = None
 
 try:
     from playwright.sync_api import sync_playwright
+    PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     sync_playwright = None
+    PLAYWRIGHT_AVAILABLE = False
+
+if not PLAYWRIGHT_AVAILABLE and pytest:
     pytest.skip("Playwright not installed; skipping browser console integration test.", allow_module_level=True)
+
+class TestInteractiveConsoleIntegration(unittest.TestCase):
+    def test_interactive_console_integration(self):
+        if not PLAYWRIGHT_AVAILABLE:
+            self.skipTest("Playwright not installed; skipping browser console integration test.")
+        main()
 
 ARTIFACT_DIR = r"C:\Users\azamb\.gemini\antigravity\brain\53959bcc-ebd3-4baa-a7c6-5bcbd4f78f68"
 

@@ -53,15 +53,15 @@ if [ -d "${SCRIPT_DIR}/mcp" ]; then
 fi
 chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /opt/unetlab/scripts/mcp/*.py 2>/dev/null || true
 
-ln -sf /opt/unetlab/scripts/azambasha-ai-copilot.py          /usr/local/bin/pnet-ai
-ln -sf /opt/unetlab/scripts/azambasha-config-diff.py         /usr/local/bin/pnet-config-diff
-ln -sf /opt/unetlab/scripts/azambasha-ping-mesh.py           /usr/local/bin/pnet-ping-mesh
-ln -sf /opt/unetlab/scripts/azambasha-scheduler.py           /usr/local/bin/pnet-scheduler
-ln -sf /opt/unetlab/scripts/azambasha-cloud-bridge.py        /usr/local/bin/pnet-cloud-bridge
-ln -sf /opt/unetlab/scripts/azambasha-topology-doc.py        /usr/local/bin/pnet-topology-doc
-ln -sf /opt/unetlab/scripts/azambasha-topology-git.py        /usr/local/bin/pnet-topology-git
-ln -sf /opt/unetlab/scripts/azambasha-eve-lab-importer.py      /usr/local/bin/pnet-lab-importer
-ln -sf "${SCRIPT_DIR}/apply-features.sh"                     /usr/local/bin/pnet-apply-features
+ln -sf /opt/unetlab/scripts/pnet-ai-copilot.py          /usr/local/bin/pnet-ai
+ln -sf /opt/unetlab/scripts/pnet-config-diff.py         /usr/local/bin/pnet-config-diff
+ln -sf /opt/unetlab/scripts/pnet-ping-mesh.py           /usr/local/bin/pnet-ping-mesh
+ln -sf /opt/unetlab/scripts/pnet-scheduler.py           /usr/local/bin/pnet-scheduler
+ln -sf /opt/unetlab/scripts/pnet-cloud-bridge.py        /usr/local/bin/pnet-cloud-bridge
+ln -sf /opt/unetlab/scripts/pnet-topology-doc.py        /usr/local/bin/pnet-topology-doc
+ln -sf /opt/unetlab/scripts/pnet-topology-git.py        /usr/local/bin/pnet-topology-git
+ln -sf /opt/unetlab/scripts/pnet-eve-lab-importer.py    /usr/local/bin/pnet-lab-importer
+ln -sf "${SCRIPT_DIR}/apply-features.sh"                 /usr/local/bin/pnet-apply-features
 chmod +x /usr/local/bin/pnet-* 2>/dev/null || true
 log_ok "Registered feature CLI commands."
 
@@ -162,7 +162,10 @@ APACHEEOF
 a2enmod proxy proxy_http headers 2>/dev/null || true
 a2enconf pnet-ops-api 2>/dev/null || true
 
-if [ -f "/opt/unetlab/scripts/azambasha-ops-api.py" ]; then
+if [ -f "/opt/unetlab/scripts/pnet-ops-api.py" ]; then
+    python3 /opt/unetlab/scripts/pnet-ops-api.py --install 2>/dev/null || true
+    systemctl restart pnet-ops-api.service 2>/dev/null || true
+elif [ -f "/opt/unetlab/scripts/azambasha-ops-api.py" ]; then
     python3 /opt/unetlab/scripts/azambasha-ops-api.py --install 2>/dev/null || true
     systemctl restart pnet-ops-api.service 2>/dev/null || systemctl restart azam-ops-api.service 2>/dev/null || true
 fi

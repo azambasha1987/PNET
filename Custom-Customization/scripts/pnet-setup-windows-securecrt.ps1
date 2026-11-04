@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    AzamLabs Windows 1-Click SecureCRT Protocol Integrator & Tab-Naming Wrapper
+    PNetLab Windows 1-Click SecureCRT Protocol Integrator & Tab-Naming Wrapper
 .DESCRIPTION
     Registers the 'telnet://' URL protocol handler in the Windows Registry to route
     through a smart SecureCRT launcher.
-    Supports standard 'telnet://<host>:<port>' as well as AzamLabs sequenced format
+    Supports standard 'telnet://<host>:<port>' as well as PNetLab sequenced format
     'telnet://<host>:<port>#<node_name>'.
     Ensures SecureCRT opens sessions in new tabs (/T) with clean device titles (/N "<node_name>"),
     preventing scrambled tabs and raw port names.
@@ -22,21 +22,21 @@ if (-not $isAdmin) {
     exit 0
 }
 
-$InstallDir = "$env:ProgramData\AzamLabs"
-$SecureCRTWrapper = "$InstallDir\azamlabs-securecrt.bat"
+$InstallDir = "$env:ProgramData\PNetLab"
+$SecureCRTWrapper = "$InstallDir\pnetlab-securecrt.bat"
 
 if ($Uninstall) {
-    Write-Host "Uninstalling AzamLabs SecureCRT Protocol Handler..." -ForegroundColor Yellow
+    Write-Host "Uninstalling PNetLab SecureCRT Protocol Handler..." -ForegroundColor Yellow
     Remove-Item -Path "HKCR:\telnet" -Recurse -ErrorAction SilentlyContinue
     if (Test-Path $SecureCRTWrapper) {
         Remove-Item -Path $SecureCRTWrapper -Force -ErrorAction SilentlyContinue
     }
-    Write-Host "[OK] AzamLabs SecureCRT handler removed. Standard Windows telnet restored." -ForegroundColor Green
+    Write-Host "[OK] PNetLab SecureCRT handler removed. Standard Windows telnet restored." -ForegroundColor Green
     exit 0
 }
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "   AzamLabs 1-Click SecureCRT Sequenced Protocol Integrator  " -ForegroundColor Cyan
+Write-Host "   PNetLab 1-Click SecureCRT Sequenced Protocol Integrator   " -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 
 # 1. Locate SecureCRT.exe
@@ -75,7 +75,7 @@ $BatchContent = @"
 setlocal enabledelayedexpansion
 
 :: ============================================================
-:: AzamLabs SecureCRT Sequenced Launcher & Session Naming Stub
+:: PNetLab SecureCRT Sequenced Launcher & Session Naming Stub
 :: Input: telnet://<HOST>:<PORT>#<DEVICE_NAME> or telnet://<HOST>:<PORT>
 :: ============================================================
 set "RAW_URL=%~1"
@@ -113,7 +113,7 @@ Write-Host "[3/3] Registering Windows 'telnet://' Protocol Handler for SecureCRT
 
 $regPath = "Registry::HKEY_CLASSES_ROOT\telnet"
 New-Item -Path $regPath -Force | Out-Null
-Set-ItemProperty -Path $regPath -Name "(default)" -Value "URL:Telnet Protocol (AzamLabs SecureCRT)" | Out-Null
+Set-ItemProperty -Path $regPath -Name "(default)" -Value "URL:Telnet Protocol (PNetLab SecureCRT)" | Out-Null
 Set-ItemProperty -Path $regPath -Name "URL Protocol" -Value "" | Out-Null
 
 $cmdPath = "$regPath\shell\open\command"
@@ -123,6 +123,6 @@ Set-ItemProperty -Path $cmdPath -Name "(default)" -Value "`"$SecureCRTWrapper`" 
 Write-Host "`n============================================================" -ForegroundColor Cyan
 Write-Host "  [SUCCESS] 1-Click SecureCRT Protocol Registered on Windows! " -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " Clicking 'Sequenced Console' in AzamLabs will now automatically"
+Write-Host " Clicking 'Sequenced Console' in PNetLab will now automatically"
 Write-Host " dock sessions into ordered SecureCRT tabs with device titles!"
 Write-Host "============================================================" -ForegroundColor Cyan
