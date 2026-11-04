@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 ===============================================================================
-AzamLabs Unified Housekeeping & Deep Log Purge Engine
+PNetLab Unified Housekeeping & Deep Log Purge Engine
 ===============================================================================
-Authoritative cleanup utility for AzamLabs repository, local development
+Authoritative cleanup utility for PNetLab repository, local development
 workspace, and remote virtualization cluster nodes (Master & Satellite).
 
 Capabilities:
@@ -11,7 +11,7 @@ Capabilities:
      - Purges all __pycache__ directories, *.pyc, *.pyo files.
      - Purges .pytest_cache/, test logs, and temporary artifacts.
      - Leaves runtime packages in .venv intact while reclaiming disk space.
-  2. Remote Cluster Nodes (Master: 192.168.1.23, Satellite: 192.168.1.18):
+  2. Remote Cluster Nodes (Master & Satellite):
      - Truncates UNetLab application logs (/opt/unetlab/data/Logs/*.txt, *.log).
      - Truncates Apache2 access/error logs and purges rotated archives (*.gz).
      - Truncates system logs (/var/log/syslog, kern.log, dpkg.log, etc.).
@@ -21,7 +21,7 @@ Capabilities:
      - Re-asserts canonical ownership (www-data:www-data) and permissions.
 
 Usage:
-  python scripts/azambasha-housekeeping.py [--all] [--local] [--cluster] [--dry-run]
+  python scripts/pnet-housekeeping.py [--all] [--local] [--cluster] [--dry-run]
 ===============================================================================
 """
 
@@ -42,7 +42,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def print_banner():
     print("=" * 68)
-    print("      AzamLabs Unified Housekeeping & Deep Log Purge Engine     ")
+    print("      PNetLab Unified Housekeeping & Deep Log Purge Engine      ")
     print("=" * 68)
 
 

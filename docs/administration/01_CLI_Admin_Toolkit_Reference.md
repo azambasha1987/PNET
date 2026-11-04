@@ -11,27 +11,28 @@ PNetLab delivers a unified suite of enterprise administration utilities pre-inst
 
 ---
 
-## 2. Canonical CLI Commands Reference (`/usr/local/bin/pnet-*` and `/usr/local/bin/pnet-*`)
+## 2. Canonical CLI Commands Reference (`/usr/local/bin/pnet-*`)
 
-The following canonical CLI tools (`pnet-*`) and backwards-compatible aliases (`azam-*`) are available immediately on the command line of any PNetLab server:
+The following canonical CLI tools (`pnet-*`) are available immediately on the command line of any PNetLab server:
 
 | Command | Function & Scope | Common Syntax |
 | :--- | :--- | :--- |
-| `pnet-update` / `pnet-update` | **Universal In-Band Updater**: Fetches updates from GitHub, takes safety snapshot, and runs node pipeline. | `sudo pnet-update [--master \| --satellite \| --rollback \| --check]` |
-| `pnet-audit` / `pnet-audit` | **Quarterly Security & System Audit**: Verifies file integrity, permissions, database, and snapshots. | `sudo pnet-audit [--snapshot \| --rollback <path>]` |
-| `pnet-health` / `pnet-health` / `pnet-doctor` / `pnet-doctor` | **Comprehensive Health Diagnostics**: Real-time audit of KVM virtualization, CPU governor, RAM, KSM, storage, and services. | `sudo pnet-health` |
-| `pnet-images` / `pnet-images` | **QCOW2 Image Optimizer**: Audits, repairs, and sparsifies/compresses guest disk images (40–70% disk savings). | `sudo pnet-images [--audit \| --compress]` |
-| `pnet-optimizer` / `pnet-optimizer` | **Heavy-Node & Speed Optimizer**: Engages Ultra-KSM (4KB deduplication), madvise THP, and dynamic lossless CPU governor. | `sudo pnet-optimizer [--master \| --satellite \| --cluster \| --check]` |
-| `pnet-bootstorm` / `pnet-bootstorm` | **Anti-Bootstorm Orchestrator**: Enforces 3-tier staggered startup for high-density virtual node clusters. | `sudo pnet-bootstorm [--status \| --run]` |
-| `pnet-cluster` / `pnet-cluster` | **Cluster Broker Diagnostic**: Tests MySQL connectivity, PSK authentication, and satellite communication. | `sudo pnet-cluster` |
-| `pnet-satellite-join` / `pnet-satellite-join`| **Satellite Enrollment Utility**: Joins worker node to Master using cluster IP and 64-hex PSK. | `sudo pnet-satellite-join --master <IP> --psk <KEY>` |
-| `pnet-nodes` / `pnet-nodes` | **Node Recovery Engine**: Cleans stale lockfiles, resets `/dev/kvm`, and fixes SMM UEFI & Cisco IOSv boot timeouts. | `sudo pnet-nodes` |
-| `pnet-credentials` / `pnet-credentials` | **Credential Re-alignment**: Restores canonical web credentials (`admin:pnet`) and SSH root identity. | `sudo pnet-credentials` |
-| `pnet-backup` / `pnet-backup` | **Automated Backup & Restore**: Full snapshot archive of labs, users, MySQL database, and configs. | `sudo pnet-backup [backup \| restore <path>]` |
-| `pnet-clean` / `pnet-clean` | **Housekeeping & Space Reclaim**: Vacuums journald logs, truncates debug outputs, purges stale temp files. | `sudo pnet-clean` |
-| `pnet-apt-guard` / `pnet-apt-guard` | **Safe APT Guard Utility**: Intercepts `apt upgrade` and `autoremove` to protect 32-bit IOL and kernel modules. | `sudo pnet-apt-guard [--status \| --enable \| --disable]` |
-| `pnet-dark` / `pnet-dark` | **Pure Black Dark Theme Engine**: Toggles or restores the PNetLab high-contrast dark theme. | `sudo pnet-dark [--enable \| --disable]` |
-| `pnet-menu` / `pnet-menu` / `pnet-fix` / `pnet-fix` | **Interactive Repair Suite**: TUI menu providing single-click access to all diagnostic and repair scripts. | `sudo pnet-menu` |
+| `pnet-update` | **Universal In-Band Updater**: Fetches updates from GitHub, takes safety snapshot, and runs node pipeline. | `sudo pnet-update [--master \| --satellite \| --rollback \| --check]` |
+| `pnet-mod` | **Modular Subsystem Manager**: Inspects and deploys the three custom pillars independently. | `sudo pnet-mod [status \| apply <pillar> \| list]` |
+| `pnet-audit` | **Quarterly Security & System Audit**: Verifies file integrity, permissions, database, and snapshots. | `sudo pnet-audit [--snapshot \| --rollback <path>]` |
+| `pnet-health` | **Comprehensive Health Diagnostics**: Real-time audit of KVM virtualization, CPU governor, RAM, KSM, storage, and services. | `sudo pnet-health` |
+| `pnet-doctor` / `pnet-images` | **QCOW2 Image Optimizer**: Audits, repairs, and sparsifies/compresses guest disk images (40–70% disk savings). | `sudo pnet-doctor [--check \| --fix]` |
+| `pnet-optimizer` | **Heavy-Node & Speed Optimizer**: Engages Ultra-KSM (4KB deduplication), madvise THP, and dynamic lossless CPU governor. | `sudo pnet-optimizer [--master \| --satellite \| --cluster \| --check]` |
+| `pnet-bootstorm` | **Anti-Bootstorm Orchestrator**: Enforces 3-tier staggered startup for high-density virtual node clusters. | `sudo pnet-bootstorm [--status \| --run]` |
+| `pnet-cluster` | **Cluster Broker Diagnostic**: Tests MySQL connectivity, PSK authentication, and satellite communication. | `sudo pnet-cluster` |
+| `pnet-satellite-join` | **Satellite Enrollment Utility**: Joins worker node to Master using cluster IP and 64-hex PSK. | `sudo pnet-satellite-join --master <IP> --psk <KEY>` |
+| `pnet-nodes` | **Node Recovery Engine**: Cleans stale lockfiles, resets `/dev/kvm`, and fixes SMM UEFI & Cisco IOSv boot timeouts. | `sudo pnet-nodes` |
+| `pnet-credentials` | **Credential Re-alignment**: Restores canonical web credentials (`admin:pnet`) and SSH root identity. | `sudo pnet-credentials` |
+| `pnet-backup` / `pnet-restore` | **Automated Backup & Restore**: Full snapshot archive of labs, users, MySQL database, and configs. | `sudo pnet-backup [backup \| restore <path>]` |
+| `pnet-clean` | **Housekeeping & Space Reclaim**: Vacuums journald logs, truncates debug outputs, purges stale temp files. | `sudo pnet-clean` |
+| `pnet-apt-guard` | **Safe APT Guard Utility**: Intercepts `apt upgrade` and `autoremove` to protect 32-bit IOL and kernel modules. | `sudo pnet-apt-guard [--status \| --enable \| --disable]` |
+| `pnet-dark` | **Pure Black Dark Theme Engine**: Toggles or restores the PNetLab high-contrast dark theme. | `sudo pnet-dark [--enable \| --disable]` |
+| `pnet-menu` / `pnet-fix` | **Interactive Repair Suite**: TUI menu providing single-click access to all diagnostic and repair scripts. | `sudo pnet-menu` |
 
 ---
 
@@ -93,24 +94,26 @@ sudo pnet-clean
 
 ## 4. Script-Level Utilities Directory (`/opt/unetlab/scripts/`)
 
-All underlying scripts supporting the CLI are located in `/opt/unetlab/scripts/` (and mirror repository `scripts/`):
+All underlying scripts supporting the CLI are located in `/opt/unetlab/scripts/` (and structured repository folders):
 
 | Script Path | Purpose |
 | :--- | :--- |
-| `scripts/azambasha-apply-all-fixes.sh` | Core runner behind `pnet-menu` / `pnet-menu` and `pnet-fix` / `pnet-fix` |
-| `scripts/azambasha-update.sh` | Core runner behind `pnet-update` / `pnet-update` |
-| `scripts/azambasha-health-check.sh` | Core runner behind `pnet-health` / `pnet-health` and `pnet-doctor` / `pnet-doctor` |
-| `scripts/azambasha-image-doctor.sh` | Core runner behind `pnet-images` / `pnet-images` |
-| `scripts/azambasha-heavy-node-optimizer.sh` | Core runner behind `pnet-optimizer` / `pnet-optimizer` |
-| `scripts/azambasha-bootstorm.py` | Core runner behind `pnet-bootstorm` / `pnet-bootstorm` |
-| `scripts/azambasha-backup-restore.sh` | Core runner behind `pnet-backup` / `pnet-backup` |
-| `scripts/azambasha-quarterly-audit.sh` | Core runner behind `pnet-audit` / `pnet-audit` |
-| `scripts/azambasha-housekeeping.sh` | Core runner behind `pnet-clean` / `pnet-clean` |
-| `scripts/azambasha-apt-guard.sh` | Core runner behind `pnet-apt-guard` / `pnet-apt-guard` |
-| `scripts/azambasha-fix-cluster.sh` | Core runner behind `pnet-cluster` / `pnet-cluster` |
-| `scripts/azambasha-satellite-join.sh` | Core runner behind `pnet-satellite-join` / `pnet-satellite-join` |
-| `scripts/azambasha-fix-web-credentials.sh` | Core runner behind `pnet-credentials` / `pnet-credentials` |
-| `scripts/azambasha-fix-node-startup.sh` | Core runner behind `pnet-nodes` / `pnet-nodes` |
-| `scripts/azambasha-speed-optimizer.sh` | Core runner for OPcache, Gzip, and sysctl tuning |
-| `scripts/azambasha-disable-logout.sh` | Permanent 10-year sliding session enforcer |
+| `scripts/pnet-apply-all-fixes.sh` | Core runner behind `pnet-menu` and `pnet-fix` |
+| `scripts/pnet-update.sh` | Core runner behind `pnet-update` |
+| `scripts/pnet-health-check.sh` | Core runner behind `pnet-health` |
+| `scripts/pnet-backup-restore.sh` / `scripts/pnet-lab-backup.sh` | Core runner behind `pnet-backup` and `pnet-restore` |
+| `scripts/pnet-quarterly-audit.sh` | Core runner behind `pnet-audit` |
+| `scripts/pnet-housekeeping.sh` / `.py` | Core runner behind `pnet-clean` |
+| `scripts/pnet-apt-guard.sh` | Core runner behind `pnet-apt-guard` |
+| `scripts/pnet-fix-cluster.sh` | Core runner behind `pnet-cluster` |
+| `scripts/pnet-satellite-join.sh` | Core runner behind `pnet-satellite-join` |
+| `scripts/pnet-fix-permissions.sh` | Core runner for permission hardening and node lock cleanup |
+| `scripts/pnet-os-prerequisites.sh` | Complete OS prerequisites and kernel module provisioner |
+| `scripts/pnet-modernize-ubuntu26.sh` | Ubuntu 26+ modernization orchestrator |
+| `scripts/pnet-mod.sh` | Modular pillar and subsystem CLI manager |
+| `Custom-Performance/scripts/azambasha-heavy-node-optimizer.sh` | Multi-core router and hypervisor optimizer |
+| `Custom-Performance/scripts/azambasha-image-doctor.sh` | Guest disk image optimizer and repair tool |
+| `Custom-Performance/scripts/azambasha-bootstorm.py` | Staggered node boot anti-bootstorm engine |
+| `Custom-Customization/scripts/azambasha-fix-web-credentials.sh` | Canonical credential restoration |
+| `Custom-Customization/scripts/azambasha-disable-logout.sh` | Permanent session keepalive engine |
 

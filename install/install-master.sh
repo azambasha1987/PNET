@@ -114,15 +114,8 @@ fi
 # Apply all Tri-Pillar Custom Subsystems (Performance, Customization, Features)
 if [ -f "$REPO_ROOT/apply-all-custom.sh" ]; then
     bash "$REPO_ROOT/apply-all-custom.sh" --master || true
-elif [ -f "$REPO_ROOT/Custom-Features/apply-custom-features.sh" ]; then
-    bash "$REPO_ROOT/Custom-Features/apply-custom-features.sh" --master || true
-elif [ -f /opt/unetlab/scripts/azambasha-install-azam-features.sh ]; then
-    bash /opt/unetlab/scripts/azambasha-install-azam-features.sh || true
-fi
-
-# Assert canonical web credentials
-if [ -f /opt/unetlab/scripts/azambasha-fix-web-credentials.sh ]; then
-    bash /opt/unetlab/scripts/azambasha-fix-web-credentials.sh || true
+elif [ -f "$REPO_ROOT/Custom-Features/apply-features.sh" ]; then
+    bash "$REPO_ROOT/Custom-Features/apply-features.sh" --master || true
 fi
 
 echo "[7/7] Finalizing services..."

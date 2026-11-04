@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Azam Basha Lab Topology & Device Config Auto-Backup & Restore Engine
+# PNetLab Lab Topology & Device Config Auto-Backup & Restore Engine
 # ==============================================================================
 # Backs up and restores:
 #   1. All .unl topology files (/opt/unetlab/labs/)
 #   2. All saved node startup & running configs (/opt/unetlab/data/Labs/)
-#   3. MySQL azamlabs_db lab hierarchy, folders, and node metadata
+#   3. MySQL pnetlab_db / pnet_db lab hierarchy, folders, and node metadata
 # ==============================================================================
 set -euo pipefail
 
-BACKUP_DIR="/opt/azambasha/backups"
+BACKUP_DIR="/opt/unetlab/data/Backups"
 LABS_DIR="/opt/unetlab/labs"
 DATA_DIR="/opt/unetlab/data/Labs"
 
@@ -20,7 +20,7 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 usage() {
-    echo "Usage: sudo azam-backup [OPTION]"
+    echo "Usage: sudo pnet-backup [OPTION]"
     echo ""
     echo "Options:"
     echo "  --backup           Create a complete timestamped backup of all labs and configs (default)"

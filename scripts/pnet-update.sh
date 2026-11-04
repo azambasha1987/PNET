@@ -10,8 +10,8 @@ SRC_LOC="${BASH_SOURCE[0]:-$0}"
 set -u
 REAL_PATH="$(realpath "$SRC_LOC" 2>/dev/null || readlink -f "$SRC_LOC" 2>/dev/null || echo "$SRC_LOC")"
 SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" 2>/dev/null && pwd || echo "/opt/unetlab/scripts")"
-for cand_dir in "/opt/unetlab/scripts" "/opt/unetlab/scripts" "/opt/unetlab/scripts"; do
-    if [ -f "${cand_dir}/azambasha-apply-all-fixes.sh" ]; then
+for cand_dir in "/opt/unetlab/scripts" "/opt/pnet/scripts" "$REPO_ROOT/scripts"; do
+    if [ -f "${cand_dir}/pnet-apply-all-fixes.sh" ] || [ -f "${cand_dir}/azambasha-apply-all-fixes.sh" ]; then
         SCRIPT_DIR="$cand_dir"
         break
     fi
@@ -63,15 +63,14 @@ usage() {
 # Auto-install symlinks if running as root
 if [ "$(id -u)" -eq 0 ]; then
     local_target="$(realpath "$0" 2>/dev/null || echo "$0")"
-    if [ -f "/opt/unetlab/scripts/azambasha-update.sh" ]; then
-        local_target="/opt/unetlab/scripts/azambasha-update.sh"
-    elif [ -f "${SCRIPT_DIR}/azambasha-update.sh" ]; then
-        local_target="${SCRIPT_DIR}/azambasha-update.sh"
+    if [ -f "/opt/unetlab/scripts/pnet-update.sh" ]; then
+        local_target="/opt/unetlab/scripts/pnet-update.sh"
+    elif [ -f "${SCRIPT_DIR}/pnet-update.sh" ]; then
+        local_target="${SCRIPT_DIR}/pnet-update.sh"
     fi
     ln -sf "$local_target" /usr/local/bin/pnet-update 2>/dev/null || true
-    rm -f /usr/local/bin/pnet-* /usr/local/bin/pnet-* 2>/dev/null || true
-    if [ -f "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" ]; then
-        ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
+    if [ -f "${SCRIPT_DIR}/pnet-quarterly-audit.sh" ]; then
+        ln -sf "${SCRIPT_DIR}/pnet-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
     fi
 fi
 
@@ -107,10 +106,10 @@ run_diagnostics() {
     local role
     role="$(detect_role)"
     log_ok "Node Role Identified: ${BOLD}${role^^}${RESET}"
-    if [ -f "${SCRIPT_DIR}/azambasha-dry-test.py" ]; then
+    if [ -f "${SCRIPT_DIR}/pnet-health-check.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-health-check.sh"
+    elif [ -f "${SCRIPT_DIR}/azambasha-dry-test.py" ]; then
         python3 "${SCRIPT_DIR}/azambasha-dry-test.py" || true
-    elif [ -f "${SCRIPT_DIR}/azambasha-health-check.sh" ]; then
-        bash "${SCRIPT_DIR}/azambasha-health-check.sh"
     fi
 }
 
@@ -121,8 +120,8 @@ sync_from_github() {
     fi
 
     log_info "Connecting to GitHub to fetch the latest PNetLab code..."
-    local github_url="https://github.com/azambasha1987/PNetLab.git"
-    local github_tar_url="https://github.com/azambasha1987/PNetLab/archive/refs/heads/main.tar.gz"
+    local github_url="https://github.com/azambasha1987/PNET.git"
+    local github_tar_url="https://github.com/azambasha1987/PNET/archive/refs/heads/main.tar.gz"
 
     local myrepo_dir="/opt/pnet"
     mkdir -p "$myrepo_dir" 2>/dev/null || true
@@ -273,10 +272,10 @@ sync_from_github() {
     fi
 
     # Refresh global canonical pnet-* administrative symlinks
-    rm -f /usr/local/bin/pnet-* /usr/local/bin/pnet-* 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-update.sh              /usr/local/bin/pnet-update 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-quarterly-audit.sh     /usr/local/bin/pnet-audit 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-health-check.sh        /usr/local/bin/pnet-health 2>/dev/null || true
+    rm -f /usr/local/bin/azam-* /usr/local/bin/azambasha-* 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-update.sh              /usr/local/bin/pnet-update 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-quarterly-audit.sh     /usr/local/bin/pnet-audit 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-health-check.sh        /usr/local/bin/pnet-health 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh         /usr/local/bin/pnet-doctor 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh         /usr/local/bin/pnet-images 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/pnet-optimizer 2>/dev/null || true
@@ -284,21 +283,22 @@ sync_from_github() {
     ln -sf /opt/unetlab/scripts/azambasha-dry-test.py             /usr/local/bin/pnet-dry-test 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-fix-node-startup.sh    /usr/local/bin/pnet-nodes 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-bootstorm.py          /usr/local/bin/pnet-bootstorm 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-backup-restore.sh       /usr/local/bin/pnet-backup 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-backup-restore.sh       /usr/local/bin/pnet-restore 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-housekeeping.sh        /usr/local/bin/pnet-clean 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-lab-backup.sh               /usr/local/bin/pnet-backup 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-lab-backup.sh               /usr/local/bin/pnet-restore 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-housekeeping.sh             /usr/local/bin/pnet-clean 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-dark-theme.sh          /usr/local/bin/pnet-dark 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-sync-network-config.sh /usr/local/bin/pnet-netcfg 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-apt-guard.sh           /usr/local/bin/pnet-apt-guard 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-apt-guard.sh                /usr/local/bin/pnet-apt-guard 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-perf.py                /usr/local/bin/pnet-perf 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-watchdog.py            /usr/local/bin/pnet-watchdog 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-apply-all-fixes.sh      /usr/local/bin/pnet-menu 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-apply-all-fixes.sh      /usr/local/bin/pnet-fix 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh          /usr/local/bin/pnet-menu 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh          /usr/local/bin/pnet-fix 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-fix-web-credentials.sh /usr/local/bin/pnet-credentials 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-fleet-status.sh        /usr/local/bin/pnet-fleet 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-cluster-capacity.py    /usr/local/bin/pnet-capacity 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-fix-cluster.sh         /usr/local/bin/pnet-cluster 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-satellite-join.sh       /usr/local/bin/pnet-satellite-join 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-fix-cluster.sh              /usr/local/bin/pnet-cluster 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-satellite-join.sh           /usr/local/bin/pnet-satellite-join 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-mod.sh                      /usr/local/bin/pnet-mod 2>/dev/null || true
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /usr/local/bin/pnet-* 2>/dev/null || true
 
     # Automatically install newly downloaded debian packages if present in repo releases
@@ -314,15 +314,10 @@ sync_from_github() {
     log_info "Executing PNetLab Tri-Pillar Custom Subsystems for new release..."
     if [ -f "${src_repo}/apply-all-custom.sh" ]; then
         bash "${src_repo}/apply-all-custom.sh" --$(detect_role) || true
-    elif [ -f "${src_repo}/Custom-Features/apply-custom-features.sh" ]; then
-        bash "${src_repo}/Custom-Features/apply-custom-features.sh" --$(detect_role) || true
+    elif [ -f "${src_repo}/Custom-Features/apply-features.sh" ]; then
+        bash "${src_repo}/Custom-Features/apply-features.sh" --$(detect_role) || true
     elif [ -f /usr/local/bin/pnet-apply-all ]; then
         bash /usr/local/bin/pnet-apply-all --$(detect_role) || true
-    else
-        bash /opt/unetlab/scripts/azambasha-install-azam-features.sh || true
-        bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh || true
-        bash /opt/unetlab/scripts/azambasha-cgroups-v2-engine.sh || true
-        bash /opt/unetlab/scripts/azambasha-fix-permissions.sh || true
     fi
 
     SCRIPT_DIR="/opt/unetlab/scripts"
@@ -629,7 +624,10 @@ EOF_OVERRIDE
         log_ok "Natural Ascending Sort: ${BOLD}ENFORCED (0..9, A..Z in api_folders.php & labs.js)${RESET}"
     fi
 
-    if [ -f "${SCRIPT_DIR}/azambasha-apt-guard.sh" ]; then
+    if [ -f "${SCRIPT_DIR}/pnet-apt-guard.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-apt-guard.sh" --enable >/dev/null 2>&1 || true
+        log_ok "Master Safe APT Guard: ${BOLD}ENGAGED (/usr/local/bin/apt active)${RESET}"
+    elif [ -f "${SCRIPT_DIR}/azambasha-apt-guard.sh" ]; then
         bash "${SCRIPT_DIR}/azambasha-apt-guard.sh" --enable >/dev/null 2>&1 || true
         log_ok "Master Safe APT Guard: ${BOLD}ENGAGED (/usr/local/bin/apt active)${RESET}"
     fi
@@ -766,7 +764,10 @@ EOF_SATD
     fi
 
     # 4d. Ensure Safe APT Guard is Engaged on Satellite Node
-    if [ -f "${SCRIPT_DIR}/azambasha-apt-guard.sh" ]; then
+    if [ -f "${SCRIPT_DIR}/pnet-apt-guard.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-apt-guard.sh" --enable >/dev/null 2>&1 || true
+        log_ok "Satellite Safe APT Guard: ${BOLD}ENGAGED (/usr/local/bin/apt active)${RESET}"
+    elif [ -f "${SCRIPT_DIR}/azambasha-apt-guard.sh" ]; then
         bash "${SCRIPT_DIR}/azambasha-apt-guard.sh" --enable >/dev/null 2>&1 || true
         log_ok "Satellite Safe APT Guard: ${BOLD}ENGAGED (/usr/local/bin/apt active)${RESET}"
     fi
@@ -819,8 +820,10 @@ case "$MODE" in
         log_info "Initiating ONE-STEP UPDATE for: ${BOLD}MASTER CONTROLLER NODE${RESET}"
         sync_from_github
         create_pre_update_snapshot
-        bash "${SCRIPT_DIR}/azambasha-apply-all-fixes.sh" 19
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-cluster.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-apply-all-fixes.sh" 19
+        if [ -f "${SCRIPT_DIR}/pnet-fix-cluster.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-cluster.sh" || true
+        elif [ -f "${SCRIPT_DIR}/azambasha-fix-cluster.sh" ]; then
             bash "${SCRIPT_DIR}/azambasha-fix-cluster.sh" || true
         fi
         if [ -f "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" ]; then
@@ -834,7 +837,7 @@ case "$MODE" in
         log_info "Initiating ONE-STEP UPDATE for: ${BOLD}SATELLITE WORKER NODE${RESET}"
         sync_from_github
         create_pre_update_snapshot
-        bash "${SCRIPT_DIR}/azambasha-apply-all-fixes.sh" 25
+        bash "${SCRIPT_DIR}/pnet-apply-all-fixes.sh" 25
         verify_and_stabilize_satellite
         log_ok "Satellite worker node one-step update successfully completed!"
         ;;
@@ -845,15 +848,17 @@ case "$MODE" in
             log_info "Auto-detected Role: ${BOLD}SATELLITE (Worker Node)${RESET}"
             sync_from_github
             create_pre_update_snapshot
-            bash "${SCRIPT_DIR}/azambasha-apply-all-fixes.sh" 25
+            bash "${SCRIPT_DIR}/pnet-apply-all-fixes.sh" 25
             verify_and_stabilize_satellite
             log_ok "Satellite worker node one-step update successfully completed!"
         else
             log_info "Auto-detected Role: ${BOLD}MASTER (Controller Node)${RESET}"
             sync_from_github
             create_pre_update_snapshot
-            bash "${SCRIPT_DIR}/azambasha-apply-all-fixes.sh" 19
-            if [ -f "${SCRIPT_DIR}/azambasha-fix-cluster.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-apply-all-fixes.sh" 19
+            if [ -f "${SCRIPT_DIR}/pnet-fix-cluster.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-fix-cluster.sh" || true
+            elif [ -f "${SCRIPT_DIR}/azambasha-fix-cluster.sh" ]; then
                 bash "${SCRIPT_DIR}/azambasha-fix-cluster.sh" || true
             fi
             if [ -f "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" ]; then

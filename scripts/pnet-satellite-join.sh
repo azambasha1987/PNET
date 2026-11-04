@@ -511,21 +511,16 @@ elif [ -f "$SCRIPT_LOC/azambasha-heavy-node-optimizer.sh" ]; then
 fi
 
 # Register global administrative CLI commands on Satellite
-for s_dir in "/opt/unetlab/scripts" "/opt/unetlab/scripts" "$SCRIPT_LOC"; do
-    if [ -f "${s_dir}/azambasha-update.sh" ]; then
-        ln -sf "${s_dir}/azambasha-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
-        rm -f /usr/local/bin/pnet-update 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-apply-all-fixes.sh" /usr/local/bin/pnet-menu 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-apply-all-fixes.sh" /usr/local/bin/pnet-fix 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-image-doctor.sh" /usr/local/bin/pnet-doctor 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-image-doctor.sh" /usr/local/bin/pnet-image-doctor 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-bootstorm.py" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-bootstorm.py" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
+for s_dir in "/opt/unetlab/scripts" "$SCRIPT_LOC"; do
+    if [ -f "${s_dir}/pnet-update.sh" ] || [ -f "${s_dir}/azambasha-update.sh" ]; then
+        ln -sf "${s_dir}/pnet-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
+        ln -sf "${s_dir}/pnet-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
+        ln -sf "${s_dir}/pnet-apply-all-fixes.sh" /usr/local/bin/pnet-menu 2>/dev/null || true
+        ln -sf "${s_dir}/pnet-apply-all-fixes.sh" /usr/local/bin/pnet-fix 2>/dev/null || true
+        ln -sf "${s_dir}/pnet-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
+        ln -sf "${s_dir}/pnet-satellite-join.sh" /usr/local/bin/pnet-satellite-join 2>/dev/null || true
+        ln -sf "${s_dir}/pnet-mod.sh" /usr/local/bin/pnet-mod 2>/dev/null || true
+        chmod +x /usr/local/bin/pnet-* 2>/dev/null || true
         break
     fi
 done

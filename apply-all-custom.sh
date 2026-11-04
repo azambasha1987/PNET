@@ -54,19 +54,28 @@ fi
 rm -f /usr/local/bin/azam-* /usr/local/bin/azambasha-* /usr/local/bin/apply-heavy-node-optimizer 2>/dev/null || true
 
 # Link core cluster management commands
-ln -sf /opt/unetlab/scripts/azambasha-update.sh              /usr/local/bin/pnet-update
-ln -sf /opt/unetlab/scripts/azambasha-quarterly-audit.sh     /usr/local/bin/pnet-audit
-ln -sf /opt/unetlab/scripts/azambasha-health-check.sh        /usr/local/bin/pnet-health
-ln -sf /opt/unetlab/scripts/azambasha-lab-backup.sh         /usr/local/bin/pnet-backup
-ln -sf /opt/unetlab/scripts/azambasha-lab-backup.sh         /usr/local/bin/pnet-restore
-ln -sf /opt/unetlab/scripts/azambasha-housekeeping.sh        /usr/local/bin/pnet-clean
-ln -sf /opt/unetlab/scripts/azambasha-apt-guard.sh           /usr/local/bin/pnet-apt-guard
-ln -sf /opt/unetlab/scripts/azambasha-apply-all-fixes.sh      /usr/local/bin/pnet-menu
-ln -sf /opt/unetlab/scripts/azambasha-apply-all-fixes.sh      /usr/local/bin/pnet-fix
-ln -sf /opt/unetlab/scripts/azambasha-fix-cluster.sh         /usr/local/bin/pnet-cluster
-ln -sf /opt/unetlab/scripts/azambasha-satellite-join.sh       /usr/local/bin/pnet-satellite-join
-ln -sf "${SCRIPT_DIR}/apply-all-custom.sh"                   /usr/local/bin/pnet-apply-all
-chmod +x /usr/local/bin/pnet-* 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-update.sh              /usr/local/bin/pnet-update
+ln -sf /opt/unetlab/scripts/pnet-quarterly-audit.sh     /usr/local/bin/pnet-audit
+ln -sf /opt/unetlab/scripts/pnet-health-check.sh        /usr/local/bin/pnet-health
+ln -sf /opt/unetlab/scripts/pnet-lab-backup.sh         /usr/local/bin/pnet-backup
+ln -sf /opt/unetlab/scripts/pnet-lab-backup.sh         /usr/local/bin/pnet-restore
+ln -sf /opt/unetlab/scripts/pnet-housekeeping.sh        /usr/local/bin/pnet-clean
+ln -sf /opt/unetlab/scripts/pnet-apt-guard.sh           /usr/local/bin/pnet-apt-guard
+ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh     /usr/local/bin/pnet-menu
+ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh     /usr/local/bin/pnet-fix
+ln -sf /opt/unetlab/scripts/pnet-fix-cluster.sh         /usr/local/bin/pnet-cluster
+ln -sf /opt/unetlab/scripts/pnet-satellite-join.sh      /usr/local/bin/pnet-satellite-join
+ln -sf /opt/unetlab/scripts/pnet-mod.sh                 /usr/local/bin/pnet-mod
+ln -sf "${SCRIPT_DIR}/apply-all-custom.sh"              /usr/local/bin/pnet-apply-all
+chmod +x /usr/local/bin/pnet-* /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
+
+# Provide backward compatibility for any external scripts expecting legacy azambasha-* names
+for pnet_tool in /opt/unetlab/scripts/pnet-*.sh /opt/unetlab/scripts/pnet-*.py; do
+    [ -f "$pnet_tool" ] || continue
+    t_base="$(basename "$pnet_tool")"
+    azam_name="/opt/unetlab/scripts/azambasha-${t_base#pnet-}"
+    [ ! -e "$azam_name" ] && ln -sf "$pnet_tool" "$azam_name" 2>/dev/null || true
+done
 
 # ── 1. Execute Pillar 3: Custom-Performance ──────────────────────────────────
 PERF_HOOK="${SCRIPT_DIR}/Custom-Performance/apply-performance.sh"

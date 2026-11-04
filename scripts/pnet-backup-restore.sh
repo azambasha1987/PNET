@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AzamLabs Automated Backup & Restore Utility
+# PNetLab Automated Backup & Restore Utility
 # Backs up & Restores:
-# 1. AzamLabs Labs directory (/opt/unetlab/labs)
-# 2. MySQL database dump (azamlabs_db: users, labs, configs)
+# 1. PNetLab Labs directory (/opt/unetlab/labs)
+# 2. MySQL database dump (pnetlab_db / pnet_db: users, labs, configs)
 # 3. AI configuration & bridge secrets (/opt/unetlab/data/ai)
 # 4. Custom device templates (/opt/unetlab/html/templates)
 #
@@ -36,19 +36,28 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 case "$COMMAND" in
     backup)
         echo "============================================================"
-        echo "             AzamLabs Appliance Backup Utility               "
+        echo "             PNetLab Appliance Backup Utility               "
         echo "============================================================"
-        BACKUP_FILE="${BACKUP_DIR}/azamlabs_backup_${TIMESTAMP}.tar.gz"
-        TEMP_DIR=$(mktemp -d --suffix=_azamlabs_backup)
+        BACKUP_FILE="${BACKUP_DIR}/pnet_backup_${TIMESTAMP}.tar.gz"
+        TEMP_DIR=$(mktemp -d --suffix=_pnet_backup)
 
-        echo "[1/4] Dumping AzamLabs MySQL database..."
-        DB_DUMP="${TEMP_DIR}/azamlabs_db.sql"
-        if mysql -u azamlabs -pazam -e "USE azamlabs_db;" >/dev/null 2>&1; then
-            mysqldump -u azamlabs -pazam azamlabs_db > "$DB_DUMP" 2>/dev/null || true
-        elif [ -f /etc/mysql/debian.cnf ] && mysql --defaults-file=/etc/mysql/debian.cnf -e "USE azamlabs_db;" >/dev/null 2>&1; then
-            mysqldump --defaults-file=/etc/mysql/debian.cnf azamlabs_db > "$DB_DUMP" 2>/dev/null || true
-        elif mysql -u root -e "USE azamlabs_db;" >/dev/null 2>&1; then
-            mysqldump -u root azamlabs_db > "$DB_DUMP" 2>/dev/null || true
+        echo "[1/4] Dumping PNetLab MySQL database..."
+        DB_NAME="pnetlab_db"
+        for cand_db in "pnetlab_db" "pnet_db" "azamlabs_db"; do
+            if mysql -e "USE ${cand_db};" >/dev/null 2>&1; then
+                DB_NAME="$cand_db"
+                break
+            fi
+        done
+        DB_DUMP="${TEMP_DIR}/${DB_NAME}.sql"
+        if [ -f /etc/mysql/debian.cnf ] && mysql --defaults-file=/etc/mysql/debian.cnf -e "USE ${DB_NAME};" >/dev/null 2>&1; then
+            mysqldump --defaults-file=/etc/mysql/debian.cnf "${DB_NAME}" > "$DB_DUMP" 2>/dev/null || true
+        elif mysql -u root -e "USE ${DB_NAME};" >/dev/null 2>&1; then
+            mysqldump -u root "${DB_NAME}" > "$DB_DUMP" 2>/dev/null || true
+        elif mysql -u root -ppnet -e "USE ${DB_NAME};" >/dev/null 2>&1; then
+            mysqldump -u root -ppnet "${DB_NAME}" > "$DB_DUMP" 2>/dev/null || true
+        elif mysql -u azamlabs -pazam -e "USE ${DB_NAME};" >/dev/null 2>&1; then
+            mysqldump -u azamlabs -pazam "${DB_NAME}" > "$DB_DUMP" 2>/dev/null || true
         else
             echo "Warning: Database dump skipped (could not connect to MySQL)."
         fi

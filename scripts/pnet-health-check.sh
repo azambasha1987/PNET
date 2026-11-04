@@ -61,7 +61,7 @@ if [ -f /sys/kernel/mm/ksm/run ] && [ "$(cat /sys/kernel/mm/ksm/run 2>/dev/null)
     SAVED_MB=$((PAGES_SHARING * PAGE_SIZE_KB / 1024))
     echo -e "  * KSM Deduplication:${GREEN} ✔ ACTIVE (Saving ~${SAVED_MB} MB RAM across nodes)${NC}"
 else
-    echo -e "  * KSM Deduplication:${YELLOW} ✘ INACTIVE (Run azamlabs-speed-optimizer.sh to enable)${NC}"
+    echo -e "  * KSM Deduplication:${YELLOW} ✘ INACTIVE (Run pnet-speed to enable)${NC}"
 fi
 
 SWAPPINESS=$(sysctl -n vm.swappiness 2>/dev/null || cat /proc/sys/vm/swappiness 2>/dev/null || echo "Unknown")
@@ -212,7 +212,7 @@ fi
 if [ -f /opt/unetlab/addons/iol/bin/iourc ] && grep -q "license" /opt/unetlab/addons/iol/bin/iourc 2>/dev/null; then
     echo -e "  * Cisco IOL License Key:   ${GREEN}✔ INSTALLED (/opt/unetlab/addons/iol/bin/iourc)${NC}"
 else
-    echo -e "  * Cisco IOL License Key:   ${YELLOW}✘ MISSING (Run azamlabs-fix-permissions.sh to generate)${NC}"
+    echo -e "  * Cisco IOL License Key:   ${YELLOW}✘ MISSING (Run pnet-fix-permissions.sh to generate)${NC}"
 fi
 
 # 7. Installed Node Images Inventory

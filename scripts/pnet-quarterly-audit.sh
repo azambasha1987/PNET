@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AzamLabs Turnkey Quarterly Intelligence & Audit Engine (azam-audit)
+# PNetLab Turnkey Quarterly Intelligence & Audit Engine (pnet-audit)
 # ==============================================================================
 # Executes scheduled quarterly audits (locked to the 19th at 09:00 AM IST)
 #   1. Zero-Glitch Protocol system health probe (Ultra-KSM, MTU 9000, Web-GUI)
@@ -13,8 +13,8 @@ set -euo pipefail
 # Resolve physical script location across symlinks (e.g. /usr/local/bin/pnet-audit)
 REAL_PATH="$(realpath "${BASH_SOURCE[0]}" 2>/dev/null || readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" 2>/dev/null && pwd || echo "")"
-if [ ! -d "${SCRIPT_DIR}" ] || [ "${SCRIPT_DIR}" = "/usr/local/bin" ] || [ ! -f "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" ]; then
-    if [ -f "/opt/unetlab/scripts/azambasha-quarterly-audit.sh" ]; then
+if [ ! -d "${SCRIPT_DIR}" ] || [ "${SCRIPT_DIR}" = "/usr/local/bin" ] || [ ! -f "${SCRIPT_DIR}/pnet-quarterly-audit.sh" ]; then
+    if [ -f "/opt/unetlab/scripts/pnet-quarterly-audit.sh" ]; then
         SCRIPT_DIR="/opt/unetlab/scripts"
     elif [ -f "/opt/unetlab/scripts/azambasha-quarterly-audit.sh" ]; then
         SCRIPT_DIR="/opt/unetlab/scripts"

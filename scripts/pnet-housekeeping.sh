@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AzamLabs System Housekeeping & Log Purge Engine (azambasha-housekeeping.sh)
+# PNetLab System Housekeeping & Log Purge Engine (pnet-housekeeping.sh)
 #
 # Reclaims disk space, clears accumulated application logs, vacuums systemd
 # journals, cleans temporary files, and refreshes log permissions safely.
 #
 # Usage:
-#   sudo bash scripts/azambasha-housekeeping.sh
-#   azam-clean
+#   sudo bash scripts/pnet-housekeeping.sh
+#   pnet-clean
 # ==============================================================================
 set -Eeuo pipefail
 
@@ -18,7 +18,7 @@ BOLD='\033[1m'
 RESET='\033[0m'
 
 echo -e "${CYAN}${BOLD}============================================================${RESET}"
-echo -e "${CYAN}${BOLD}       AzamLabs System Housekeeping & Log Purge Engine       ${RESET}"
+echo -e "${CYAN}${BOLD}       PNetLab System Housekeeping & Log Purge Engine        ${RESET}"
 echo -e "${CYAN}${BOLD}============================================================${RESET}"
 
 if [ "$(id -u)" -ne 0 ]; then

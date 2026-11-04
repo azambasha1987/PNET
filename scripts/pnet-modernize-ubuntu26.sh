@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Azam Basha Master Modernization & Fine-Tuning Suite for Ubuntu 26+ (Resolute)
+# PNetLab Master Modernization & Fine-Tuning Suite for Ubuntu 26+ (Resolute)
 # Complete orchestration script to modernize Silicon Datapath, PHP 8.5, Cgroups v2,
 # Python 3.14+, 1024-Node Lab Scaling, Bare-Metal NIC Tuning & Security Barriers.
 # ==============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GITHUB_RAW="https://raw.githubusercontent.com/azambasha1987/AzamLabs/main/scripts"
+GITHUB_RAW="https://raw.githubusercontent.com/azambasha1987/PNET/main/scripts"
 
 run_or_fetch() {
     local script_name="$1"

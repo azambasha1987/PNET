@@ -70,12 +70,12 @@ cmd_status() {
     else
         echo -e "   Ultra-KSM 4KB Engine: ${YELLOW}[⚠] INACTIVE${RESET}"
     fi
-    if systemctl is-active --quiet azambasha-cpu-governor 2>/dev/null; then
+    if systemctl is-active --quiet pnet-cpu-governor 2>/dev/null || systemctl is-active --quiet azambasha-cpu-governor 2>/dev/null; then
         echo -e "   CPU Dynamic Governor: ${GREEN}[✔] ACTIVE${RESET}"
     else
         echo -e "   CPU Dynamic Governor: ${YELLOW}[⚠] INACTIVE${RESET}"
     fi
-    if systemctl is-active --quiet azambasha-watchdog 2>/dev/null; then
+    if systemctl is-active --quiet pnet-watchdog 2>/dev/null || systemctl is-active --quiet azambasha-watchdog 2>/dev/null; then
         echo -e "   24/7 Health Watchdog: ${GREEN}[✔] ACTIVE${RESET}"
     else
         echo -e "   24/7 Health Watchdog: ${YELLOW}[⚠] INACTIVE${RESET}"

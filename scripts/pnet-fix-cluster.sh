@@ -452,13 +452,13 @@ chmod 644 "$LOG" 2>/dev/null
 run_root 'echo "root:azam" | chpasswd 2>/dev/null || true' </dev/null >> "$LOG" 2>&1 || true
 export SSHPASS="azam"
 
-# Synchronize AzamLabs optimization suite & CLI symlinks to satellite worker
+# Synchronize optimization suite & CLI symlinks to satellite worker
 if [ -d "/opt/unetlab/scripts" ]; then
-    sshpass -e scp "${SSH_ARGS[@]}" /opt/unetlab/scripts/azambasha-* /opt/unetlab/scripts/azam-* /opt/unetlab/scripts/ksm_merge_exec* /opt/unetlab/scripts/cisco-* /opt/unetlab/scripts/apply-heavy-node-optimizer.sh "${SUSER}@${IP}:/opt/unetlab/scripts/" 2>/dev/null || true
+    sshpass -e scp "${SSH_ARGS[@]}" /opt/unetlab/scripts/* "${SUSER}@${IP}:/opt/unetlab/scripts/" 2>/dev/null || true
     if [ -d "/opt/unetlab/html/templates" ]; then
         sshpass -e scp -r "${SSH_ARGS[@]}" /opt/unetlab/html/templates/* "${SUSER}@${IP}:/opt/unetlab/html/templates/" 2>/dev/null || true
     fi
-    run_root 'chmod +x /opt/unetlab/scripts/azambasha-*.sh /opt/unetlab/scripts/azambasha-*.py /opt/unetlab/scripts/apply-heavy-node-optimizer.sh && ln -sf /opt/unetlab/scripts/azambasha-update.sh /usr/local/bin/pnet-update && ln -sf /opt/unetlab/scripts/azambasha-quarterly-audit.sh /usr/local/bin/pnet-audit && ln -sf /opt/unetlab/scripts/azambasha-satellite-join.sh /usr/local/bin/pnet-satellite-join && ln -sf /opt/unetlab/scripts/azambasha-satellite-join.sh /usr/local/bin/pnet-satellite-join && ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/pnet-optimizer && ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/pnet-heavy-optimizer && ln -sf /opt/unetlab/scripts/apply-heavy-node-optimizer.sh /usr/local/bin/apply-heavy-node-optimizer && ln -sf /opt/unetlab/scripts/azambasha-dry-test.py /usr/local/bin/pnet-dry-test && ln -sf /opt/unetlab/scripts/azambasha-health-check.sh /usr/local/bin/pnet-health && ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh /usr/local/bin/pnet-doctor && ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh /usr/local/bin/pnet-image-doctor && ln -sf /opt/unetlab/scripts/azambasha-bootstorm.py /usr/local/bin/pnet-bootstorm && ln -sf /opt/unetlab/scripts/azambasha-bootstorm.py /usr/local/bin/pnet-bootstorm && bash /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh --satellite && bash /opt/unetlab/scripts/azambasha-fix-node-startup.sh 2>/dev/null || true' </dev/null >> "$LOG" 2>&1 || true
+    run_root 'chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py && ln -sf /opt/unetlab/scripts/pnet-update.sh /usr/local/bin/pnet-update && ln -sf /opt/unetlab/scripts/pnet-quarterly-audit.sh /usr/local/bin/pnet-audit && ln -sf /opt/unetlab/scripts/pnet-satellite-join.sh /usr/local/bin/pnet-satellite-join && ln -sf /opt/unetlab/scripts/pnet-health-check.sh /usr/local/bin/pnet-health && ln -sf /opt/unetlab/scripts/pnet-mod.sh /usr/local/bin/pnet-mod 2>/dev/null || true' </dev/null >> "$LOG" 2>&1 || true
 fi
 
 run_root 'set -e; dpkg --configure -a"""
@@ -913,14 +913,14 @@ if [ "${SAT_COUNT:-0}" -gt 0 ]; then
         fi
         log_info "Satellite #$s_id: $s_name ($s_ip) | Ping: $PING_OK | Status: $s_status | Version: $s_ver"
         if [ "$PING_OK" = "REACHABLE" ] && [ -f "$CLUSTER_KEY" ]; then
-            log_info "Synchronizing templates & azam-update engine to Satellite #$s_id ($s_ip)..."
+            log_info "Synchronizing templates & pnet-update engine to Satellite #$s_id ($s_ip)..."
             ssh -i "$CLUSTER_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=5 "root@$s_ip" "mkdir -p /opt/unetlab/scripts /opt/unetlab/html/templates/intel /opt/unetlab/html/templates/amd" &>/dev/null || true
             if [ -d "/opt/unetlab/html/templates" ]; then
                 scp -i "$CLUSTER_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=5 -r /opt/unetlab/html/templates/* "root@$s_ip:/opt/unetlab/html/templates/" &>/dev/null || true
             fi
-            scp -i "$CLUSTER_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${SCRIPT_DIR}/azambasha-update.sh" "root@$s_ip:/opt/unetlab/scripts/azambasha-update.sh" &>/dev/null || true
-            ssh -i "$CLUSTER_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=5 "root@$s_ip" "chmod +x /opt/unetlab/scripts/azambasha-update.sh && ln -sf /opt/unetlab/scripts/azambasha-update.sh /usr/local/bin/pnet-update && /usr/local/bin/pnet-update --satellite >/dev/null 2>&1 &" &>/dev/null || true
-            log_ok "Synchronized templates and triggered azam-update on Satellite #$s_id ($s_ip)."
+            scp -i "$CLUSTER_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${SCRIPT_DIR}/pnet-update.sh" "root@$s_ip:/opt/unetlab/scripts/pnet-update.sh" &>/dev/null || true
+            ssh -i "$CLUSTER_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=5 "root@$s_ip" "chmod +x /opt/unetlab/scripts/pnet-update.sh && ln -sf /opt/unetlab/scripts/pnet-update.sh /usr/local/bin/pnet-update && /usr/local/bin/pnet-update --satellite >/dev/null 2>&1 &" &>/dev/null || true
+            log_ok "Synchronized templates and triggered pnet-update on Satellite #$s_id ($s_ip)."
         fi
     done
 fi
@@ -941,7 +941,7 @@ echo "  Cluster Key     : $CLUSTER_KEY"
 echo "  Cluster PSK     : $LIVE_PSK"
 echo ""
 echo "  To manually join a Satellite node, run on the Satellite VM:"
-echo "    sudo bash azambasha-satellite-join.sh \\"
+echo "    sudo pnet-satellite-join \\"
 echo "      --master $MASTER_IP \\"
 echo "      --id 1 \\"
 echo "      --name \"Satellite-01\" \\"

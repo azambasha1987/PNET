@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AzamLabs Permissions, Lock Cleanup & Node Recovery Utility
+# PNetLab Permissions, Lock Cleanup & Node Recovery Utility
 # Fixes:
 # 1. File & folder permissions across /opt/unetlab (QEMU, IOL, Dynamips, Labs)
 # 2. Ensures /dev/kvm hardware virtualization access permissions
@@ -24,7 +24,7 @@ if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
 fi
 
 if [[ "${1:-}" =~ ^(--check|--status)$ ]]; then
-    echo "=== AzamLabs Permissions & Environment Diagnostic Check ==="
+    echo "=== PNetLab Permissions & Environment Diagnostic Check ==="
     echo -n "[*] Hardware Virtualization (/dev/kvm): "
     if [ -e /dev/kvm ]; then
         if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then

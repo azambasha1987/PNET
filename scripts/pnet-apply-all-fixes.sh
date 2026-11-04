@@ -63,8 +63,8 @@ fi
 if [[ "${1:-}" =~ ^(--check|--status)$ ]]; then
     if [ -f "${SCRIPT_DIR}/azambasha-node-test-suite.py" ]; then
         python3 "${SCRIPT_DIR}/azambasha-node-test-suite.py" --all
-    elif [ -f "${SCRIPT_DIR}/azambasha-health-check.sh" ]; then
-        bash "${SCRIPT_DIR}/azambasha-health-check.sh"
+    elif [ -f "${SCRIPT_DIR}/pnet-health-check.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-health-check.sh"
     elif [ -f "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" ]; then
         bash "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" --check || true
     fi
@@ -157,13 +157,13 @@ case "$CHOICE" in
         python3 "${SCRIPT_DIR}/azambasha-dataplane-stats.py"
         ;;
     12)
-        bash "${SCRIPT_DIR}/azambasha-fix-permissions.sh"
+        bash "${SCRIPT_DIR}/pnet-fix-permissions.sh"
         ;;
     13)
-        bash "${SCRIPT_DIR}/azambasha-health-check.sh"
+        bash "${SCRIPT_DIR}/pnet-health-check.sh"
         ;;
     14)
-        bash "${SCRIPT_DIR}/azambasha-backup-restore.sh" backup
+        bash "${SCRIPT_DIR}/pnet-backup-restore.sh" backup
         ;;
     15)
         HOST_IP=""
@@ -176,7 +176,7 @@ case "$CHOICE" in
         bash "${SCRIPT_DIR}/setup-ollama.sh" "$HOST_IP" "$MODEL"
         ;;
     16)
-        bash "${SCRIPT_DIR}/azambasha-block-updates.sh"
+        bash "${SCRIPT_DIR}/pnet-block-updates.sh"
         ;;
     17)
         if [ -f "${SCRIPT_DIR}/azambasha-dark-theme.sh" ]; then
@@ -211,8 +211,8 @@ case "$CHOICE" in
             echo " [*] Applying Full Satellite Optimization & Upstream Suite"
             echo "============================================================"
             echo "--> [1/11] Installing OS Prerequisites (OVMF, TPM, RoCE, Node.js)..."
-            if [ -f "${SCRIPT_DIR}/azambasha-os-prerequisites.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-os-prerequisites.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-os-prerequisites.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-os-prerequisites.sh" || true
             fi
             echo ""
             echo "--> [2/11] Applying Bridge LACP BPDU, Wireshark & Store Fixes..."
@@ -264,8 +264,8 @@ case "$CHOICE" in
             fi
             echo ""
             echo "--> [11/12] Fixing File Permissions, TPM Sockets & Node Locks..."
-            if [ -f "${SCRIPT_DIR}/azambasha-fix-permissions.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-fix-permissions.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-fix-permissions.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-fix-permissions.sh" || true
             fi
             echo ""
             echo "--> [12/12] Confirming Authoritative Credentials (azam) & Banner..."
@@ -274,9 +274,9 @@ case "$CHOICE" in
                 bash "${SCRIPT_DIR}/azambasha-sync-network-config.sh" || true
             fi
             ln -sf "${SCRIPT_DIR}/azambasha-sync-network-config.sh" /usr/local/bin/pnet-netcfg 2>/dev/null || true
-            ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
+            ln -sf "${SCRIPT_DIR}/pnet-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
         rm -f /usr/local/bin/pnet-update 2>/dev/null || true
-            ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
+            ln -sf "${SCRIPT_DIR}/pnet-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
             echo ""
             echo "============================================================"
             echo " [SUCCESS] SATELLITE WORKER NODE ENHANCEMENTS APPLIED!      "
@@ -298,7 +298,7 @@ case "$CHOICE" in
         bash "${SCRIPT_DIR}/azambasha-database-and-system-deep-fix.sh"
         echo ""
         echo "--> [6/15] Fixing File Permissions & Sockets..."
-        bash "${SCRIPT_DIR}/azambasha-fix-permissions.sh"
+        bash "${SCRIPT_DIR}/pnet-fix-permissions.sh"
         echo ""
         echo "--> [6b/15] Modernizing PHP Engine & Hardening Lab XML Node Loader..."
         if [ -f "${SCRIPT_DIR}/azambasha-php-modernizer.sh" ]; then
@@ -317,7 +317,7 @@ case "$CHOICE" in
         fi
         echo ""
         echo "--> [10/15] Freezing Version & Blocking Future Updates..."
-        bash "${SCRIPT_DIR}/azambasha-block-updates.sh"
+        bash "${SCRIPT_DIR}/pnet-block-updates.sh"
         echo ""
         echo "--> [11/15] Applying Azam Basha Enterprise Branding & Logo Assets..."
         if [ -f "${SCRIPT_DIR}/azambasha-apply-branding.sh" ]; then
@@ -350,8 +350,8 @@ case "$CHOICE" in
         fi
         echo ""
         echo "--> [17/18] Staging Satellite Cluster Deploy Bundle & Master Remote Sync..."
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-cluster.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-cluster.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-fix-cluster.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-cluster.sh" || true
         fi
         echo ""
         echo "--> [18/21] Applying High-Density Heavy Node Optimizer (Cat8000, Cisco 8000, Cat9000)..."
@@ -370,8 +370,8 @@ case "$CHOICE" in
         fi
         echo ""
         echo "--> [21/22] Running Non-Regression Pre/Post Sanity Health Probe..."
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-permissions.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-permissions.sh" --check || true
+        if [ -f "${SCRIPT_DIR}/pnet-fix-permissions.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-permissions.sh" --check || true
         fi
         echo ""
         echo "--> [22/22] Resetting Web-GUI & Cluster Database Credentials (admin / azam)..."
@@ -382,18 +382,18 @@ case "$CHOICE" in
             bash "${SCRIPT_DIR}/azambasha-sync-network-config.sh" || true
         fi
         ln -sf "${SCRIPT_DIR}/azambasha-sync-network-config.sh" /usr/local/bin/pnet-netcfg 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
         rm -f /usr/local/bin/pnet-update 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/azambasha-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-housekeeping.sh" /usr/local/bin/pnet-clean 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-housekeeping.sh" /usr/local/bin/pnet-clean 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-apt-guard.sh" /usr/local/bin/pnet-apt-guard 2>/dev/null || true
-        if [ -f "${SCRIPT_DIR}/azambasha-apt-guard.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-apt-guard.sh" --enable 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-housekeeping.sh" /usr/local/bin/pnet-clean 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-housekeeping.sh" /usr/local/bin/pnet-clean 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-apt-guard.sh" /usr/local/bin/pnet-apt-guard 2>/dev/null || true
+        if [ -f "${SCRIPT_DIR}/pnet-apt-guard.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-apt-guard.sh" --enable 2>/dev/null || true
         fi
         echo ""
         echo "============================================================"
@@ -409,10 +409,10 @@ case "$CHOICE" in
         fi
         ;;
     21)
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-cluster.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-cluster.sh"
+        if [ -f "${SCRIPT_DIR}/pnet-fix-cluster.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-cluster.sh"
         else
-            echo "[!] azambasha-fix-cluster.sh not found." >&2
+            echo "[!] pnet-fix-cluster.sh not found." >&2
         fi
         ;;
     22)
@@ -430,10 +430,10 @@ case "$CHOICE" in
         fi
         ;;
     24)
-        if [ -f "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" "${2:---check}"
+        if [ -f "${SCRIPT_DIR}/pnet-quarterly-audit.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-quarterly-audit.sh" "${2:---check}"
         else
-            echo "[!] azambasha-quarterly-audit.sh not found." >&2
+            echo "[!] pnet-quarterly-audit.sh not found." >&2
         fi
         ;;
     25)
@@ -441,8 +441,8 @@ case "$CHOICE" in
         echo " [*] Running Dedicated Satellite Worker Optimization Suite   "
         echo "============================================================"
         echo "--> [1/11] Installing OS Prerequisites (OVMF, TPM, RoCE, Node.js)..."
-        if [ -f "${SCRIPT_DIR}/azambasha-os-prerequisites.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-os-prerequisites.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-os-prerequisites.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-os-prerequisites.sh" || true
         fi
         echo ""
         echo "--> [2/11] Applying Bridge LACP BPDU, Wireshark & Store Fixes..."
@@ -491,8 +491,8 @@ case "$CHOICE" in
         fi
         echo ""
         echo "--> [11/13] Fixing File Permissions, TPM Sockets & Node Locks..."
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-permissions.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-permissions.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-fix-permissions.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-permissions.sh" || true
         fi
         echo ""
         echo "--> [12/13] Confirming Authoritative Credentials (azam) & Banner..."
@@ -508,13 +508,13 @@ case "$CHOICE" in
             bash "${SCRIPT_DIR}/azambasha-fix-web-credentials.sh" || true
         fi
         echo ""
-        ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
         rm -f /usr/local/bin/pnet-update 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/azambasha-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
         echo "============================================================"
         echo " [SUCCESS] SATELLITE WORKER NODE ENHANCEMENTS APPLIED!      "
         echo "============================================================"
@@ -534,10 +534,10 @@ case "$CHOICE" in
         fi
         ;;
     28)
-        if [ -f "${SCRIPT_DIR}/azambasha-apt-guard.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-apt-guard.sh" "${2:---enable}"
+        if [ -f "${SCRIPT_DIR}/pnet-apt-guard.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-apt-guard.sh" "${2:---enable}"
         else
-            echo "[!] azambasha-apt-guard.sh not found." >&2
+            echo "[!] pnet-apt-guard.sh not found." >&2
         fi
         ;;
     29)

@@ -57,16 +57,13 @@ sudo bash install/install-master.sh [--version <VERSION>]
 5. **Debian Package Installation**: Installs all 7 Master `.deb` packages via `dpkg -i`.
 6. **Automatic Script Application (Step 6)**:
    * **Toolkit Propagation**: Synchronizes all scripts from `scripts/` into `/opt/unetlab/scripts/` and sets `chmod +x`.
-   * **CLI Registration**: Executes `azambasha-install-azam-features.sh`:
+   * **Tri-Pillar Master Orchestrator**: Executes `apply-all-custom.sh`:
      * Purges legacy `azam-*` commands (`rm -f /usr/local/bin/azam-*`).
-     * Installs canonical `/usr/local/bin/pnet-*` symlinks (`pnet-update`, `pnet-health`, `pnet-optimizer`, etc.).
-   * **Ultra-KSM & Kernel Speed Optimization**: Executes `azambasha-speed-optimizer.sh`:
-     * Configures 4KB page scanning (`pages_to_scan=2000`, `sleep=20ms`, `zero_pages=1`).
-     * Engages PHP OPcache (256MB) and Apache Deflate compression.
-     * Sets `vm.swappiness=10` and raises socket buffers to 16MB.
-   * **Cgroups v2 Resource Governance**: Executes `azambasha-cgroups-v2-engine.sh`:
-     * Establishes systemd slice isolation to prevent rogue virtual machines from starving the host OS.
-   * **Permissions & Sockets**: Executes `azambasha-fix-permissions.sh` and `azambasha-fix-web-credentials.sh`.
+     * Installs canonical `/usr/local/bin/pnet-*` symlinks (`pnet-update`, `pnet-health`, `pnet-optimizer`, `pnet-mod`, etc.).
+     * **Custom-Performance**: Executes `Custom-Performance/apply-performance.sh` for Ultra-KSM (4KB deduplication), dynamic CPU governor, cgroups v2, and heavy node tuning.
+     * **Custom-Customization**: Executes `Custom-Customization/apply-customization.sh` for Cyber-Glass login, 500+ templates, and permanent session keepalive.
+     * **Custom-Features**: Executes `Custom-Features/apply-features.sh` for Web-UI docked console, syntax highlighter, and operations center REST API.
+   * **Permissions & Sockets**: Executes `pnet-fix-permissions.sh` for socket standardization and node lock cleanup.
 7. **Service Finalization**: Reloads systemd and restarts Apache2 and Guacamole.
 
 ### 2.2 Satellite Node Execution Flow (`install-satellite.sh`)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AzamLabs Python 3.14+ Isolated Runtime & Web Console Bridge Engine
+# PNetLab Python 3.14+ Isolated Runtime & Web Console Bridge Engine
 # Sets up /opt/unetlab/venv with telnetlib3, websockets, and AI MCP bridges,
 # ensuring full compliance with PEP 668 on Ubuntu 26+.
 # ==============================================================================

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AzamLabs Complete OS Prerequisites & Kernel Module Provisioner
+# PNetLab Complete OS Prerequisites & Kernel Module Provisioner
 # Target OS: Ubuntu 26.04-live-server-amd64 and later (Resolute+)
 # Ensures 100% of all kernel modules, system daemons, PHP extensions, Python
 # libraries, 32-bit compatibility binaries, and emulation packages are installed.
@@ -13,11 +13,11 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-LOG_FILE="/var/log/azambasha-os-prerequisites.log"
+LOG_FILE="/var/log/pnet-os-prerequisites.log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "============================================================"
-echo "    AzamLabs OS Prerequisites & Kernel Provisioner        "
+echo "    PNetLab OS Prerequisites & Kernel Provisioner         "
 echo "    Target Platform: Ubuntu 26.04+ (Live Server & Later)   "
 echo "============================================================"
 echo "[*] Start Time: $(date)"
@@ -28,7 +28,7 @@ echo "============================================================"
 echo "[1/6] Validating OS architecture and configuring APT..."
 ARCH="$(uname -m)"
 if [ "$ARCH" != "x86_64" ]; then
-    echo "[ERROR] Unsupported CPU architecture: $ARCH. AzamLabs requires x86_64 (amd64)." >&2
+    echo "[ERROR] Unsupported CPU architecture: $ARCH. PNetLab requires x86_64 (amd64)." >&2
     exit 1
 fi
 
@@ -36,7 +36,7 @@ UBUNTU_VER="$(lsb_release -rs 2>/dev/null || grep -oP '(?<=VERSION_ID=")[^"]*' /
 echo "      -> Detected Operating System: Ubuntu ${UBUNTU_VER} (${ARCH})"
 
 if ! awk "BEGIN {exit !($UBUNTU_VER >= 26.04)}" 2>/dev/null; then
-    echo "      [WARN] Operating system is Ubuntu ${UBUNTU_VER}. AzamLabs is fully optimized for Ubuntu 26.04+ (Resolute and later)."
+    echo "      [WARN] Operating system is Ubuntu ${UBUNTU_VER}. PNetLab is fully optimized for Ubuntu 26.04+ (Resolute and later)."
 else
     echo "      -> [PASS] Verified Ubuntu ${UBUNTU_VER} is fully compatible (>= 26.04)."
 fi

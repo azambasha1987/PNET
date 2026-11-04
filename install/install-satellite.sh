@@ -89,10 +89,8 @@ fi
 # Apply all Tri-Pillar Custom Subsystems in Satellite mode (QEMU templates, pnet-* CLI tools, Ultra-KSM, watchdog)
 if [ -f "$REPO_ROOT/apply-all-custom.sh" ]; then
     bash "$REPO_ROOT/apply-all-custom.sh" --satellite || true
-elif [ -f "$REPO_ROOT/Custom-Features/apply-custom-features.sh" ]; then
-    bash "$REPO_ROOT/Custom-Features/apply-custom-features.sh" --satellite || true
-elif [ -f /opt/unetlab/scripts/azambasha-install-azam-features.sh ]; then
-    bash /opt/unetlab/scripts/azambasha-install-azam-features.sh --satellite || true
+elif [ -f "$REPO_ROOT/Custom-Features/apply-features.sh" ]; then
+    bash "$REPO_ROOT/Custom-Features/apply-features.sh" --satellite || true
 fi
 
 echo "[5/5] Starting satellite services..."

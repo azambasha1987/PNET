@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
 ===============================================================================
-AzamLabs Automated Upstream Ingestion & Anti-Blind-Copy-Paste Pipeline
+PNetLab Automated Upstream Ingestion & Anti-Blind-Copy-Paste Pipeline
 ===============================================================================
 Motto: The network emulator that is fast, resource-efficient (uses least RAM
        and CPU possible for both IOL & QEMU) with 100% upstream feature parity
-       plus AzamLabs advanced enterprise innovations to outperform EVE-NG.
+       plus PNetLab advanced enterprise innovations to outperform EVE-NG.
 
 Purpose:
   1. Ingest upstream updates from upstream repository without blind copy-pasting.
-  2. Audit every incoming file against the AzamLabs Efficiency Rule.
-  3. Guarantee that AzamLabs innovations (Ultra-KSM 4KB, Anti-Bootstorm Engine,
-     Multi-Session Token Pooling, 10 Themes Engine, Cyber-Glass Login) remain intact.
+  2. Audit every incoming file against the PNetLab Efficiency Rule.
+  3. Guarantee that PNetLab innovations (Ultra-KSM 4KB, Anti-Bootstorm Engine,
+     Multi-Session Token Pooling, Themes Engine, Cyber-Glass Login) remain intact.
   4. Preserve Linux kernel bridges (pnet0-pnet9) for 100% topology portability.
-  5. Run mandatory parity & regression gates before repacking azamlabs_*.deb.
+  5. Run mandatory parity & regression gates before repacking debian packages.
 ===============================================================================
 """
 

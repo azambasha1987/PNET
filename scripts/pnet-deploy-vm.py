@@ -171,7 +171,7 @@ def deploy_host(host, user, password, port, args):
         
         # Upload root installer files
         ensure_remote_dir(sftp, remote_base)
-        for rfile in ["VERSION", "install.sh", "install-satellite.sh", "azambasha-bootstrap-and-install.sh", "README.md", "VERIFICATION_REPORT.md"]:
+        for rfile in ["VERSION", "install.sh", "install-satellite.sh", "pnet-bootstrap-and-install.sh", "README.md", "VERIFICATION_REPORT.md"]:
             lpath = os.path.join(BASE_DIR, rfile)
             if os.path.exists(lpath) and not args.dry_run:
                 sftp.put(lpath, f"{remote_base}/{rfile}")
@@ -191,10 +191,9 @@ def deploy_host(host, user, password, port, args):
         # Make scripts executable and register CLI commands
         if not args.dry_run:
             execute_remote_cmd(client, f"chmod +x {remote_base}/*.sh {remote_base}/scripts/*.sh {remote_base}/scripts/*.py 2>/dev/null || true", stream=False)
-            execute_remote_cmd(client, f"mkdir -p /opt/unetlab/scripts && cp -f {remote_base}/scripts/azambasha-* {remote_base}/scripts/azam-* {remote_base}/scripts/apply-* {remote_base}/scripts/ksm_* {remote_base}/scripts/cisco-* /opt/unetlab/scripts/ 2>/dev/null && chmod +x /opt/unetlab/scripts/azambasha-*.sh /opt/unetlab/scripts/azambasha-*.py /opt/unetlab/scripts/apply-*.sh 2>/dev/null || true", stream=False)
-            execute_remote_cmd(client, f"if [ -d {remote_base}/html/templates ]; then mkdir -p /opt/unetlab/html/templates/intel /opt/unetlab/html/templates/amd && cp -rf {remote_base}/html/templates/* /opt/unetlab/html/templates/ 2>/dev/null && cp -f {remote_base}/html/templates/intel/*.yml /opt/unetlab/html/templates/ 2>/dev/null || true; fi", stream=False)
-            execute_remote_cmd(client, f"if [ -d {remote_base}/html/azam-ops ]; then mkdir -p /opt/unetlab/html && cp -rf {remote_base}/html/azam-ops /opt/unetlab/html/ 2>/dev/null && for tdir in /opt/unetlab/html/themes/*/js; do if [ -d \"$tdir\" ]; then cp -f {remote_base}/html/azam-ops/*.js \"$tdir/\" 2>/dev/null || true; fi; done; c_ts=$(date +%s); for th_idx in /opt/unetlab/html/themes/*/index.html; do if [ -f \"$th_idx\" ]; then for jf in azamlabs-features.js azamlabs-sequenced-console.js azamlabs-docked-console.js azam-cli-syntax.js; do if grep -q \"$jf\" \"$th_idx\"; then sed -i \"s|/themes/[^/]*/js/${{jf}}[^\\\"]*|/themes/default/js/${{jf}}?v=${{c_ts}}|g\" \"$th_idx\" 2>/dev/null || true; else sed -i \"/<\\/body>/i <script src=\\\"/themes/default/js/${{jf}}?v=${{c_ts}}\\\"><\\/script>\" \"$th_idx\" 2>/dev/null || true; fi; done; fi; done; fi", stream=False)
-            execute_remote_cmd(client, f"ln -sf {remote_base}/scripts/azambasha-update.sh /usr/local/bin/pnet-update && rm -f /usr/local/bin/pnet-update 2>/dev/null && ln -sf {remote_base}/scripts/azambasha-update-banner.sh /usr/local/bin/pnet-update-banner.sh && ln -sf {remote_base}/scripts/azambasha-quarterly-audit.sh /usr/local/bin/pnet-audit && ln -sf {remote_base}/scripts/azambasha-apply-all-fixes.sh /usr/local/bin/pnet-menu && ln -sf {remote_base}/scripts/azambasha-apply-all-fixes.sh /usr/local/bin/pnet-fix && ln -sf {remote_base}/scripts/azambasha-satellite-join.sh /usr/local/bin/pnet-satellite-join && ln -sf {remote_base}/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/pnet-optimizer && ln -sf {remote_base}/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/pnet-heavy-optimizer && ln -sf {remote_base}/scripts/azambasha-image-doctor.sh /usr/local/bin/pnet-doctor && ln -sf {remote_base}/scripts/azambasha-image-doctor.sh /usr/local/bin/pnet-image-doctor && ln -sf {remote_base}/scripts/azambasha-dry-test.py /usr/local/bin/pnet-dry-test && ln -sf {remote_base}/scripts/azambasha-health-check.sh /usr/local/bin/pnet-health && ln -sf {remote_base}/scripts/azambasha-bootstorm.py /usr/local/bin/pnet-bootstorm 2>/dev/null || true", stream=False)
+            execute_remote_cmd(client, f"mkdir -p /opt/unetlab/scripts && cp -rf {remote_base}/scripts/* /opt/unetlab/scripts/ 2>/dev/null && chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true", stream=False)
+            execute_remote_cmd(client, f"if [ -f {remote_base}/apply-all-custom.sh ]; then bash {remote_base}/apply-all-custom.sh --master || true; fi", stream=False)
+            execute_remote_cmd(client, f"ln -sf /opt/unetlab/scripts/pnet-update.sh /usr/local/bin/pnet-update && ln -sf /opt/unetlab/scripts/pnet-quarterly-audit.sh /usr/local/bin/pnet-audit && ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh /usr/local/bin/pnet-menu && ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh /usr/local/bin/pnet-fix && ln -sf /opt/unetlab/scripts/pnet-satellite-join.sh /usr/local/bin/pnet-satellite-join && ln -sf /opt/unetlab/scripts/pnet-health-check.sh /usr/local/bin/pnet-health && ln -sf /opt/unetlab/scripts/pnet-mod.sh /usr/local/bin/pnet-mod 2>/dev/null || true", stream=False)
             execute_remote_cmd(client, f"if [ -f {remote_base}/scripts/azambasha-update-banner.sh ]; then bash {remote_base}/scripts/azambasha-update-banner.sh || true; fi", stream=False)
             execute_remote_cmd(client, "for s in php8.5-fpm php8.4-fpm php8.3-fpm php8.2-fpm php8.1-fpm php-fpm apache2 azamlabs-satd azamlabs-brokerd azamlabs-docker-image-watcher docker; do mkdir -p /etc/systemd/system/${s}.service.d && printf '[Unit]\\nStartLimitIntervalSec=0\\nStartLimitBurst=0\\n[Service]\\nRestart=on-failure\\nRestartSec=1s\\n' > /etc/systemd/system/${s}.service.d/override.conf; done && systemctl daemon-reload 2>/dev/null && systemctl reset-failed 2>/dev/null || true", stream=False)
             execute_remote_cmd(client, "systemctl is-active azambasha-cpu-governor >/dev/null 2>&1 && systemctl restart azambasha-cpu-governor || true", stream=False)
@@ -217,7 +216,7 @@ def deploy_host(host, user, password, port, args):
             log_info(f"Executing Satellite Worker Installer...")
             execute_remote_cmd(client, sat_cmd)
         elif args.join_only:
-            join_cmd = f"cd {remote_base} && sudo bash scripts/azambasha-satellite-join.sh"
+            join_cmd = f"cd {remote_base} && sudo bash scripts/pnet-satellite-join.sh"
             if args.join_master:
                 join_cmd += f" --master {args.join_master}"
             if args.cluster_id:
@@ -229,44 +228,44 @@ def deploy_host(host, user, password, port, args):
             log_info(f"Executing Satellite Cluster Join Utility...")
             execute_remote_cmd(client, join_cmd)
         elif args.fix_cluster:
-            log_info("Executing Master Cluster Staging & Fixes (azambasha-fix-cluster.sh)...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-fix-cluster.sh")
+            log_info("Executing Master Cluster Staging & Fixes (pnet-fix-cluster.sh)...")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/pnet-fix-cluster.sh")
         elif args.apply_all:
             log_info("Executing Master Fix & Optimization Suite...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-apply-all-fixes.sh 19")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/pnet-apply-all-fixes.sh 19")
         elif getattr(args, 'dry_run_optimize', False):
             log_info("Executing Universal Optimizer Dry-Run Simulation...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-heavy-node-optimizer.sh --dry-run")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash Custom-Performance/scripts/azambasha-heavy-node-optimizer.sh --dry-run")
         elif args.optimize:
             log_info("Applying High-Density Heavy Node Memory & CPU Optimization (Master & Satellites)...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-heavy-node-optimizer.sh --master --cluster && sudo bash scripts/azambasha-fix-node-startup.sh")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash Custom-Performance/scripts/azambasha-heavy-node-optimizer.sh --master --cluster")
         elif args.optimize_satellite:
             log_info("Applying High-Density Heavy Node Memory & CPU Optimization (Satellite)...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-heavy-node-optimizer.sh --satellite && sudo bash scripts/azambasha-fix-node-startup.sh")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash Custom-Performance/scripts/azambasha-heavy-node-optimizer.sh --satellite")
         elif args.satellite_fixes:
             log_info("Executing Satellite Worker Fix & Optimization Suite...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-apply-all-fixes.sh 25")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/pnet-apply-all-fixes.sh 25")
         elif args.fix_credentials:
-            log_info("Restoring Web-GUI admin credentials (admin / azam) and clearing login throttles...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-fix-web-credentials.sh")
+            log_info("Restoring Web-GUI admin credentials...")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash Custom-Customization/scripts/azambasha-fix-web-credentials.sh")
         elif args.sync_version:
             ver_arg = args.sync_version if isinstance(args.sync_version, str) and args.sync_version != "True" else "auto"
             log_info(f"Synchronizing Web-GUI Version to latest implemented release ({ver_arg})...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-sync-gui-version.sh {ver_arg}")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash Custom-Customization/scripts/azambasha-sync-gui-version.sh {ver_arg}")
         elif args.test:
             log_info("Running Automated Node & Virtualization Test Suite...")
-            execute_remote_cmd(client, f"cd {remote_base} && python3 scripts/azambasha-node-test-suite.py --all")
+            execute_remote_cmd(client, f"cd {remote_base} && python3 Custom-Performance/scripts/azambasha-node-test-suite.py --all")
         elif args.weekly_scan:
             log_warn("The Weekly Codeberg Intelligence Scan feature has been retired.")
         elif args.install_features:
-            log_info("Executing Azam Features Installer & Symlink Generator...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-install-azam-features.sh")
+            log_info("Executing Custom Pillars Installer...")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash apply-all-custom.sh")
         elif args.cmd:
             log_info(f"Executing Custom Remote Command: {args.cmd}")
             execute_remote_cmd(client, f"cd {remote_base} && {args.cmd}")
         elif args.verify:
             log_info("Running Remote Non-Regression Health Probe...")
-            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/azambasha-fix-permissions.sh --check && sudo bash scripts/azambasha-system-and-console-fix.sh --check")
+            execute_remote_cmd(client, f"cd {remote_base} && sudo bash scripts/pnet-fix-permissions.sh --check")
             
         client.close()
         log_ok(f"Deployment on {host} completed successfully!\n")
