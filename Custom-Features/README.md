@@ -34,6 +34,13 @@ Custom-Features/
 │   ├── azambasha-ui-enhancements.sh  # UI enhancements helper
 │   ├── prep_frr.sh / config_frr.py   # FRRouting BGP/OSPF lab setup
 │   └── vpcs_mux.py                   # VPCS console multiplexer
+├── mcp/                              # Model Context Protocol (MCP) AI Subsystem
+│   ├── azamlabs-mcp.py               # Local MCP server bridge
+│   ├── azamlabs-mcp.service          # MCP server background service
+│   ├── ai_lab_agent.py               # Autonomous AI lab architect agent
+│   ├── ai_plans.py                   # Automated topology execution plans
+│   ├── ai_ledger.py                  # Token usage & interaction ledger
+│   └── ai_efficiency.py              # LLM inference metrics
 ├── web-ui/                           # Interactive Web UI Components
 │   ├── ops-center/                   # Docked Console, CLI Syntax Highlighter, Sequenced Launcher
 │   │   ├── pnet-docked-console.js    # Multi-tab embedded terminal drawer

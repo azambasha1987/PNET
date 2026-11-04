@@ -43,11 +43,15 @@ echo -e "${CYAN}${BOLD}=========================================================
 log_info "[1/4] Registering Feature CLI Tools in /usr/local/bin/..."
 mkdir -p /usr/local/bin /opt/unetlab/scripts 2>/dev/null || true
 
-# Copy scripts to runtime location
+# Copy scripts and mcp tools to runtime location
 if [ -d "${SCRIPT_DIR}/scripts" ]; then
     cp -rf "${SCRIPT_DIR}/scripts/"* /opt/unetlab/scripts/ 2>/dev/null || true
 fi
-chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
+if [ -d "${SCRIPT_DIR}/mcp" ]; then
+    mkdir -p /opt/unetlab/scripts/mcp 2>/dev/null || true
+    cp -rf "${SCRIPT_DIR}/mcp/"* /opt/unetlab/scripts/mcp/ 2>/dev/null || true
+fi
+chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /opt/unetlab/scripts/mcp/*.py 2>/dev/null || true
 
 ln -sf /opt/unetlab/scripts/azambasha-ai-copilot.py          /usr/local/bin/pnet-ai
 ln -sf /opt/unetlab/scripts/azambasha-config-diff.py         /usr/local/bin/pnet-config-diff
