@@ -10,7 +10,7 @@ SRC_LOC="${BASH_SOURCE[0]:-$0}"
 set -u
 REAL_PATH="$(realpath "$SRC_LOC" 2>/dev/null || readlink -f "$SRC_LOC" 2>/dev/null || echo "$SRC_LOC")"
 SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" 2>/dev/null && pwd || echo "/opt/unetlab/scripts")"
-for cand_dir in "/opt/azamlabs/scripts" "/opt/azambasha/scripts" "/opt/unetlab/scripts"; do
+for cand_dir in "/opt/unetlab/scripts" "/opt/unetlab/scripts" "/opt/unetlab/scripts"; do
     if [ -f "${cand_dir}/azambasha-apply-all-fixes.sh" ]; then
         SCRIPT_DIR="$cand_dir"
         break
@@ -69,7 +69,7 @@ if [ "$(id -u)" -eq 0 ]; then
         local_target="${SCRIPT_DIR}/azambasha-update.sh"
     fi
     ln -sf "$local_target" /usr/local/bin/pnet-update 2>/dev/null || true
-    rm -f /usr/local/bin/azam-* /usr/local/bin/azambasha-* 2>/dev/null || true
+    rm -f /usr/local/bin/pnet-* /usr/local/bin/pnet-* 2>/dev/null || true
     if [ -f "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" ]; then
         ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
     fi
@@ -184,7 +184,7 @@ sync_from_github() {
     # Maintain system directories and symlinks
     mkdir -p /opt/unetlab/scripts 2>/dev/null || true
     if [ ! -L "/opt/azambasha" ]; then
-        if [ ! -d "/opt/azambasha/scripts" ]; then
+        if [ ! -d "/opt/unetlab/scripts" ]; then
             rm -rf /opt/azambasha 2>/dev/null || true
             ln -sfn "$src_repo" /opt/azambasha 2>/dev/null || true
         fi
@@ -194,14 +194,17 @@ sync_from_github() {
     if [ -d "${src_repo}/scripts" ]; then
         chmod +x "${src_repo}"/*.sh "${src_repo}/scripts"/*.sh "${src_repo}/scripts"/*.py 2>/dev/null || true
         cp -rf "${src_repo}/scripts/." /opt/unetlab/scripts/ 2>/dev/null || true
-        if [ -d "/opt/azambasha/scripts" ] && [ "/opt/azambasha/scripts" != "${src_repo}/scripts" ]; then
-            cp -rf "${src_repo}/scripts/." /opt/azambasha/scripts/ 2>/dev/null || true
+        if [ -d "/opt/unetlab/scripts" ] && [ "/opt/unetlab/scripts" != "${src_repo}/scripts" ]; then
+            cp -rf "${src_repo}/scripts/." /opt/unetlab/scripts/ 2>/dev/null || true
         fi
         chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
     fi
 
-    # Synchronize QEMU appliance templates and Web-GUI operations engine
-    if [ -d "${src_repo}/html/templates" ]; then
+    # Apply all Custom Features (Templates, Web-UI, Consoles, Keepalive, Login, Schema, CLI)
+    if [ -f "${src_repo}/custom-features/apply-custom-features.sh" ]; then
+        log_info "Applying Custom Features from ${src_repo}/custom-features..."
+        bash "${src_repo}/custom-features/apply-custom-features.sh" --$(detect_role) 2>/dev/null || true
+    elif [ -d "${src_repo}/html/templates" ]; then
         mkdir -p /opt/unetlab/html/templates/intel /opt/unetlab/html/templates/amd 2>/dev/null || true
         cp -rf "${src_repo}"/html/templates/* /opt/unetlab/html/templates/ 2>/dev/null || true
         cp -f "${src_repo}"/html/templates/intel/*.yml /opt/unetlab/html/templates/ 2>/dev/null || true
@@ -267,7 +270,7 @@ sync_from_github() {
     fi
 
     # Refresh global canonical pnet-* administrative symlinks
-    rm -f /usr/local/bin/azam-* /usr/local/bin/azambasha-* 2>/dev/null || true
+    rm -f /usr/local/bin/pnet-* /usr/local/bin/pnet-* 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-update.sh              /usr/local/bin/pnet-update 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-quarterly-audit.sh     /usr/local/bin/pnet-audit 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/azambasha-health-check.sh        /usr/local/bin/pnet-health 2>/dev/null || true
@@ -304,12 +307,18 @@ sync_from_github() {
         fi
     fi
 
-    # Automatically execute the full optimization and feature scripts suite for this new version
-    log_info "Executing PNetLab enterprise script pipeline for new release..."
-    bash /opt/unetlab/scripts/azambasha-install-azam-features.sh || true
-    bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh || true
-    bash /opt/unetlab/scripts/azambasha-cgroups-v2-engine.sh || true
-    bash /opt/unetlab/scripts/azambasha-fix-permissions.sh || true
+    # Automatically execute the full optimization and Custom Features suite for this new version
+    log_info "Executing PNetLab enterprise script pipeline and Custom Features for new release..."
+    if [ -f "${src_repo}/custom-features/apply-custom-features.sh" ]; then
+        bash "${src_repo}/custom-features/apply-custom-features.sh" --$(detect_role) || true
+    elif [ -f /usr/local/bin/pnet-custom-features ]; then
+        bash /usr/local/bin/pnet-custom-features --$(detect_role) || true
+    else
+        bash /opt/unetlab/scripts/azambasha-install-azam-features.sh || true
+        bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh || true
+        bash /opt/unetlab/scripts/azambasha-cgroups-v2-engine.sh || true
+        bash /opt/unetlab/scripts/azambasha-fix-permissions.sh || true
+    fi
 
     SCRIPT_DIR="/opt/unetlab/scripts"
 
@@ -424,7 +433,7 @@ verify_and_stabilize_auth() {
 
     # Deploy/ensure azamlabs-brokerd.service unit exists and is active
     local b_script="/opt/unetlab/scripts/azamlabs-brokerd.py"
-    [ -f "$b_script" ] || b_script="/opt/azambasha/scripts/azamlabs-brokerd.py"
+    [ -f "$b_script" ] || b_script="/opt/unetlab/scripts/azamlabs-brokerd.py"
     if [ -f "$b_script" ]; then
         if [ ! -f /etc/systemd/system/azamlabs-brokerd.service ]; then
             cat << 'EOF_BROKER' > /etc/systemd/system/azamlabs-brokerd.service
@@ -606,7 +615,7 @@ EOF_OVERRIDE
     rm -f "$cookie_jar" 2>/dev/null || true
 
     # Ensure azam-ops-api service and bootstorm symlinks are up-to-date and restarted
-    ln -sf "${SCRIPT_DIR}/azambasha-bootstorm.py" /usr/local/bin/azam-bootstorm 2>/dev/null || true
+    ln -sf "${SCRIPT_DIR}/azambasha-bootstorm.py" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
     systemctl restart azam-ops-api.service 2>/dev/null || true
 
     # Enforce Natural Ascending Sort (0..9, A..Z) for folders and export dialog
@@ -668,7 +677,7 @@ EOF_OVERRIDE
 
     # 4. Deploy and restart/reload worker daemons cleanly
     local b_script="/opt/unetlab/scripts/azamlabs-brokerd.py"
-    [ -f "$b_script" ] || b_script="/opt/azambasha/scripts/azamlabs-brokerd.py"
+    [ -f "$b_script" ] || b_script="/opt/unetlab/scripts/azamlabs-brokerd.py"
     if [ -f "$b_script" ]; then
         if [ ! -f /etc/systemd/system/azamlabs-brokerd.service ]; then
             cat << 'EOF_BROKER' > /etc/systemd/system/azamlabs-brokerd.service
@@ -700,7 +709,7 @@ EOF_BROKER
     fi
 
     local s_script="/opt/unetlab/scripts/azamlabs-satd.py"
-    [ -f "$s_script" ] || s_script="/opt/azambasha/scripts/azamlabs-satd.py"
+    [ -f "$s_script" ] || s_script="/opt/unetlab/scripts/azamlabs-satd.py"
     if [ -f "$s_script" ]; then
         if [ ! -f /etc/systemd/system/azamlabs-satd.service ]; then
             cat << 'EOF_SATD' > /etc/systemd/system/azamlabs-satd.service
@@ -745,8 +754,8 @@ EOF_SATD
     # 4c. Authoritative Role & Console Banner Reinforcement
     echo "satellite" > /etc/azamlabs-role
     echo "satellite" > /etc/pnetlab-role
-    if [ -x /usr/local/bin/azambasha-update-banner.sh ]; then
-        /usr/local/bin/azambasha-update-banner.sh >/dev/null 2>&1 || true
+    if [ -x /usr/local/bin/pnet-update-banner.sh ]; then
+        /usr/local/bin/pnet-update-banner.sh >/dev/null 2>&1 || true
     elif [ -f "${SCRIPT_DIR}/azambasha-update-banner.sh" ]; then
         bash "${SCRIPT_DIR}/azambasha-update-banner.sh" >/dev/null 2>&1 || true
     fi

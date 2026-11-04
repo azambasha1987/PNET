@@ -1,0 +1,17 @@
+---
+type: qemu
+description: Windows 11 Enterprise (UEFI, Secure Boot, TPM 2.0, Ultra-KSM)
+name: Win11
+cpus: 4
+cpu: max
+ram: 8192
+ethernets: 1
+console: vnc
+qemu_arch: x86_64
+qemu_version: 5.2.0
+qemu_nic: virtio-net-pci
+qemu_options: "-machine type=q35,accel=kvm,smm=on,mem-merge=on -cpu max,migratable=off -vga std -device qemu-xhci -device usb-tablet -boot order=c"
+uefi: 1
+tpm: tpm-crb
+icon: win.png
+...

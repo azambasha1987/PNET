@@ -8,7 +8,7 @@
 
 # Install symlink
 if [ "$(id -u)" -eq 0 ]; then
-    ln -sf "$(realpath "$0")" /usr/local/bin/azam-bench 2>/dev/null || true
+    ln -sf "$(realpath "$0")" /usr/local/bin/pnet-bench 2>/dev/null || true
 fi
 
 PEER="${1:-}"

@@ -7,14 +7,14 @@
 # ==============================================================================
 set -eo pipefail
 
-# Resolve physical script location across symlinks (e.g. /usr/local/bin/azam-menu, /usr/local/bin/azam-fix)
+# Resolve physical script location across symlinks (e.g. /usr/local/bin/pnet-menu, /usr/local/bin/pnet-fix)
 SRC_LOC="${BASH_SOURCE[0]:-$0}"
 set -u
 REAL_PATH="$(realpath "$SRC_LOC" 2>/dev/null || readlink -f "$SRC_LOC" 2>/dev/null || echo "$SRC_LOC")"
 SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" 2>/dev/null && pwd || echo "")"
 if [ ! -f "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" ]; then
-    if [ -f "/opt/azambasha/scripts/azambasha-speed-optimizer.sh" ]; then
-        SCRIPT_DIR="/opt/azambasha/scripts"
+    if [ -f "/opt/unetlab/scripts/azambasha-speed-optimizer.sh" ]; then
+        SCRIPT_DIR="/opt/unetlab/scripts"
     elif [ -f "/opt/unetlab/scripts/azambasha-speed-optimizer.sh" ]; then
         SCRIPT_DIR="/opt/unetlab/scripts"
     fi
@@ -273,10 +273,10 @@ case "$CHOICE" in
             if [ -f "${SCRIPT_DIR}/azambasha-sync-network-config.sh" ]; then
                 bash "${SCRIPT_DIR}/azambasha-sync-network-config.sh" || true
             fi
-            ln -sf "${SCRIPT_DIR}/azambasha-sync-network-config.sh" /usr/local/bin/azam-netcfg 2>/dev/null || true
-            ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/azam-update 2>/dev/null || true
-        rm -f /usr/local/bin/azambasha-update 2>/dev/null || true
-            ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/azam-audit 2>/dev/null || true
+            ln -sf "${SCRIPT_DIR}/azambasha-sync-network-config.sh" /usr/local/bin/pnet-netcfg 2>/dev/null || true
+            ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
+        rm -f /usr/local/bin/pnet-update 2>/dev/null || true
+            ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
             echo ""
             echo "============================================================"
             echo " [SUCCESS] SATELLITE WORKER NODE ENHANCEMENTS APPLIED!      "
@@ -381,17 +381,17 @@ case "$CHOICE" in
         if [ -f "${SCRIPT_DIR}/azambasha-sync-network-config.sh" ]; then
             bash "${SCRIPT_DIR}/azambasha-sync-network-config.sh" || true
         fi
-        ln -sf "${SCRIPT_DIR}/azambasha-sync-network-config.sh" /usr/local/bin/azam-netcfg 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/azam-update 2>/dev/null || true
-        rm -f /usr/local/bin/azambasha-update 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/azam-audit 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/azam-optimizer 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/azam-heavy-optimizer 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-dry-test.py" /usr/local/bin/azam-dry-test 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-health-check.sh" /usr/local/bin/azam-health 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-housekeeping.sh" /usr/local/bin/azam-clean 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-housekeeping.sh" /usr/local/bin/azambasha-clean 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-apt-guard.sh" /usr/local/bin/azam-apt-guard 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-sync-network-config.sh" /usr/local/bin/pnet-netcfg 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
+        rm -f /usr/local/bin/pnet-update 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-housekeeping.sh" /usr/local/bin/pnet-clean 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-housekeeping.sh" /usr/local/bin/pnet-clean 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-apt-guard.sh" /usr/local/bin/pnet-apt-guard 2>/dev/null || true
         if [ -f "${SCRIPT_DIR}/azambasha-apt-guard.sh" ]; then
             bash "${SCRIPT_DIR}/azambasha-apt-guard.sh" --enable 2>/dev/null || true
         fi
@@ -508,13 +508,13 @@ case "$CHOICE" in
             bash "${SCRIPT_DIR}/azambasha-fix-web-credentials.sh" || true
         fi
         echo ""
-        ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/azam-update 2>/dev/null || true
-        rm -f /usr/local/bin/azambasha-update 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/azam-audit 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/azam-optimizer 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/azam-heavy-optimizer 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-dry-test.py" /usr/local/bin/azam-dry-test 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-health-check.sh" /usr/local/bin/azam-health 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
+        rm -f /usr/local/bin/pnet-update 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
         echo "============================================================"
         echo " [SUCCESS] SATELLITE WORKER NODE ENHANCEMENTS APPLIED!      "
         echo "============================================================"

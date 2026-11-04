@@ -65,7 +65,7 @@ def replace_tokens(text: str, filepath: str) -> tuple[str, int]:
         (r'/usr/share/plymouth/themes/pnetlab', '/usr/share/plymouth/themes/azamlabs', 0),
         (r'/etc/update-motd\.d/\d\d-pnetlab-[a-z]+', '/etc/update-motd.d/10-azamlabs-status', 0),
         (r'/opt/unetlab/scripts/motd/\d\d-pnetlab-[a-z]+', '/opt/unetlab/scripts/motd/10-azamlabs-status', 0),
-        (r'/usr/sbin/pnetlab-update\b', '/usr/local/bin/azam-update', 0),
+        (r'/usr/sbin/pnetlab-update\b', '/usr/local/bin/pnet-update', 0),
         (r'\bpnetlab-update\b', 'azam-update', 0),
 
         # Netcfg comments and filenames
@@ -148,17 +148,17 @@ def replace_tokens(text: str, filepath: str) -> tuple[str, int]:
         (r'extracted_pnet-satdeploy', 'extracted_azam-satdeploy', 0),
 
         # CLI command symlinks
-        (r'/usr/local/bin/pnet-menu', '/usr/local/bin/azam-menu', 0),
-        (r'/usr/local/bin/pnet-fix', '/usr/local/bin/azam-fix', 0),
-        (r'/usr/local/bin/pnet-cluster', '/usr/local/bin/azam-cluster', 0),
-        (r'/usr/local/bin/pnet-satellite-join', '/usr/local/bin/azam-satellite-join', 0),
-        (r'/usr/local/bin/pnet-health', '/usr/local/bin/azam-health', 0),
-        (r'/usr/local/bin/pnet-doctor', '/usr/local/bin/azam-doctor', 0),
-        (r'/usr/local/bin/pnet-images', '/usr/local/bin/azam-images', 0),
-        (r'/usr/local/bin/pnet-bootstorm', '/usr/local/bin/azam-bootstorm', 0),
-        (r'/usr/local/bin/pnet-network', '/usr/local/bin/azam-network', 0),
-        (r'/usr/local/bin/pnet-backup', '/usr/local/bin/azam-backup', 0),
-        (r'/usr/local/bin/pnet-credentials', '/usr/local/bin/azam-credentials', 0),
+        (r'/usr/local/bin/pnet-menu', '/usr/local/bin/pnet-menu', 0),
+        (r'/usr/local/bin/pnet-fix', '/usr/local/bin/pnet-fix', 0),
+        (r'/usr/local/bin/pnet-cluster', '/usr/local/bin/pnet-cluster', 0),
+        (r'/usr/local/bin/pnet-satellite-join', '/usr/local/bin/pnet-satellite-join', 0),
+        (r'/usr/local/bin/pnet-health', '/usr/local/bin/pnet-health', 0),
+        (r'/usr/local/bin/pnet-doctor', '/usr/local/bin/pnet-doctor', 0),
+        (r'/usr/local/bin/pnet-images', '/usr/local/bin/pnet-images', 0),
+        (r'/usr/local/bin/pnet-bootstorm', '/usr/local/bin/pnet-bootstorm', 0),
+        (r'/usr/local/bin/pnet-network', '/usr/local/bin/pnet-network', 0),
+        (r'/usr/local/bin/pnet-backup', '/usr/local/bin/pnet-backup', 0),
+        (r'/usr/local/bin/pnet-credentials', '/usr/local/bin/pnet-credentials', 0),
 
         # Compound brand references
         (r'\bAzam-Pnet\b', 'AzamLabs', 0),

@@ -28,7 +28,7 @@ if [ -d "/opt/unetlab/scripts" ] && [ -f "/opt/unetlab/scripts/azambasha-ops-api
 elif [ -n "$INSTALL_ROOT" ] && [ -d "${INSTALL_ROOT}/scripts" ]; then
     SCRIPTS="${INSTALL_ROOT}/scripts"
 else
-    SCRIPTS="/opt/azambasha/scripts"
+    SCRIPTS="/opt/unetlab/scripts"
 fi
 
 if [ -n "$INSTALL_ROOT" ] && [ -d "${INSTALL_ROOT}/html" ]; then
@@ -43,8 +43,8 @@ fi
 
 # Ensure /opt/azambasha compatibility directory and symlinks
 mkdir -p /opt/azambasha 2>/dev/null || true
-if [ ! -e "/opt/azambasha/scripts" ]; then
-    ln -sfn "$SCRIPTS" /opt/azambasha/scripts 2>/dev/null || true
+if [ ! -e "/opt/unetlab/scripts" ]; then
+    ln -sfn "$SCRIPTS" /opt/unetlab/scripts 2>/dev/null || true
 fi
 if [ ! -e "/opt/azambasha/html" ] && [ -d "${AZAM_DIR}/html" ]; then
     ln -sfn "${AZAM_DIR}/html" /opt/azambasha/html 2>/dev/null || true
@@ -75,7 +75,7 @@ chmod +x "${SCRIPTS}"/azambasha-*.py 2>/dev/null || true
 chmod +x "${SCRIPTS}"/azambasha-*.sh 2>/dev/null || true
 
 # Remove any legacy azam-* symlinks from /usr/local/bin to enforce clean pnet-* tooling
-rm -f /usr/local/bin/azam-* /usr/local/bin/azambasha-* /usr/local/bin/apply-heavy-node-optimizer 2>/dev/null || true
+rm -f /usr/local/bin/pnet-* /usr/local/bin/pnet-* /usr/local/bin/apply-heavy-node-optimizer 2>/dev/null || true
 
 # Canonical PNetLab (pnet-*) Global CLI Tooling
 ln -sf "${SCRIPTS}/azambasha-update.sh"              /usr/local/bin/pnet-update

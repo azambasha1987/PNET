@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<!-- Anti-flash: dark-neutral first paint matching the dashboard's default page
+     background (--pnq-bg) so closing a lab doesn't flash browser-white. -->
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>PNetLab</title>
+	<link rel="icon" href="/branding/api.php?action=logo">
+	<!-- vendored, served from 'self' (CSP: script-src/style-src 'self') -->
+	<link rel="stylesheet" href="/assets-common/icons/css/font-awesome.min.css">
+	<link rel="stylesheet" href="/main/css/dashboard.css?v=6.8.93resolute1">
+	<link rel="stylesheet" href="/main/css/theme-engine.css?v=6.8.93resolute1">
+</head>
+
+<body>
+	<!-- boot overlay: visible until dashboard.js resolves /api/auth -->
+	<div id="boot" class="boot">
+		<div class="boot-spin"></div>
+	</div>
+
+	<div id="app" class="app is-loading">
+		<header class="topbar">
+			<div class="topbar-brand">
+				<img class="topbar-logo" data-brand-logo src="/branding/api.php?action=logo" alt="PNetLab">
+				<span class="topbar-brand-text" data-brand-name>PNetLab</span>
+			</div>
+			<div class="topbar-right">
+				<span class="topbar-user">
+					<i class="fa fa-user-circle-o" aria-hidden="true"></i>
+					<span data-bind="username">&hellip;</span>
+				</span>
+				<!-- Multi-Theme Palette Picker (Dynamically powered by pnet-features.js) -->
+				<div id="pnet-topbar-theme-wrap" style="position:relative;display:inline-block;margin-right:6px;">
+					<button id="pnet-topbar-theme-btn" type="button" class="topbar-logout"
+						style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;"
+						title="Change Theme (10 Enterprise Themes)">
+						<span id="pnet-topbar-theme-dot"
+							style="width:9px;height:9px;border-radius:50%;background:#88c0d0;box-shadow:0 0 6px #88c0d0;display:inline-block;"></span>
+						<i class="fa fa-paint-brush"></i>
+						<i class="fa fa-caret-down" style="font-size:10px;opacity:0.7;"></i>
+					</button>
+					<div id="pnet-topbar-theme-menu"
+						style="display:none;position:absolute;top:calc(100% + 6px);right:0;width:230px;background:var(--pnq-surface, #1e293b);border:1px solid var(--pnq-border-strong, rgba(255,255,255,0.2));border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,0.6);z-index:999999;padding:6px;backdrop-filter:blur(12px);">
+					</div>
+				</div>
+				<button type="button" class="topbar-logout" data-action="theme" style="display:none;"
+					title="Switch to dark mode" aria-label="Switch to dark mode">
+					<i class="fa fa-moon-o" aria-hidden="true"></i>
+				</button>
+				<button type="button" class="topbar-logout" data-action="passwd" title="Change password"
+					aria-label="Change password">
+					<i class="fa fa-key" aria-hidden="true"></i>
+				</button>
+				<button type="button" class="topbar-logout" data-action="logout" title="Log out" aria-label="Log out">
+					<i class="fa fa-sign-out" aria-hidden="true"></i>
+				</button>
+			</div>
+		</header>
+
+		<nav class="sidebar" aria-label="Main navigation">
+			<a class="nav-item" data-route="labs" href="#/labs">
+				<i class="fa fa-sitemap" aria-hidden="true"></i><span>Labs</span></a>
+			<a class="nav-item" data-route="running" href="#/running">
+				<i class="fa fa-play-circle" aria-hidden="true"></i><span>Running Labs</span></a>
+			<a class="nav-item" data-route="system" href="#/system">
+				<i class="fa fa-tachometer" aria-hidden="true"></i><span>System</span></a>
+			<a class="nav-item" data-route="history" data-admin="1" href="#/history">
+				<i class="fa fa-line-chart" aria-hidden="true"></i><span>History</span></a>
+			<a class="nav-item" data-route="images" data-admin="1" href="#/images">
+				<i class="fa fa-hdd-o" aria-hidden="true"></i><span>Images</span></a>
+			<a class="nav-item" data-route="icons" data-admin="1" href="#/icons">
+				<i class="fa fa-picture-o" aria-hidden="true"></i><span>Icons</span></a>
+			<a class="nav-item" data-route="devices" data-admin="1" href="#/devices">
+				<i class="fa fa-cube" aria-hidden="true"></i><span>Docker Devices</span></a>
+			<a class="nav-item" data-route="data" data-admin="1" href="#/data">
+				<i class="fa fa-exchange" aria-hidden="true"></i><span>Import Data</span></a>
+			<a class="nav-item" data-route="clusters" data-admin="1" href="#/clusters">
+				<i class="fa fa-server" aria-hidden="true"></i><span>Clusters</span></a>
+			<a class="nav-item" data-route="network" data-admin="1" href="#/network">
+				<i class="fa fa-sitemap" aria-hidden="true"></i><span>Network</span></a>
+			<a class="nav-item" data-route="users" data-admin="1" href="#/users">
+				<i class="fa fa-users" aria-hidden="true"></i><span>Users &amp; Roles</span></a>
+			<a class="nav-item" data-route="mail" data-admin="1" href="#/mail">
+				<i class="fa fa-envelope" aria-hidden="true"></i><span>Mail</span></a>
+			<a class="nav-item" data-route="logs" data-admin="1" href="#/logs">
+				<i class="fa fa-history" aria-hidden="true"></i><span>Logs</span></a>
+			<a class="nav-item" data-route="ai" data-admin="1" href="#/ai">
+				<i class="fa fa-magic" aria-hidden="true"></i><span>AI / MCP</span></a>
+			<a class="nav-item" data-route="pnet-features" href="#/pnet-features">
+				<i class="fa fa-bolt" aria-hidden="true"></i><span>Azam Features</span></a>
+			<div class="sidebar-spacer"></div>
+			<a class="sidebar-version" data-route="version" href="#/version" title="Version details">
+				<i class="fa fa-info-circle" aria-hidden="true"></i>
+				<span class="sv-text"><strong data-brand-name>PNetLab</strong><span
+						data-bind="version">&hellip;</span></span>
+			</a>
+		</nav>
+
+		<main class="content" id="view" aria-live="polite"></main>
+	</div>
+
+	<script src="/assets-common/js/pnq-branding.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/dashboard.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/labs.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/running.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/system.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/history.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/data.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/clusters.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/network.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/images.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/devices.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/users.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/mail-settings.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/logs.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/ai.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/version.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/custom.js?v=6.8.93resolute1"></script>
+	<script src="/main/js/pnet-features.js?v=6.8.93resolute1"></script>
+	<script src="/themes/default/js/pnet-keepalive.js?v=6.8.93resolute1"></script>
+</body>
+
+</html>

@@ -1,0 +1,11 @@
+---
+type: qemu
+description: Cisco Catalyst 9300v
+name: C9300V
+cpus: 4
+ram: 8192
+ethernets: 16
+qemu_arch: x86_64
+qemu_nic: virtio-net-pci
+qemu_options: -machine pc,mem-merge=on -cpu host -enable-kvm -serial mon:stdio -nographic
+icon: Router.png

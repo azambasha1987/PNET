@@ -39,8 +39,8 @@ echo "============================================================"
 
 # Install convenient CLI symlinks if running as root
 if [ "$(id -u)" -eq 0 ]; then
-    ln -sf "$(realpath "$0")" /usr/local/bin/azam-doctor 2>/dev/null || true
-    ln -sf "$(realpath "$0")" /usr/local/bin/azam-image-doctor 2>/dev/null || true
+    ln -sf "$(realpath "$0")" /usr/local/bin/pnet-doctor 2>/dev/null || true
+    ln -sf "$(realpath "$0")" /usr/local/bin/pnet-image-doctor 2>/dev/null || true
 fi
 
 QEMU_DIR="/opt/unetlab/addons/qemu"
@@ -262,7 +262,7 @@ if [ "$MODE" = "--fix" ]; then
     echo "  -> Permissions repaired."
 
     echo -e "\n[*] Enforcing universal QEMU & IOL template and memory optimization..."
-    for opt_cand in "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh" "/opt/azambasha/scripts/azambasha-heavy-node-optimizer.sh"; do
+    for opt_cand in "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh" "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh"; do
         if [ -f "$opt_cand" ]; then
             bash "$opt_cand" 2>/dev/null || true
             break

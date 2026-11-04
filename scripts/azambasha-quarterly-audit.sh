@@ -10,12 +10,12 @@
 # ==============================================================================
 set -euo pipefail
 
-# Resolve physical script location across symlinks (e.g. /usr/local/bin/azam-audit)
+# Resolve physical script location across symlinks (e.g. /usr/local/bin/pnet-audit)
 REAL_PATH="$(realpath "${BASH_SOURCE[0]}" 2>/dev/null || readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" 2>/dev/null && pwd || echo "")"
 if [ ! -d "${SCRIPT_DIR}" ] || [ "${SCRIPT_DIR}" = "/usr/local/bin" ] || [ ! -f "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" ]; then
-    if [ -f "/opt/azambasha/scripts/azambasha-quarterly-audit.sh" ]; then
-        SCRIPT_DIR="/opt/azambasha/scripts"
+    if [ -f "/opt/unetlab/scripts/azambasha-quarterly-audit.sh" ]; then
+        SCRIPT_DIR="/opt/unetlab/scripts"
     elif [ -f "/opt/unetlab/scripts/azambasha-quarterly-audit.sh" ]; then
         SCRIPT_DIR="/opt/unetlab/scripts"
     fi
@@ -382,14 +382,14 @@ EOF
 }
 
 setup_symlink() {
-    log_info "Symlinking azam-audit to /usr/local/bin/azam-audit..."
+    log_info "Symlinking azam-audit to /usr/local/bin/pnet-audit..."
     if [ "$(id -u)" -ne 0 ]; then
-        log_warn "Root permissions required to create /usr/local/bin/azam-audit. Run with sudo."
+        log_warn "Root permissions required to create /usr/local/bin/pnet-audit. Run with sudo."
         exit 1
     fi
-    ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/azam-audit
+    ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit
     chmod +x "${SCRIPT_DIR}/azambasha-quarterly-audit.sh"
-    log_ok "Created global symlink: /usr/local/bin/azam-audit"
+    log_ok "Created global symlink: /usr/local/bin/pnet-audit"
 }
 
 # Main Dispatcher
@@ -422,7 +422,7 @@ case "$ACTION" in
         echo "  --dry-run, -d         Simulate audit run, probe safeguards, and validate report output"
         echo "  --snapshot, -s        Create immutable pre-audit snapshot archive"
         echo "  --rollback, -r <FILE> Restore system state from snapshot archive"
-        echo "  --symlink             Install global /usr/local/bin/azam-audit symlink"
+        echo "  --symlink             Install global /usr/local/bin/pnet-audit symlink"
         echo "  --help, -h            Show this help reference"
         ;;
     *)

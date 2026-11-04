@@ -481,8 +481,8 @@ fi
 
 echo "satellite" > /etc/azamlabs-role
 echo "satellite" > /etc/pnetlab-role
-if [ -x /usr/local/bin/azambasha-update-banner.sh ]; then
-    /usr/local/bin/azambasha-update-banner.sh >/dev/null 2>&1 || true
+if [ -x /usr/local/bin/pnet-update-banner.sh ]; then
+    /usr/local/bin/pnet-update-banner.sh >/dev/null 2>&1 || true
 fi
 
 systemctl daemon-reload 2>/dev/null || true
@@ -511,21 +511,21 @@ elif [ -f "$SCRIPT_LOC/azambasha-heavy-node-optimizer.sh" ]; then
 fi
 
 # Register global administrative CLI commands on Satellite
-for s_dir in "/opt/unetlab/scripts" "/opt/azambasha/scripts" "$SCRIPT_LOC"; do
+for s_dir in "/opt/unetlab/scripts" "/opt/unetlab/scripts" "$SCRIPT_LOC"; do
     if [ -f "${s_dir}/azambasha-update.sh" ]; then
-        ln -sf "${s_dir}/azambasha-update.sh" /usr/local/bin/azam-update 2>/dev/null || true
-        rm -f /usr/local/bin/azambasha-update 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-quarterly-audit.sh" /usr/local/bin/azam-audit 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-apply-all-fixes.sh" /usr/local/bin/azam-menu 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-apply-all-fixes.sh" /usr/local/bin/azam-fix 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/azam-optimizer 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/azam-heavy-optimizer 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-dry-test.py" /usr/local/bin/azam-dry-test 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-health-check.sh" /usr/local/bin/azam-health 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-image-doctor.sh" /usr/local/bin/azam-doctor 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-image-doctor.sh" /usr/local/bin/azam-image-doctor 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-bootstorm.py" /usr/local/bin/azam-bootstorm 2>/dev/null || true
-        ln -sf "${s_dir}/azambasha-bootstorm.py" /usr/local/bin/azam-bootstorm 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
+        rm -f /usr/local/bin/pnet-update 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-apply-all-fixes.sh" /usr/local/bin/pnet-menu 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-apply-all-fixes.sh" /usr/local/bin/pnet-fix 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-image-doctor.sh" /usr/local/bin/pnet-doctor 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-image-doctor.sh" /usr/local/bin/pnet-image-doctor 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-bootstorm.py" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
+        ln -sf "${s_dir}/azambasha-bootstorm.py" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
         break
     fi
 done

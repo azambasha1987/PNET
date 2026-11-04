@@ -870,7 +870,7 @@ def run_bootstorm(host, lab_path, username="admin", password="azam",
 def install_symlink():
     if sys.platform != "win32":
         try:
-            target = "/usr/local/bin/azam-bootstorm"
+            target = "/usr/local/bin/pnet-bootstorm"
             source = os.path.realpath(__file__)
             if not os.path.exists(target) or os.path.realpath(target) != source:
                 if os.path.exists(target) or os.path.islink(target):
@@ -880,7 +880,7 @@ def install_symlink():
                         pass
                 os.symlink(source, target)
             # Also create alias pnet-bootstorm
-            pnet_target = "/usr/local/bin/azam-bootstorm"
+            pnet_target = "/usr/local/bin/pnet-bootstorm"
             if not os.path.exists(pnet_target) or os.path.realpath(pnet_target) != source:
                 if os.path.exists(pnet_target) or os.path.islink(pnet_target):
                     try:

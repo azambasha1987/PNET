@@ -24,63 +24,63 @@ COMMANDS = {
     "optimizer-run":      ["bash", "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh", "--apply"],
     "optimizer-dry-run":  ["bash", "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh", "--dry-run"],
     "optimizer-compress": ["bash", "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh", "--compress-images"],
-    "doctor-compress":    ["bash", "/usr/local/bin/azam-doctor", "--compress"],
+    "doctor-compress":    ["bash", "/usr/local/bin/pnet-doctor", "--compress"],
 
     # Health, Monitoring & Auditing
     "audit":             ["bash", "/opt/unetlab/scripts/azambasha-quarterly-audit.sh"],
     "health-check":      ["bash", "/opt/unetlab/scripts/azambasha-health-check.sh"],
     "dry-test":          ["python3", "/opt/unetlab/scripts/azambasha-dry-test.py"],
     "update-check":      ["bash", "/opt/unetlab/scripts/azambasha-update.sh", "--check"],
-    "fleet":         ["bash", "/usr/local/bin/azam-fleet"],
-    "capacity":      ["python3", "/usr/local/bin/azam-capacity"],
-    "doctor":        ["bash", "/usr/local/bin/azam-doctor", "--check"],
-    "perf":          ["python3", "/usr/local/bin/azam-perf", "--once"],
-    "watchdog-status":["python3", "/usr/local/bin/azam-watchdog", "--status"],
-    "watchdog-install":["python3", "/usr/local/bin/azam-watchdog", "--install"],
+    "fleet":         ["bash", "/usr/local/bin/pnet-fleet"],
+    "capacity":      ["python3", "/usr/local/bin/pnet-capacity"],
+    "doctor":        ["bash", "/usr/local/bin/pnet-doctor", "--check"],
+    "perf":          ["python3", "/usr/local/bin/pnet-perf", "--once"],
+    "watchdog-status":["python3", "/usr/local/bin/pnet-watchdog", "--status"],
+    "watchdog-install":["python3", "/usr/local/bin/pnet-watchdog", "--install"],
 
     # Network & Dataplane
     "bench":         None,   # requires SATELLITE_IP param
-    "console-fix":   ["bash", "/usr/local/bin/azam-console-fix", "--fix"],
-    "console-check": ["bash", "/usr/local/bin/azam-console-fix", "--check"],
+    "console-fix":   ["bash", "/usr/local/bin/pnet-console-fix", "--fix"],
+    "console-check": ["bash", "/usr/local/bin/pnet-console-fix", "--check"],
 
     # Security & SSL
-    "ssl-status":    ["bash", "/usr/local/bin/azam-ssl", "--status"],
-    "ssl-generate":  ["bash", "/usr/local/bin/azam-ssl", "--generate"],
+    "ssl-status":    ["bash", "/usr/local/bin/pnet-ssl", "--status"],
+    "ssl-generate":  ["bash", "/usr/local/bin/pnet-ssl", "--generate"],
 
     # Topology Git
-    "topology-snapshot": ["python3", "/usr/local/bin/azam-topology-git", "--snapshot"],
+    "topology-snapshot": ["python3", "/usr/local/bin/pnet-topology-git", "--snapshot"],
 
 
 
     # AI Lab Copilot
     "ai-generate":        None,
     "ai-diagnose":        None,
-    "ai-templates":       ["python3", "/opt/azambasha/scripts/azambasha-ai-copilot.py", "--list-templates"],
+    "ai-templates":       ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--list-templates"],
 
     # Config Diff & Rollback
-    "config-snapshot":    ["python3", "/opt/azambasha/scripts/azambasha-config-diff.py", "--snapshot"],
-    "config-nodes":       ["python3", "/opt/azambasha/scripts/azambasha-config-diff.py", "--nodes"],
+    "config-snapshot":    ["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--snapshot"],
+    "config-nodes":       ["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--nodes"],
     "config-diff":        None,
     "config-rollback":    None,
 
     # Ping Mesh & Traffic Gen
-    "mesh-sweep":         ["python3", "/opt/azambasha/scripts/azambasha-ping-mesh.py", "--sweep"],
+    "mesh-sweep":         ["python3", "/opt/unetlab/scripts/azambasha-ping-mesh.py", "--sweep"],
     "mesh-traffic":       None,
 
     # Scheduler & Quotas
-    "scheduler-status":   ["python3", "/opt/azambasha/scripts/azambasha-scheduler.py", "--status"],
-    "scheduler-check":    ["python3", "/opt/azambasha/scripts/azambasha-scheduler.py", "--check"],
-    "scheduler-stop-idle":["python3", "/opt/azambasha/scripts/azambasha-scheduler.py", "--stop-idle"],
-    "scheduler-install":  ["python3", "/opt/azambasha/scripts/azambasha-scheduler.py", "--install"],
+    "scheduler-status":   ["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--status"],
+    "scheduler-check":    ["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--check"],
+    "scheduler-stop-idle":["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--stop-idle"],
+    "scheduler-install":  ["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--install"],
 
 
 
     # Cloud & Real-LAN Transit
-    "bridge-status":      ["python3", "/opt/azambasha/scripts/azambasha-cloud-bridge.py", "--status"],
-    "bridge-enable-nat":  ["python3", "/opt/azambasha/scripts/azambasha-cloud-bridge.py", "--enable-nat"],
-    "bridge-disable-nat": ["python3", "/opt/azambasha/scripts/azambasha-cloud-bridge.py", "--disable-nat"],
-    "bridge-wireguard-up":["python3", "/opt/azambasha/scripts/azambasha-cloud-bridge.py", "--wireguard-up"],
-    "bridge-wireguard-down":["python3", "/opt/azambasha/scripts/azambasha-cloud-bridge.py", "--wireguard-down"],
+    "bridge-status":      ["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--status"],
+    "bridge-enable-nat":  ["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--enable-nat"],
+    "bridge-disable-nat": ["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--disable-nat"],
+    "bridge-wireguard-up":["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--wireguard-up"],
+    "bridge-wireguard-down":["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--wireguard-down"],
 
     # Automatic Topology Documentation
     "topology-doc":       None,
@@ -98,7 +98,7 @@ COMMANDS = {
     "perf-resume":        None,
 
     # HTML5 Console Fixer
-    "console-fix-full":   ["bash", "/usr/local/bin/azam-console-fix", "--fix"],
+    "console-fix-full":   ["bash", "/usr/local/bin/pnet-console-fix", "--fix"],
 
 }
 
@@ -321,19 +321,20 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        norm_path = parsed.path.replace("/pnet-ops/api", "/azam-ops/api")
         params = parse_qs(parsed.query)
 
-        if parsed.path == "/azam-ops/api/dataplane-sparkline":
+        if norm_path == "/azam-ops/api/dataplane-sparkline":
             iface = params.get("iface", [""])[0]
             self.reply_json(TELEMETRY_ENGINE.get_sparkline(iface))
 
 
-        elif parsed.path == "/azam-ops/api/stats":
+        elif norm_path == "/azam-ops/api/stats":
             self.reply_json(get_cluster_stats())
 
-        elif parsed.path == "/azam-ops/api/topology-log":
+        elif norm_path == "/azam-ops/api/topology-log":
             lab = params.get("lab", [""])[0]
-            cmd = ["python3", "/usr/local/bin/azam-topology-git", "--log", lab] if lab else []
+            cmd = ["python3", "/usr/local/bin/pnet-topology-git", "--log", lab] if lab else []
             if not cmd:
                 self.reply_json({"error": "lab parameter required"})
                 return
@@ -343,7 +344,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.reply_json({"error": str(e)})
 
-        elif parsed.path in ("/azam-ops/api/labs", "/api/azam/labs"):
+        elif norm_path in ("/azam-ops/api/labs", "/api/azam/labs"):
             labs_root = "/opt/unetlab/labs"
             result = {"folders": [], "all_labs": [], "total_labs": 0}
             if os.path.isdir(labs_root):
@@ -401,7 +402,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
                 result["total_labs"] = len(result["all_labs"])
             self.reply_json(result)
 
-        elif parsed.path == "/azam-ops/api/notify-config":
+        elif norm_path == "/azam-ops/api/notify-config":
             conf = {}
             if os.path.isfile("/etc/azamlabs/azambasha-notify.conf"):
                 try:
@@ -418,59 +419,59 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
                     pass
             self.reply_json(conf)
 
-        elif parsed.path == "/azam-ops/api/mesh/sweep":
+        elif norm_path == "/azam-ops/api/mesh/sweep":
             try:
-                r = subprocess.run(["python3", "/opt/azambasha/scripts/azambasha-ping-mesh.py", "--sweep", "--json"],
+                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-ping-mesh.py", "--sweep", "--json"],
                                    capture_output=True, text=True, timeout=15)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
                 self.reply_json({"mesh": [], "error": str(e)})
 
-        elif parsed.path == "/azam-ops/api/ai/templates":
+        elif norm_path == "/azam-ops/api/ai/templates":
             try:
-                r = subprocess.run(["python3", "/opt/azambasha/scripts/azambasha-ai-copilot.py", "--list-templates", "--json"],
+                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--list-templates", "--json"],
                                    capture_output=True, text=True, timeout=10)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
                 self.reply_json({"templates": [], "error": str(e)})
 
-        elif parsed.path == "/azam-ops/api/config/nodes":
+        elif norm_path == "/azam-ops/api/config/nodes":
             try:
-                r = subprocess.run(["python3", "/opt/azambasha/scripts/azambasha-config-diff.py", "--nodes", "--json"],
+                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--nodes", "--json"],
                                    capture_output=True, text=True, timeout=10)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
                 self.reply_json({"nodes": [], "error": str(e)})
 
-        elif parsed.path == "/azam-ops/api/scheduler/status":
+        elif norm_path == "/azam-ops/api/scheduler/status":
             try:
-                r = subprocess.run(["python3", "/opt/azambasha/scripts/azambasha-scheduler.py", "--status", "--json"],
+                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--status", "--json"],
                                    capture_output=True, text=True, timeout=10)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
                 self.reply_json({"error": str(e)})
 
-        elif parsed.path == "/azam-ops/api/bridge/status":
+        elif norm_path == "/azam-ops/api/bridge/status":
             try:
-                r = subprocess.run(["python3", "/opt/azambasha/scripts/azambasha-cloud-bridge.py", "--status", "--json"],
+                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--status", "--json"],
                                    capture_output=True, text=True, timeout=10)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
                 self.reply_json({"error": str(e)})
 
-        elif parsed.path == "/azam-ops/api/doc/export":
+        elif norm_path == "/azam-ops/api/doc/export":
             lab = params.get("lab", ["default_lab"])[0]
             fmt = params.get("format", ["all"])[0]
             try:
-                r = subprocess.run(["python3", "/opt/azambasha/scripts/azambasha-topology-doc.py", "--lab", lab, "--format", fmt, "--json"],
+                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-topology-doc.py", "--lab", lab, "--format", fmt, "--json"],
                                    capture_output=True, text=True, timeout=10)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
                 self.reply_json({"error": str(e)})
 
-        elif parsed.path == "/azam-ops/api/perf/top":
+        elif norm_path == "/azam-ops/api/perf/top":
             try:
-                r = subprocess.run(["python3", "/usr/local/bin/azam-perf", "--once"],
+                r = subprocess.run(["python3", "/usr/local/bin/pnet-perf", "--once"],
                                    capture_output=True, text=True, timeout=10)
                 procs = []
                 for line in r.stdout.splitlines():
@@ -489,10 +490,10 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.reply_json({"raw": "", "nodes": [], "error": str(e)})
 
-        elif parsed.path == "/azam-ops/api/topology/diff":
+        elif norm_path == "/azam-ops/api/topology/diff":
             lab = params.get("lab", [""])[0]
             commit = params.get("commit", [""])[0]
-            cmd = ["python3", "/usr/local/bin/azam-topology-git", "--diff", lab]
+            cmd = ["python3", "/usr/local/bin/pnet-topology-git", "--diff", lab]
             if commit:
                 cmd.extend(["--commit", commit])
             try:
@@ -501,7 +502,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.reply_json({"diff": "", "error": str(e)})
 
-        elif parsed.path in ["/azam-ops/api/docs/manual", "/azam-ops/api/manual.pdf"]:
+        elif norm_path in ["/azam-ops/api/docs/manual", "/azam-ops/api/manual.pdf"]:
             pdf_candidates = [
                 "/opt/unetlab/html/docs/manual.pdf",
                 "/opt/unetlab/html/docs/Azam-Pnet_Enterprise_Features_Operations_Manual.pdf",
@@ -525,7 +526,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
                     return
             self.reply_json({"error": "Manual PDF not found"}, status=404)
 
-        elif parsed.path == "/azam-ops/api/link-stats":
+        elif norm_path == "/azam-ops/api/link-stats":
             stats = []
             net_dir = "/sys/class/net"
             if os.path.isdir(net_dir):
@@ -550,7 +551,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
                             pass
             self.reply_json({"interfaces": stats})
 
-        elif parsed.path == "/azam-ops/api/export/ansible":
+        elif norm_path == "/azam-ops/api/export/ansible":
             lab = params.get("lab", ["lab"])[0]
             yaml_content = f"""# Dynamic Ansible Inventory for AzamLabs Lab: {lab}
 all:
@@ -582,7 +583,7 @@ all:
 """
             self.reply_json({"success": True, "yaml": yaml_content, "filename": f"{lab}_ansible_inventory.yaml"})
 
-        elif parsed.path == "/azam-ops/api/export/pyats":
+        elif norm_path == "/azam-ops/api/export/pyats":
             lab = params.get("lab", ["lab"])[0]
             pyats_content = f"""# Cisco pyATS/Genie Testbed Topology for AzamLabs Lab: {lab}
 testbed:
@@ -623,7 +624,7 @@ devices:
 """
             self.reply_json({"success": True, "yaml": pyats_content, "filename": f"{lab}_pyats_testbed.yaml"})
 
-        elif parsed.path == "/azam-ops/api/export/drawio":
+        elif norm_path == "/azam-ops/api/export/drawio":
             lab = params.get("lab", ["Azam-Topology"])[0]
             drawio_xml = f"""<mxfile host="Electron" agent="AzamLabs Draw.io Exporter" type="device">
   <diagram id="topo-export" name="{lab}">
@@ -646,7 +647,7 @@ devices:
 </mxfile>"""
             self.reply_json({"success": True, "xml": drawio_xml, "filename": f"{lab}.drawio.xml"})
 
-        elif parsed.path == "/azam-ops/api/export/cabling":
+        elif norm_path == "/azam-ops/api/export/cabling":
             lab = params.get("lab", ["Azam-Topology"])[0]
             matrix_md = f"""# Cabling Patch & IP Subnet Allocation Matrix: {lab}
 
@@ -660,7 +661,7 @@ devices:
 """
             self.reply_json({"success": True, "matrix": matrix_md, "filename": f"{lab}_cabling_matrix.md"})
 
-        elif parsed.path == "/azam-ops/api/cluster/bench":
+        elif norm_path == "/azam-ops/api/cluster/bench":
             peer = params.get("target", params.get("peer", ["127.0.0.1"]))[0]
             mtu = params.get("mtu", ["1500"])[0]
             try:
@@ -769,12 +770,12 @@ print("[*] AzamLabs Python SDK Loaded.")
                     if not sat_ip:
                         self.reply_json({"error": "satellite_ip required"}, status=400)
                         return
-                    cmd = ["bash", "/usr/local/bin/azam-bench", sat_ip]
+                    cmd = ["bash", "/usr/local/bin/pnet-bench", sat_ip]
 
                 elif tool == "topology-snapshot":
                     lab = params.get("lab", "").strip()
                     msg = params.get("message", "").strip()
-                    cmd = ["python3", "/usr/local/bin/azam-topology-git", "--snapshot"]
+                    cmd = ["python3", "/usr/local/bin/pnet-topology-git", "--snapshot"]
                     if lab:
                         cmd.extend(["--lab", lab])
                     if msg:
@@ -783,33 +784,33 @@ print("[*] AzamLabs Python SDK Loaded.")
                     tmpl = params.get("template", "")
                     prompt = params.get("prompt", "")
                     if tmpl:
-                        cmd = ["python3", "/opt/azambasha/scripts/azambasha-ai-copilot.py", "--template", tmpl]
+                        cmd = ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--template", tmpl]
                     elif prompt:
-                        cmd = ["python3", "/opt/azambasha/scripts/azambasha-ai-copilot.py", "--prompt", prompt]
+                        cmd = ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--prompt", prompt]
                     else:
-                        cmd = ["python3", "/opt/azambasha/scripts/azambasha-ai-copilot.py", "--template", "cisco_ospf"]
+                        cmd = ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--template", "cisco_ospf"]
                 elif tool == "ai-diagnose":
                     log_txt = params.get("log", "").strip()
-                    cmd = ["python3", "/opt/azambasha/scripts/azambasha-ai-copilot.py", "--diagnose", log_txt or "show ip ospf neighbor"]
+                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--diagnose", log_txt or "show ip ospf neighbor"]
                 elif tool == "config-diff":
                     rev_a = params.get("rev_a", "")
                     rev_b = params.get("rev_b", "")
-                    cmd = ["python3", "/opt/azambasha/scripts/azambasha-config-diff.py", "--diff", rev_a, rev_b]
+                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--diff", rev_a, rev_b]
                 elif tool == "config-rollback":
                     lab = params.get("lab", "default_lab")
                     node = params.get("node", "R1-Border-Gateway")
                     rev = params.get("revision", "")
-                    cmd = ["python3", "/opt/azambasha/scripts/azambasha-config-diff.py", "--lab", lab, "--node", node, "--rollback", rev]
+                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--lab", lab, "--node", node, "--rollback", rev]
                 elif tool == "mesh-traffic":
                     target = params.get("target", "192.168.1.1")
                     rate = str(params.get("rate", "5"))
                     dur = str(params.get("duration", "5"))
-                    cmd = ["python3", "/opt/azambasha/scripts/azambasha-ping-mesh.py", "--traffic-gen", "--target", target, "--rate", rate, "--duration", dur]
+                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-ping-mesh.py", "--traffic-gen", "--target", target, "--rate", rate, "--duration", dur]
 
                 elif tool == "topology-doc":
                     lab = params.get("lab", "default_lab")
                     fmt = params.get("format", "all")
-                    cmd = ["python3", "/opt/azambasha/scripts/azambasha-topology-doc.py", "--lab", lab, "--format", fmt]
+                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-topology-doc.py", "--lab", lab, "--format", fmt]
                 elif tool == "bootstorm-start":
                     lab = params.get("lab", "").strip()
                     heavy_delay = str(params.get("heavy_delay", "18"))
@@ -892,19 +893,19 @@ print("[*] AzamLabs Python SDK Loaded.")
                                                 pass
                             if latest_unl:
                                 lab = f"/{latest_unl.lstrip('/')}"
-                    bootstorm_bin = "/usr/local/bin/azam-bootstorm"
+                    bootstorm_bin = "/usr/local/bin/pnet-bootstorm"
                     if not os.path.exists(bootstorm_bin):
                         for candidate in [
                             "/opt/unetlab/scripts/azambasha-bootstorm.py",
-                            "/opt/azambasha/scripts/azambasha-bootstorm.py",
+                            "/opt/unetlab/scripts/azambasha-bootstorm.py",
                             os.path.join(os.path.dirname(os.path.abspath(__file__)), "azambasha-bootstorm.py")
                         ]:
                             if os.path.exists(candidate):
                                 bootstorm_bin = candidate
                                 try:
-                                    if os.path.islink("/usr/local/bin/azam-bootstorm") or os.path.exists("/usr/local/bin/azam-bootstorm"):
-                                        os.unlink("/usr/local/bin/azam-bootstorm")
-                                    os.symlink(candidate, "/usr/local/bin/azam-bootstorm")
+                                    if os.path.islink("/usr/local/bin/pnet-bootstorm") or os.path.exists("/usr/local/bin/pnet-bootstorm"):
+                                        os.unlink("/usr/local/bin/pnet-bootstorm")
+                                    os.symlink(candidate, "/usr/local/bin/pnet-bootstorm")
                                 except Exception:
                                     pass
                                 break
@@ -922,29 +923,29 @@ print("[*] AzamLabs Python SDK Loaded.")
                 elif tool == "topology-log":
                     lab = params.get("lab", "").strip()
                     limit = str(params.get("limit", "20"))
-                    cmd = ["python3", "/usr/local/bin/azam-topology-git", "--log", lab, "--limit", limit]
+                    cmd = ["python3", "/usr/local/bin/pnet-topology-git", "--log", lab, "--limit", limit]
                 elif tool == "topology-restore":
                     lab = params.get("lab", "").strip()
                     commit = params.get("commit", "").strip()
                     if not commit:
                         self.reply_json({"error": "commit SHA required"}, status=400)
                         return
-                    cmd = ["python3", "/usr/local/bin/azam-topology-git", "--restore", lab, "--commit", commit]
+                    cmd = ["python3", "/usr/local/bin/pnet-topology-git", "--restore", lab, "--commit", commit]
                 elif tool == "perf-kill":
-                    cmd = ["python3", "/usr/local/bin/azam-perf", "--kill-hot"]
+                    cmd = ["python3", "/usr/local/bin/pnet-perf", "--kill-hot"]
                 elif tool == "perf-resume":
                     pid = str(params.get("pid", "")).strip()
                     if not pid:
                         self.reply_json({"error": "PID required"}, status=400)
                         return
-                    cmd = ["python3", "/usr/local/bin/azam-perf", "--resume", pid]
+                    cmd = ["python3", "/usr/local/bin/pnet-perf", "--resume", pid]
                 else:
                     self.reply_json({"error": "Command not configured"}, status=400)
                     return
 
             # Append extra params
             if tool == "ssl-generate" and params.get("ip"):
-                cmd = ["bash", "/usr/local/bin/azam-ssl", "--generate", params["ip"]]
+                cmd = ["bash", "/usr/local/bin/pnet-ssl", "--generate", params["ip"]]
 
             # SSE streaming response
             self.send_response(200)
@@ -975,7 +976,7 @@ print("[*] AzamLabs Python SDK Loaded.")
             finally:
                 self.close_connection = True
 
-        elif parsed.path == "/azam-ops/api/perf-kill":
+        elif norm_path == "/azam-ops/api/perf-kill":
             role = self.headers.get("X-User-Role", "0")
             if str(role).strip() != "0":
                 self.reply_json({"error": "Forbidden: Administrator privileges required to terminate processes."}, status=403)
@@ -991,7 +992,7 @@ print("[*] AzamLabs Python SDK Loaded.")
             except Exception as e:
                 self.reply_json({"error": str(e)}, status=500)
 
-        elif parsed.path == "/azam-ops/api/node-ksm-tune":
+        elif norm_path == "/azam-ops/api/node-ksm-tune":
             node_name = body.get("node_name", "Node")
             node_id = body.get("node_id", "")
             # Enable Linux Kernel Samepage Merging (KSM) aggressive deduplication
@@ -1010,12 +1011,12 @@ print("[*] AzamLabs Python SDK Loaded.")
                 "node_id": node_id
             })
 
-        elif parsed.path == "/azam-ops/api/airgap-pack":
+        elif norm_path == "/azam-ops/api/airgap-pack":
             role = self.headers.get("X-User-Role", "0")
             if str(role).strip() != "0":
                 self.reply_json({"error": "Forbidden: Administrator role required to generate airgap bundles."}, status=403)
                 return
-            script = "/usr/local/bin/azam-airgap-pack"
+            script = "/usr/local/bin/pnet-airgap-pack"
             if not os.path.isfile(script):
                 script = "/opt/unetlab/scripts/azambasha-airgap-pack.sh"
             if not os.path.isfile(script):
@@ -1029,11 +1030,11 @@ print("[*] AzamLabs Python SDK Loaded.")
                 "target": "/Exports/azamlabs-airgap-latest.tar.gz"
             })
 
-        elif parsed.path == "/azam-ops/api/topology-autocommit":
+        elif norm_path == "/azam-ops/api/topology-autocommit":
             lab = body.get("lab", "").strip()
             event = body.get("event", "milestone").strip()
             msg = f"Auto-commit snapshot on {event} [{time.strftime('%Y-%m-%d %H:%M:%S')}]"
-            cmd = ["python3", "/usr/local/bin/azam-topology-git", "--snapshot"]
+            cmd = ["python3", "/usr/local/bin/pnet-topology-git", "--snapshot"]
             if lab:
                 cmd.extend(["--lab", lab])
             cmd.extend(["--message", msg])
@@ -1043,14 +1044,14 @@ print("[*] AzamLabs Python SDK Loaded.")
             except Exception as e:
                 self.reply_json({"success": False, "error": str(e)})
 
-        elif parsed.path == "/azam-ops/api/link-impair":
+        elif norm_path == "/azam-ops/api/link-impair":
             iface = body.get("interface", "vunl0_1_0")
             action = body.get("action", "set")
             delay = body.get("delay", "20ms")
             jitter = body.get("jitter", "5ms")
             loss = body.get("loss", "1%")
             rate = body.get("rate", "10mbit")
-            script = "/usr/local/bin/azambasha-link-impairment"
+            script = "/usr/local/bin/pnet-link-impairment"
             if not os.path.isfile(script):
                 script = "/opt/unetlab/scripts/azambasha-link-impairment.sh"
             if not os.path.isfile(script):
@@ -1066,7 +1067,7 @@ print("[*] AzamLabs Python SDK Loaded.")
             except Exception as e:
                 self.reply_json({"success": False, "error": str(e)})
 
-        elif parsed.path == "/azam-ops/api/lab-checkpoint/create":
+        elif norm_path == "/azam-ops/api/lab-checkpoint/create":
             lab = body.get("lab", "current_lab")
             label = body.get("label", "Manual-Checkpoint")
             ckpt_id = f"ckpt_{int(time.time())}"
@@ -1076,12 +1077,12 @@ print("[*] AzamLabs Python SDK Loaded.")
                 json.dump({"id": ckpt_id, "label": label, "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')}, f)
             self.reply_json({"success": True, "checkpoint_id": ckpt_id, "label": label, "message": f"Checkpoint '{label}' created in 0.2s"})
 
-        elif parsed.path == "/azam-ops/api/lab-checkpoint/restore":
+        elif norm_path == "/azam-ops/api/lab-checkpoint/restore":
             lab = body.get("lab", "current_lab")
             ckpt_id = body.get("checkpoint_id", "")
             self.reply_json({"success": True, "message": f"Lab {lab} reverted to checkpoint {ckpt_id}. Virtual disks synchronized."})
 
-        elif parsed.path == "/azam-ops/api/restconf/proxy":
+        elif norm_path == "/azam-ops/api/restconf/proxy":
             node_ip = body.get("node_ip", "127.0.0.1")
             method = body.get("method", "GET")
             path = body.get("path", "/restconf/data/ietf-interfaces:interfaces")
@@ -1097,12 +1098,12 @@ print("[*] AzamLabs Python SDK Loaded.")
             py_snippet = f"import requests\nr = requests.{method.lower()}('https://{node_ip}{path}', auth=('admin', 'azam'), verify=False, headers={{'Accept': 'application/yang-data+json'}})\nprint(r.json())"
             self.reply_json({"status_code": 200, "data": sample_data, "curl": curl_snippet, "python": py_snippet})
 
-        elif parsed.path == "/azam-ops/api/gitops/sync":
+        elif norm_path == "/azam-ops/api/gitops/sync":
             repo_url = body.get("repo_url", "https://github.com/myorg/lab-configs.git")
             lab = body.get("lab", "lab1")
             self.reply_json({"success": True, "message": f"Configs for {lab} synchronized and pushed to {repo_url}", "commit_hash": "a9f8b2c"})
 
-        elif parsed.path == "/azam-ops/api/ai/topology-build":
+        elif norm_path == "/azam-ops/api/ai/topology-build":
             prompt = body.get("prompt", "")
             lab_name = body.get("lab_name", f"AI-Lab-{int(time.time())}")
             xml_dir = "/opt/unetlab/labs/AI-Generated"
@@ -1130,7 +1131,7 @@ print("[*] AzamLabs Python SDK Loaded.")
                 pass
             self.reply_json({"success": True, "lab_name": lab_name, "lab_path": f"/AI-Generated/{lab_name}.unl", "node_count": 4, "link_count": 3})
 
-        elif parsed.path == "/azam-ops/api/ai/config-synth":
+        elif norm_path == "/azam-ops/api/ai/config-synth":
             intent = body.get("prompt", "")
             synthesized = [
                 {"node": "R1-Border", "vendor": "cisco", "syntax": "! Cisco IOS-XE\nrouter ospf 1\n router-id 1.1.1.1\n network 10.0.0.0 0.0.0.3 area 0\n passive-interface default\n no passive-interface Gi1\n!\nrouter bgp 65001\n neighbor 10.0.0.2 remote-as 65001\n fall-over bfd\n"},
@@ -1139,7 +1140,7 @@ print("[*] AzamLabs Python SDK Loaded.")
             ]
             self.reply_json({"success": True, "intent": intent, "synthesized": synthesized})
 
-        elif parsed.path == "/azam-ops/api/ai/link-triage":
+        elif norm_path == "/azam-ops/api/ai/link-triage":
             src = body.get("src", "R1")
             dst = body.get("dst", "R2")
             verdict = {
@@ -1153,7 +1154,7 @@ print("[*] AzamLabs Python SDK Loaded.")
             }
             self.reply_json({"success": True, "verdict": verdict})
 
-        elif parsed.path == "/azam-ops/api/ai/compliance-audit":
+        elif norm_path == "/azam-ops/api/ai/compliance-audit":
             audit_result = {
                 "score": 76,
                 "grade": "C+ (Moderate Hardening Required)",
@@ -1169,14 +1170,14 @@ print("[*] AzamLabs Python SDK Loaded.")
             }
             self.reply_json({"success": True, "audit": audit_result})
 
-        elif parsed.path == "/azam-ops/api/chaos/start":
+        elif norm_path == "/azam-ops/api/chaos/start":
             profile = body.get("profile", "link_flap")
             self.reply_json({"success": True, "message": f"Chaos simulation '{profile}' initiated. Injected 20s failure intervals.", "active": True})
 
-        elif parsed.path == "/azam-ops/api/chaos/stop":
+        elif norm_path == "/azam-ops/api/chaos/stop":
             self.reply_json({"success": True, "message": "Chaos simulation halted. Network restored to stable state.", "active": False})
 
-        elif parsed.path == "/azam-ops/api/scheduler/config":
+        elif norm_path == "/azam-ops/api/scheduler/config":
             idle_hours = body.get("idle_timeout_hours", 2)
             enable_idle = body.get("enable_idle_shutdown", True)
             curfew_on = body.get("nightly_curfew_enabled", False)
@@ -1228,11 +1229,12 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 """
-    svc_path = "/etc/systemd/system/azam-ops-api.service"
+    svc_path = "/etc/systemd/system/pnet-ops-api.service"
     with open(svc_path, "w") as f:
         f.write(svc)
     subprocess.run(["systemctl", "daemon-reload"], check=False)
-    subprocess.run(["systemctl", "enable", "--now", "azam-ops-api.service"], check=False)
+    subprocess.run(["systemctl", "enable", "--now", "pnet-ops-api.service"], check=False)
+    subprocess.run(["ln", "-sf", "/etc/systemd/system/pnet-ops-api.service", "/etc/systemd/system/azam-ops-api.service"], check=False)
     print(f"[✔] azam-ops-api service installed and started on port {PORT}")
 
 

@@ -243,7 +243,7 @@ def restore_lab(lab_name: str, commit_sha: str):
 def install_symlink():
     if sys.platform != "win32":
         try:
-            target = "/usr/local/bin/azam-topology-git"
+            target = "/usr/local/bin/pnet-topology-git"
             source = os.path.realpath(__file__)
             if not os.path.exists(target) or os.path.realpath(target) != source:
                 if os.path.exists(target):

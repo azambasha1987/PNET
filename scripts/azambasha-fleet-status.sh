@@ -14,9 +14,9 @@ MAGENTA="\033[1;35m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
-# Install symlink to /usr/local/bin/azam-fleet
+# Install symlink to /usr/local/bin/pnet-fleet
 if [ "$(id -u)" -eq 0 ]; then
-    ln -sf "$(realpath "$0")" /usr/local/bin/azam-fleet 2>/dev/null || true
+    ln -sf "$(realpath "$0")" /usr/local/bin/pnet-fleet 2>/dev/null || true
 fi
 
 # Detect Node Role

@@ -29,14 +29,14 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # ── Self-Register CLI Commands & APT Post-Invoke Anti-Regression Hook ────────
-ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/azam-credentials 2>/dev/null || true
-ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/azam-credentials 2>/dev/null || true
-ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/azambasha-credentials 2>/dev/null || true
+ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/pnet-credentials 2>/dev/null || true
+ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/pnet-credentials 2>/dev/null || true
+ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/pnet-credentials 2>/dev/null || true
 
 # Register APT Post-Invoke hook so any future package upgrade/installation automatically preserves credentials
 if [ -d /etc/apt/apt.conf.d ]; then
     cat << 'APTEOF' > /etc/apt/apt.conf.d/99azamlabs-credentials 2>/dev/null || true
-DPkg::Post-Invoke {"if [ -x /usr/local/bin/azam-credentials ]; then /usr/local/bin/azam-credentials --silent >/dev/null 2>&1 || true; fi";};
+DPkg::Post-Invoke {"if [ -x /usr/local/bin/pnet-credentials ]; then /usr/local/bin/pnet-credentials --silent >/dev/null 2>&1 || true; fi";};
 APTEOF
 fi
 

@@ -147,9 +147,9 @@ def print_capacity_report(res):
     print("================================================================================")
 
 def install_symlink():
-    """Install /usr/local/bin/azam-capacity if root on Linux."""
+    """Install /usr/local/bin/pnet-capacity if root on Linux."""
     if sys.platform != "win32" and os.geteuid() == 0:
-        target = "/usr/local/bin/azam-capacity"
+        target = "/usr/local/bin/pnet-capacity"
         source = os.path.realpath(__file__)
         try:
             if not os.path.exists(target) or os.path.realpath(target) != source:

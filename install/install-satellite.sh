@@ -79,20 +79,18 @@ done
 
 dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y
 
-echo "[4/5] Applying satellite optimization scripts for $VERSION..."
+echo "[4/5] Applying satellite optimization scripts and Custom Features for $VERSION..."
 if [ -d "$REPO_ROOT/scripts" ]; then
     mkdir -p /opt/unetlab/scripts
     cp -rf "$REPO_ROOT/scripts/." /opt/unetlab/scripts/
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
-    
-    # Register global canonical pnet-* CLI tooling on satellite
+fi
+
+# Apply all Custom Features in Satellite mode (QEMU templates, pnet-* CLI tools, Ultra-KSM, watchdog)
+if [ -f "$REPO_ROOT/custom-features/apply-custom-features.sh" ]; then
+    bash "$REPO_ROOT/custom-features/apply-custom-features.sh" --satellite || true
+elif [ -f /opt/unetlab/scripts/azambasha-install-azam-features.sh ]; then
     bash /opt/unetlab/scripts/azambasha-install-azam-features.sh --satellite || true
-    
-    # Engage Ultra-KSM deduplication and kernel tuning
-    bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh || true
-    
-    # Standardize socket permissions
-    bash /opt/unetlab/scripts/azambasha-fix-permissions.sh || true
 fi
 
 echo "[5/5] Starting satellite services..."

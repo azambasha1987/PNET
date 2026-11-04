@@ -10,8 +10,8 @@ set -euo pipefail
 REAL_PATH="$(realpath "${BASH_SOURCE[0]}" 2>/dev/null || readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" 2>/dev/null && pwd || echo "")"
 if [ ! -f "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" ]; then
-    if [ -f "/opt/azambasha/scripts/azambasha-quarterly-audit.sh" ]; then
-        SCRIPT_DIR="/opt/azambasha/scripts"
+    if [ -f "/opt/unetlab/scripts/azambasha-quarterly-audit.sh" ]; then
+        SCRIPT_DIR="/opt/unetlab/scripts"
     elif [ -f "/opt/unetlab/scripts/azambasha-quarterly-audit.sh" ]; then
         SCRIPT_DIR="/opt/unetlab/scripts"
     fi
@@ -41,14 +41,14 @@ systemctl daemon-reload 2>/dev/null || true
 
 # 2. Symlink azam-audit & azam-update commands
 if [ -f "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" ]; then
-    ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/azam-audit
+    ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit
     chmod +x "${SCRIPT_DIR}/azambasha-quarterly-audit.sh"
-    echo "[✔] Installed /usr/local/bin/azam-audit"
+    echo "[✔] Installed /usr/local/bin/pnet-audit"
 fi
 if [ -f "${SCRIPT_DIR}/azambasha-update.sh" ]; then
-    ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/azam-update
+    ln -sf "${SCRIPT_DIR}/azambasha-update.sh" /usr/local/bin/pnet-update
     chmod +x "${SCRIPT_DIR}/azambasha-update.sh"
-    echo "[✔] Installed /usr/local/bin/azam-update"
+    echo "[✔] Installed /usr/local/bin/pnet-update"
 fi
 
 echo "================================================================================"

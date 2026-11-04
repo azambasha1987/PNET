@@ -334,8 +334,8 @@ try:
         f.write("""# AzamLabs environment aliases
 alias unl_wrapper='/opt/unetlab/wrappers/unl_wrapper'
 alias pnet_info='/opt/unetlab/scripts/pnet_info.sh'
-alias azam-doctor='/usr/local/bin/azam-doctor'
-alias azam-menu='/usr/local/bin/azam-menu'
+alias azam-doctor='/usr/local/bin/pnet-doctor'
+alias azam-menu='/usr/local/bin/pnet-menu'
 """)
     os.chmod(profile_ovf, 0o644)
 except Exception:

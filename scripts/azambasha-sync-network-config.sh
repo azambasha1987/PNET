@@ -31,7 +31,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 [ -d "/opt/unetlab/scripts" ] && SCRIPT_DIR="/opt/unetlab/scripts"
-[ -d "/opt/azambasha/scripts" ] && SCRIPT_DIR="/opt/azambasha/scripts"
+[ -d "/opt/unetlab/scripts" ] && SCRIPT_DIR="/opt/unetlab/scripts"
 
 # 1. Discover Real Physical Uplink NIC
 log_info "[1/7] Discovering primary hardware network uplink..."
@@ -265,7 +265,7 @@ fi
 
 # 6. Hardening Privilege Broker & Boot Supervisor
 log_info "[6/7] Hardening daemon scripts and boot supervisor..."
-for broker_cand in "${SCRIPT_DIR}/azamlabs-brokerd.py" "/opt/azambasha/scripts/azamlabs-brokerd.py"; do
+for broker_cand in "${SCRIPT_DIR}/azamlabs-brokerd.py" "/opt/unetlab/scripts/azamlabs-brokerd.py"; do
     if [ -f "$broker_cand" ] && [ -d "/opt/unetlab/scripts" ] && [ "$broker_cand" != "/opt/unetlab/scripts/azamlabs-brokerd.py" ]; then
         cp -f "$broker_cand" "/opt/unetlab/scripts/azamlabs-brokerd.py" 2>/dev/null || true
         chmod 0755 "/opt/unetlab/scripts/azamlabs-brokerd.py" 2>/dev/null || true
@@ -283,7 +283,7 @@ systemctl restart azamlabs-brokerd 2>/dev/null || true
 
 # 7. Refresh TTY Console Banner Immediately
 log_info "[7/7] Refreshing TTY console banner (/etc/issue)..."
-for b_script in "${SCRIPT_DIR}/azambasha-update-banner.sh" "/usr/local/bin/azambasha-update-banner.sh"; do
+for b_script in "${SCRIPT_DIR}/azambasha-update-banner.sh" "/usr/local/bin/pnet-update-banner.sh"; do
     if [ -x "$b_script" ]; then
         "$b_script" >/dev/null 2>&1 || true
         break

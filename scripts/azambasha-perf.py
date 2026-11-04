@@ -234,7 +234,7 @@ def kill_hot(procs: list, dry_run: bool = False):
 def install_symlink():
     if sys.platform != "win32":
         try:
-            target = "/usr/local/bin/azam-perf"
+            target = "/usr/local/bin/pnet-perf"
             source = os.path.realpath(__file__)
             if not os.path.exists(target) or os.path.realpath(target) != source:
                 if os.path.exists(target):

@@ -1,0 +1,325 @@
+/* ============================================================================
+   PNetLab 10 Enterprise Themes Engine
+   Nord Arctic, Solarized NOC, Solarized Light, Dracula Gothic, Cyberpunk Neon,
+   Retro Terminal, High Contrast, High Contrast Light, Obsidian Slate, Crisp Daylight
+   ============================================================================ */
+
+/* 1. Nord Arctic (Default) */
+:root[data-theme="nord"] {
+	--pnq-primary:        #242933;
+	--pnq-primary-light:  #2e3440;
+	--pnq-primary-hover:  #3b4252;
+	--pnq-on-primary:     #eceff4;
+	--pnq-on-primary-dim: #d8dee9;
+
+	--pnq-bg:             #242933;
+	--pnq-surface:        #2e3440;
+	--pnq-surface-2:      #3b4252;
+	--pnq-text:           #eceff4;
+	--pnq-text-muted:     #88c0d0;
+
+	--pnq-accent:         #88c0d0;
+	--pnq-accent-hover:   #81a1c1;
+	--pnq-accent-soft:    rgba(136, 192, 208, 0.16);
+	--pnq-on-accent:      #242933;
+
+	--pnq-danger:         #bf616a;
+	--pnq-danger-soft:    rgba(191, 97, 106, 0.16);
+	--pnq-ok:             #a3be8c;
+	--pnq-warn:           #ebcb8b;
+
+	--pnq-border:         rgba(236, 239, 244, 0.12);
+	--pnq-border-strong:  rgba(236, 239, 244, 0.22);
+	--pnq-preview-from:   #2e3440;
+	--pnq-preview-to:     #242933;
+	--pnq-shadow:         0 2px 10px rgba(0,0,0,0.45);
+	color-scheme: dark;
+}
+
+/* 2. Dracula Gothic */
+:root[data-theme="dracula"] {
+	--pnq-primary:        #191a21;
+	--pnq-primary-light:  #21222c;
+	--pnq-primary-hover:  #282a36;
+	--pnq-on-primary:     #f8f8f2;
+	--pnq-on-primary-dim: #bd93f9;
+
+	--pnq-bg:             #1e1f29;
+	--pnq-surface:        #282a36;
+	--pnq-surface-2:      #343746;
+	--pnq-text:           #f8f8f2;
+	--pnq-text-muted:     #bd93f9;
+
+	--pnq-accent:         #ff79c6;
+	--pnq-accent-hover:   #ff92df;
+	--pnq-accent-soft:    rgba(255, 121, 198, 0.18);
+	--pnq-on-accent:      #1e1f29;
+
+	--pnq-danger:         #ff5555;
+	--pnq-danger-soft:    rgba(255, 85, 85, 0.16);
+	--pnq-ok:             #50fa7b;
+	--pnq-warn:           #f1fa8c;
+
+	--pnq-border:         rgba(248, 248, 242, 0.12);
+	--pnq-border-strong:  rgba(248, 248, 242, 0.24);
+	--pnq-preview-from:   #282a36;
+	--pnq-preview-to:     #1e1f29;
+	--pnq-shadow:         0 2px 12px rgba(0,0,0,0.55);
+	color-scheme: dark;
+}
+
+/* 3. Cyberpunk Neon */
+:root[data-theme="cyberpunk"] {
+	--pnq-primary:        #0d041a;
+	--pnq-primary-light:  #190833;
+	--pnq-primary-hover:  #260c4d;
+	--pnq-on-primary:     #00f2fe;
+	--pnq-on-primary-dim: #e066ff;
+
+	--pnq-bg:             #120726;
+	--pnq-surface:        #1c0c3b;
+	--pnq-surface-2:      #291156;
+	--pnq-text:           #f8fafc;
+	--pnq-text-muted:     #e066ff;
+
+	--pnq-accent:         #00f2fe;
+	--pnq-accent-hover:   #4facfe;
+	--pnq-accent-soft:    rgba(0, 242, 254, 0.20);
+	--pnq-on-accent:      #0d041a;
+
+	--pnq-danger:         #ff0055;
+	--pnq-danger-soft:    rgba(255, 0, 85, 0.18);
+	--pnq-ok:             #00ff99;
+	--pnq-warn:           #ffe600;
+
+	--pnq-border:         rgba(0, 242, 254, 0.22);
+	--pnq-border-strong:  rgba(224, 102, 255, 0.38);
+	--pnq-preview-from:   #1c0c3b;
+	--pnq-preview-to:     #120726;
+	--pnq-shadow:         0 2px 16px rgba(0, 242, 254, 0.25);
+	color-scheme: dark;
+}
+
+/* 4. Retro Terminal (Matrix) */
+:root[data-theme="matrix"] {
+	--pnq-primary:        #000a02;
+	--pnq-primary-light:  #001505;
+	--pnq-primary-hover:  #002408;
+	--pnq-on-primary:     #00ff66;
+	--pnq-on-primary-dim: #00aa44;
+
+	--pnq-bg:             #000000;
+	--pnq-surface:        #001404;
+	--pnq-surface-2:      #002608;
+	--pnq-text:           #00ff66;
+	--pnq-text-muted:     #00aa44;
+
+	--pnq-accent:         #00ff66;
+	--pnq-accent-hover:   #33ff88;
+	--pnq-accent-soft:    rgba(0, 255, 102, 0.18);
+	--pnq-on-accent:      #000000;
+
+	--pnq-danger:         #ff3333;
+	--pnq-danger-soft:    rgba(255, 51, 51, 0.18);
+	--pnq-ok:             #00ff66;
+	--pnq-warn:           #ffff00;
+
+	--pnq-border:         rgba(0, 255, 102, 0.25);
+	--pnq-border-strong:  rgba(0, 255, 102, 0.45);
+	--pnq-preview-from:   #001404;
+	--pnq-preview-to:     #000000;
+	--pnq-shadow:         0 0 14px rgba(0, 255, 102, 0.22);
+	color-scheme: dark;
+}
+
+/* 5. Solarized NOC */
+:root[data-theme="solarized"] {
+	--pnq-primary:        #001920;
+	--pnq-primary-light:  #00212b;
+	--pnq-primary-hover:  #002b36;
+	--pnq-on-primary:     #93a1a1;
+	--pnq-on-primary-dim: #657b83;
+
+	--pnq-bg:             #00212b;
+	--pnq-surface:        #002b36;
+	--pnq-surface-2:      #073642;
+	--pnq-text:           #839496;
+	--pnq-text-muted:     #586e75;
+
+	--pnq-accent:         #2aa198;
+	--pnq-accent-hover:   #268bd2;
+	--pnq-accent-soft:    rgba(42, 161, 152, 0.18);
+	--pnq-on-accent:      #002b36;
+
+	--pnq-danger:         #dc322f;
+	--pnq-danger-soft:    rgba(220, 50, 47, 0.16);
+	--pnq-ok:             #859900;
+	--pnq-warn:           #b58900;
+
+	--pnq-border:         rgba(131, 148, 150, 0.14);
+	--pnq-border-strong:  rgba(131, 148, 150, 0.25);
+	--pnq-preview-from:   #002b36;
+	--pnq-preview-to:     #00212b;
+	--pnq-shadow:         0 2px 10px rgba(0,0,0,0.5);
+	color-scheme: dark;
+}
+
+/* 6. Solarized Light */
+:root[data-theme="solarized-light"] {
+	--pnq-primary:        #fdf6e3;
+	--pnq-primary-light:  #eee8d5;
+	--pnq-primary-hover:  #e0d8c3;
+	--pnq-on-primary:     #073642;
+	--pnq-on-primary-dim: #657b83;
+
+	--pnq-bg:             #fdf6e3;
+	--pnq-surface:        #eee8d5;
+	--pnq-surface-2:      #e0d8c3;
+	--pnq-text:           #657b83;
+	--pnq-text-muted:     #93a1a1;
+
+	--pnq-accent:         #268bd2;
+	--pnq-accent-hover:   #2aa198;
+	--pnq-accent-soft:    rgba(38, 139, 210, 0.14);
+	--pnq-on-accent:      #ffffff;
+
+	--pnq-danger:         #dc322f;
+	--pnq-danger-soft:    rgba(220, 50, 47, 0.12);
+	--pnq-ok:             #859900;
+	--pnq-warn:           #b58900;
+
+	--pnq-border:         rgba(0, 0, 0, 0.12);
+	--pnq-border-strong:  rgba(0, 0, 0, 0.22);
+	--pnq-preview-from:   #fdf6e3;
+	--pnq-preview-to:     #eee8d5;
+	--pnq-shadow:         0 2px 8px rgba(0,0,0,0.1);
+	color-scheme: light;
+}
+
+/* 7. High Contrast */
+:root[data-theme="high-contrast"] {
+	--pnq-primary:        #000000;
+	--pnq-primary-light:  #0a0a0a;
+	--pnq-primary-hover:  #141414;
+	--pnq-on-primary:     #00ffff;
+	--pnq-on-primary-dim: #ffffff;
+
+	--pnq-bg:             #000000;
+	--pnq-surface:        #0a0a0a;
+	--pnq-surface-2:      #171717;
+	--pnq-text:           #ffffff;
+	--pnq-text-muted:     #dddddd;
+
+	--pnq-accent:         #00ffff;
+	--pnq-accent-hover:   #55ffff;
+	--pnq-accent-soft:    rgba(0, 255, 255, 0.22);
+	--pnq-on-accent:      #000000;
+
+	--pnq-danger:         #ff0033;
+	--pnq-danger-soft:    rgba(255, 0, 51, 0.25);
+	--pnq-ok:             #00ff00;
+	--pnq-warn:           #ffff00;
+
+	--pnq-border:         #ffffff;
+	--pnq-border-strong:  #00ffff;
+	--pnq-preview-from:   #0a0a0a;
+	--pnq-preview-to:     #000000;
+	--pnq-shadow:         0 0 0 2px #ffffff;
+	color-scheme: dark;
+}
+
+/* 8. High Contrast Light */
+:root[data-theme="high-contrast-light"] {
+	--pnq-primary:        #ffffff;
+	--pnq-primary-light:  #f0f0f0;
+	--pnq-primary-hover:  #e0e0e0;
+	--pnq-on-primary:     #0000cc;
+	--pnq-on-primary-dim: #000000;
+
+	--pnq-bg:             #ffffff;
+	--pnq-surface:        #f8f8f8;
+	--pnq-surface-2:      #eeeeee;
+	--pnq-text:           #000000;
+	--pnq-text-muted:     #222222;
+
+	--pnq-accent:         #0000cc;
+	--pnq-accent-hover:   #000099;
+	--pnq-accent-soft:    rgba(0, 0, 204, 0.16);
+	--pnq-on-accent:      #ffffff;
+
+	--pnq-danger:         #cc0000;
+	--pnq-danger-soft:    rgba(204, 0, 0, 0.16);
+	--pnq-ok:             #008800;
+	--pnq-warn:           #aa6600;
+
+	--pnq-border:         #000000;
+	--pnq-border-strong:  #0000cc;
+	--pnq-preview-from:   #ffffff;
+	--pnq-preview-to:     #f8f8f8;
+	--pnq-shadow:         0 0 0 2px #000000;
+	color-scheme: light;
+}
+
+/* 9. Obsidian Slate */
+:root[data-theme="dark"] {
+	--pnq-primary:        #0f172a;
+	--pnq-primary-light:  #1e293b;
+	--pnq-primary-hover:  #334155;
+	--pnq-on-primary:     #f8fafc;
+	--pnq-on-primary-dim: #94a3b8;
+
+	--pnq-bg:             #0a0c10;
+	--pnq-surface:        #12151e;
+	--pnq-surface-2:      #1b202e;
+	--pnq-text:           #f8fafc;
+	--pnq-text-muted:     #94a3b8;
+
+	--pnq-accent:         #3b82f6;
+	--pnq-accent-hover:   #60a5fa;
+	--pnq-accent-soft:    rgba(59, 130, 246, 0.18);
+	--pnq-on-accent:      #ffffff;
+
+	--pnq-danger:         #ef4444;
+	--pnq-danger-soft:    rgba(239, 68, 68, 0.16);
+	--pnq-ok:             #10b981;
+	--pnq-warn:           #f59e0b;
+
+	--pnq-border:         rgba(255, 255, 255, 0.10);
+	--pnq-border-strong:  rgba(255, 255, 255, 0.20);
+	--pnq-preview-from:   #12151e;
+	--pnq-preview-to:     #0a0c10;
+	--pnq-shadow:         0 2px 10px rgba(0,0,0,0.5);
+	color-scheme: dark;
+}
+
+/* 10. Crisp Daylight */
+:root[data-theme="light"] {
+	--pnq-primary:        #25332c;
+	--pnq-primary-light:  #3c5146;
+	--pnq-primary-hover:  #2e3e35;
+	--pnq-on-primary:     #e8f0ec;
+	--pnq-on-primary-dim: #a9bcb1;
+
+	--pnq-bg:             #f4f6f5;
+	--pnq-surface:        #ffffff;
+	--pnq-surface-2:      #f0f2f1;
+	--pnq-text:           #1d1d1f;
+	--pnq-text-muted:     #5a5f5c;
+
+	--pnq-accent:         #3c708a;
+	--pnq-accent-hover:   #335f74;
+	--pnq-accent-soft:    rgba(60, 112, 138, 0.12);
+	--pnq-on-accent:      #ffffff;
+
+	--pnq-danger:         #b3261e;
+	--pnq-danger-soft:    rgba(179, 38, 30, 0.10);
+	--pnq-ok:             #2e7d44;
+	--pnq-warn:           #c77700;
+
+	--pnq-border:         rgba(0, 0, 0, 0.10);
+	--pnq-border-strong:  rgba(0, 0, 0, 0.18);
+	--pnq-preview-from:   #f7f9f8;
+	--pnq-preview-to:     #eef1f0;
+	--pnq-shadow:         0 1px 3px rgba(0,0,0,0.08);
+	color-scheme: light;
+}

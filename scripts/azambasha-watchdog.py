@@ -358,7 +358,7 @@ WantedBy=multi-user.target
 def install_symlink():
     if sys.platform != "win32":
         try:
-            target = "/usr/local/bin/azam-watchdog"
+            target = "/usr/local/bin/pnet-watchdog"
             source = os.path.realpath(__file__)
             if not os.path.exists(target) or os.path.realpath(target) != source:
                 if os.path.exists(target):

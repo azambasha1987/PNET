@@ -1,0 +1,11 @@
+---
+type: qemu
+description: Cisco 8000 Series (XR7)
+name: CISCO8000
+cpus: 4
+ram: 8192
+ethernets: 8
+qemu_arch: x86_64
+qemu_nic: virtio-net-pci
+qemu_options: -machine pc,mem-merge=on -cpu host,migratable=no,+invtsc -enable-kvm -serial mon:stdio -nographic
+icon: Router.png

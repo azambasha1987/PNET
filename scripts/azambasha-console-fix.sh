@@ -13,7 +13,7 @@ set -euo pipefail
 
 # Install symlink
 if [ "$(id -u)" -eq 0 ]; then
-    ln -sf "$(realpath "$0")" /usr/local/bin/azam-console-fix 2>/dev/null || true
+    ln -sf "$(realpath "$0")" /usr/local/bin/pnet-console-fix 2>/dev/null || true
 fi
 
 GREEN="\033[1;32m"

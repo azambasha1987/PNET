@@ -1,0 +1,11 @@
+---
+type: docker
+description: Cisco XRd-9k Cloud-Native Router (Cgroups v2)
+name: XRd
+cpus: 4
+ram: 4096
+ethernets: 8
+console: telnet
+image: xrd:latest
+icon: router.png
+...

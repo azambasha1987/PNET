@@ -104,25 +104,22 @@ done
 
 dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y
 
-echo "[6/7] Applying PNetLab enterprise optimization scripts for $VERSION..."
+echo "[6/7] Applying PNetLab enterprise optimization scripts and Custom Features for $VERSION..."
 if [ -d "$REPO_ROOT/scripts" ]; then
     mkdir -p /opt/unetlab/scripts
     cp -rf "$REPO_ROOT/scripts/." /opt/unetlab/scripts/
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
-    
-    # 1. Register global canonical /usr/local/bin/pnet-* CLI tooling
+fi
+
+# Apply all Custom Features (Templates, Web-UI, Consoles, Keepalive, Login, CLI tooling, Ultra-KSM)
+if [ -f "$REPO_ROOT/custom-features/apply-custom-features.sh" ]; then
+    bash "$REPO_ROOT/custom-features/apply-custom-features.sh" --master || true
+elif [ -f /opt/unetlab/scripts/azambasha-install-azam-features.sh ]; then
     bash /opt/unetlab/scripts/azambasha-install-azam-features.sh || true
-    
-    # 2. Engage Ultra-KSM (4KB RAM deduplication), OPcache, and kernel tuning
-    bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh || true
-    
-    # 3. Apply cgroups v2 dynamic resource governor
-    bash /opt/unetlab/scripts/azambasha-cgroups-v2-engine.sh || true
-    
-    # 4. Standardize file permissions and device sockets
-    bash /opt/unetlab/scripts/azambasha-fix-permissions.sh || true
-    
-    # 5. Assert canonical web credentials
+fi
+
+# Assert canonical web credentials
+if [ -f /opt/unetlab/scripts/azambasha-fix-web-credentials.sh ]; then
     bash /opt/unetlab/scripts/azambasha-fix-web-credentials.sh || true
 fi
 

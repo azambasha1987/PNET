@@ -121,7 +121,7 @@ echo "  [✔] Netfilter bridge bypass activated: conntrack overhead eliminated o
 
 # 2. Optimize Existing Bridge Domains & TAP Interfaces
 echo "[2/4] Optimizing active virtual bridges and TAP interfaces (MTU 9000 / txqueuelen 10000)..."
-OPTIMIZE_SCRIPT="/usr/local/bin/azambasha-optimize-interfaces"
+OPTIMIZE_SCRIPT="/usr/local/bin/pnet-optimize-interfaces"
 cat << 'EOF' > "$OPTIMIZE_SCRIPT"
 #!/bin/bash
 # Optimize all active vunl, vnet and bridge interfaces
@@ -161,7 +161,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/azambasha-optimize-interfaces
+ExecStart=/usr/local/bin/pnet-optimize-interfaces
 RemainAfterExit=yes
 
 [Install]

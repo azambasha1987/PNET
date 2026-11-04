@@ -164,7 +164,7 @@ fi
 
 # 6. Ensure Universal QEMU & IOL Optimizations are Active
 echo "[6/6] Ensuring universal node, template & memory optimizations..."
-for opt_cand in "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh" "/opt/azambasha/scripts/azambasha-heavy-node-optimizer.sh"; do
+for opt_cand in "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh" "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh"; do
     if [ -f "$opt_cand" ]; then
         bash "$opt_cand" 2>/dev/null || true
         break

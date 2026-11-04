@@ -27,7 +27,7 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 REAL_FILE = os.path.realpath(__file__)
 SCRIPT_DIR = os.path.dirname(REAL_FILE)
 if not os.path.isfile(os.path.join(SCRIPT_DIR, "azambasha-update.sh")):
-    for s_cand in ["/opt/unetlab/scripts", "/opt/azambasha/scripts", "/opt/azamlabs/EMULATOR/AzamLabs/scripts", "/opt/azamlabs/AzamLabs/scripts"]:
+    for s_cand in ["/opt/unetlab/scripts", "/opt/unetlab/scripts", "/opt/azamlabs/EMULATOR/AzamLabs/scripts", "/opt/azamlabs/AzamLabs/scripts"]:
         if os.path.isfile(os.path.join(s_cand, "azambasha-update.sh")):
             SCRIPT_DIR = s_cand
             break

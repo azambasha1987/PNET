@@ -36,6 +36,15 @@ docs/
 │   ├── README.md                                     # Overview of version fixes and autonomous tuning
 │   └── Automatic_Script_Application_Guide.md         # Full runbook for auto-applying scripts on install & update
 │
+├── custom-features/                                  # [Pillar 8] Enterprise Custom Features & UI Suite
+│   ├── apply-custom-features.sh                      # Master hook auto-executing on install & updates
+│   ├── templates/                                    # 500+ CPU-tuned AMD & Intel QEMU templates
+│   ├── web-ui/                                       # Docked Multi-Tab Console & CLI Syntax Highlighter
+│   ├── session-engine/                               # Sliding-auth keepalive heartbeat
+│   ├── login-portal/                                 # Cyber-Glass futuristic login portal & branding
+│   ├── schema/                                       # Database extensions & Guacamole optimizations
+│   └── tests/                                        # Continuous integration & test suites
+│
 └── img/                                              # Visual assets and topology screenshot gallery
 ```
 
@@ -90,3 +99,9 @@ docs/
 ### Pillar 6: Enterprise Operations Manual
 * **[Enterprise Operations Manual (PDF)](manuals/AzamLabs_Enterprise_Operations_Manual.pdf)**:
   Standalone PDF manual covering deployment patterns, security policies, backup routines, and hardware sizing recommendations.
+
+---
+
+### Pillar 8: Custom Features & Upgrade Persistence
+* **[Custom Features Suite](../custom-features/README.md)**:
+  Complete reference for the custom enhancements bundle (`custom-features/`). Documents the automatic application hook (`apply-custom-features.sh`), CPU-specific QEMU templates, multi-tab docked consoles, live syntax highlighter, 180s sliding keepalive engine, cyber-glass login interface, database extensions, and continuous validation test suites. Automatically re-applied on every new version release.

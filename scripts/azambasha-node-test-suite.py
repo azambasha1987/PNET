@@ -282,7 +282,7 @@ class NodeTestSuite:
             self.record(tier, "IOL CPU Governor & KSM Deduplication", "PASS", "azam-iol-shim, azam-iol-launcher & ksm_merge_exec active")
         else:
             if self.repair:
-                for opt_script in ["/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh", "/opt/azambasha/scripts/azambasha-heavy-node-optimizer.sh"]:
+                for opt_script in ["/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh", "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh"]:
                     if os.path.exists(opt_script):
                         os.system(f"bash {opt_script} 2>/dev/null")
                         break

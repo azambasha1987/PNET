@@ -97,24 +97,24 @@ echo "[5/5] Updating console banner script and network dispatcher hooks..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BANNER_SOURCE="${SCRIPT_DIR}/azambasha-update-banner.sh"
 if [ ! -f "$BANNER_SOURCE" ]; then
-    BANNER_SOURCE="/opt/azambasha/scripts/azambasha-update-banner.sh"
+    BANNER_SOURCE="/opt/unetlab/scripts/azambasha-update-banner.sh"
 fi
 
-if [ -f "$BANNER_SOURCE" ] && [ "$BANNER_SOURCE" != "/usr/local/bin/azambasha-update-banner.sh" ]; then
-    cp -f "$BANNER_SOURCE" /usr/local/bin/azambasha-update-banner.sh
+if [ -f "$BANNER_SOURCE" ] && [ "$BANNER_SOURCE" != "/usr/local/bin/pnet-update-banner.sh" ]; then
+    cp -f "$BANNER_SOURCE" /usr/local/bin/pnet-update-banner.sh
 fi
-chmod +x /usr/local/bin/azambasha-update-banner.sh 2>/dev/null || true
+chmod +x /usr/local/bin/pnet-update-banner.sh 2>/dev/null || true
 
 mkdir -p /etc/networkd-dispatcher/routable.d /etc/network/if-up.d 2>/dev/null || true
 cat > /etc/networkd-dispatcher/routable.d/50-azambasha-banner.sh << 'EOF'
 #!/bin/sh
-/usr/local/bin/azambasha-update-banner.sh >/dev/null 2>&1 || true
+/usr/local/bin/pnet-update-banner.sh >/dev/null 2>&1 || true
 EOF
 chmod +x /etc/networkd-dispatcher/routable.d/50-azambasha-banner.sh 2>/dev/null || true
 
 cat > /etc/network/if-up.d/azambasha-banner << 'EOF'
 #!/bin/sh
-/usr/local/bin/azambasha-update-banner.sh >/dev/null 2>&1 || true
+/usr/local/bin/pnet-update-banner.sh >/dev/null 2>&1 || true
 EOF
 chmod +x /etc/network/if-up.d/azambasha-banner 2>/dev/null || true
 
@@ -128,7 +128,7 @@ Before=getty.target serial-getty@ttyS0.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/azambasha-update-banner.sh
+ExecStart=/usr/local/bin/pnet-update-banner.sh
 RemainAfterExit=yes
 
 [Install]
@@ -139,8 +139,8 @@ systemctl daemon-reload 2>/dev/null || true
 systemctl enable azambasha-banner.service 2>/dev/null || true
 
 # Execute banner generation immediately
-if [ -x /usr/local/bin/azambasha-update-banner.sh ]; then
-    /usr/local/bin/azambasha-update-banner.sh
+if [ -x /usr/local/bin/pnet-update-banner.sh ]; then
+    /usr/local/bin/pnet-update-banner.sh
 fi
 
 echo "============================================================"

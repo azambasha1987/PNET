@@ -15,8 +15,8 @@ DATA_DIR="/opt/unetlab/data/Labs"
 
 # Install symlinks if running as root
 if [ "$(id -u)" -eq 0 ]; then
-    ln -sf "$(realpath "$0")" /usr/local/bin/azam-backup 2>/dev/null || true
-    ln -sf "$(realpath "$0")" /usr/local/bin/azam-restore 2>/dev/null || true
+    ln -sf "$(realpath "$0")" /usr/local/bin/pnet-backup 2>/dev/null || true
+    ln -sf "$(realpath "$0")" /usr/local/bin/pnet-restore 2>/dev/null || true
 fi
 
 usage() {

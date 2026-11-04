@@ -1,0 +1,11 @@
+---
+type: docker
+description: Arista cEOS-lab Container (PNetLab Native Telnet Terminal)
+name: cEOS
+cpus: 2
+ram: 2048
+ethernets: 8
+eth_format: "Eth{0}"
+console: telnet
+icon: switch.png
+...

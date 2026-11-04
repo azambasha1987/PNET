@@ -708,10 +708,10 @@ EOF_LAUNCHER
     [ -f /opt/unetlab/wrappers/ksm_merge_exec ] && chmod 755 /opt/unetlab/wrappers/ksm_merge_exec 2>/dev/null || true
 
     # Ensure azam-bootstorm CLI symlink is active
-    for b_cand in /opt/unetlab/scripts/azambasha-bootstorm.py /opt/azambasha/scripts/azambasha-bootstorm.py "$SCRIPT_DIR/azambasha-bootstorm.py"; do
+    for b_cand in /opt/unetlab/scripts/azambasha-bootstorm.py /opt/unetlab/scripts/azambasha-bootstorm.py "$SCRIPT_DIR/azambasha-bootstorm.py"; do
         if [ -f "$b_cand" ]; then
-            ln -sf "$b_cand" /usr/local/bin/azam-bootstorm 2>/dev/null || true
-            ln -sf "$b_cand" /usr/local/bin/azam-bootstorm 2>/dev/null || true
+            ln -sf "$b_cand" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
+            ln -sf "$b_cand" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
             chmod +x "$b_cand" 2>/dev/null || true
             break
         fi

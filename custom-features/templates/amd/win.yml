@@ -1,0 +1,15 @@
+---
+type: qemu
+description: Microsoft Windows 10/11 (PNetLab Ultra-KSM & VirtIO-Win ISO)
+name: Windows
+cpus: 2
+cpu: host
+ram: 4096
+ethernets: 2
+eth_format: "Ethernet{0}"
+console: vnc
+qemu_arch: x86_64
+qemu_nic: virtio-net-pci
+qemu_options: "-machine type=q35,accel=kvm,smm=on,mem-merge=on -global ICH9-LPC.disable_s3=1 -global ICH9-LPC.disable_s4=1 -vga virtio -device virtio-balloon-pci -device usb-tablet -boot order=cd -drive file=/opt/unetlab/addons/qemu/virtio-win.iso,media=cdrom,index=2"
+icon: win.png
+...

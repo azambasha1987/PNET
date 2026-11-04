@@ -255,7 +255,7 @@ echo " version to prevent breaking changes, database conflicts,  "
 echo " and package overwrites."
 echo ""
 echo " If you intentionally wish to restore updates, run:"
-echo "   sudo bash /opt/azambasha/scripts/azambasha-block-updates.sh --unblock"
+echo "   sudo bash /opt/unetlab/scripts/azambasha-block-updates.sh --unblock"
 echo "============================================================"
 exit 0
 EOF

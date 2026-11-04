@@ -196,8 +196,8 @@ fi
 
 # 13. Synchronize Authoritative Console Banner & Dynamic SSH MOTD
 BANNER_SCRIPT="${SCRIPT_DIR}/azambasha-update-banner.sh"
-[ ! -f "$BANNER_SCRIPT" ] && BANNER_SCRIPT="/usr/local/bin/azambasha-update-banner.sh"
-[ ! -f "$BANNER_SCRIPT" ] && BANNER_SCRIPT="/opt/azambasha/scripts/azambasha-update-banner.sh"
+[ ! -f "$BANNER_SCRIPT" ] && BANNER_SCRIPT="/usr/local/bin/pnet-update-banner.sh"
+[ ! -f "$BANNER_SCRIPT" ] && BANNER_SCRIPT="/opt/unetlab/scripts/azambasha-update-banner.sh"
 if [ -f "$BANNER_SCRIPT" ]; then
     bash "$BANNER_SCRIPT" >/dev/null 2>&1 || true
     echo "  [✔] Console banner and dynamic SSH MOTD synchronized"

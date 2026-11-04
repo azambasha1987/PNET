@@ -605,7 +605,7 @@ def build_pdf(filename_dest):
         "<b>Step 4:</b> Click <b>Auto-Heal Detected Issues</b> to execute automated remediation."
     ]
     f7_bg = [
-        "<b>Step 1:</b> Triggers execution of <code>/usr/local/bin/azambasha-doctor</code>.",
+        "<b>Step 1:</b> Triggers execution of <code>/usr/local/bin/pnet-doctor</code>.",
         "<b>Step 2:</b> Inspects MariaDB status via unix socket <code>/var/run/mysqld/mysqld.sock</code>.",
         "<b>Step 3:</b> Checks <code>/dev/kvm</code> permissions (<code>0666</code>), IP forwarding (<code>net.ipv4.ip_forward=1</code>), and bridge states.",
         "<b>Step 4:</b> If auto-heal is selected, executes repair routines, resets permissions on <code>/opt/unetlab/</code>, and returns diagnostic report."
@@ -720,7 +720,7 @@ def build_pdf(filename_dest):
     ]
     f13_bg = [
         "<b>Step 1:</b> Front-end issues <code>GET /azam-ops/api/client/toolkit/{script_name}</code>.",
-        "<b>Step 2:</b> API server reads dynamic template files from <code>/opt/azambasha/scripts/clients/</code> or generates them on-the-fly.",
+        "<b>Step 2:</b> API server reads dynamic template files from <code>/opt/unetlab/scripts/clients/</code> or generates them on-the-fly.",
         "<b>Step 3:</b> Dynamically binds host IP address, port 8088, and authentication headers into the generated client script.",
         "<b>Step 4:</b> Sets HTTP response headers <code>Content-Disposition: attachment; filename={script_name}</code>.",
         "<b>Step 5:</b> Browser initiates immediate local file download to the operator's computer."
@@ -1257,7 +1257,7 @@ def build_pdf(filename_dest):
         "<b>Step 4:</b> Flushes MariaDB privileges (<code>FLUSH PRIVILEGES;</code>) and verifies read/write integrity."
     ]
     for el in render_feature("29", "MySQL Socket & Credential Auto-Healer", False,
-                             "Systemd Hook &amp; Cron &gt; <code>/usr/local/bin/azambasha-fix-web-credentials</code> (Master Node Background)",
+                             "Systemd Hook &amp; Cron &gt; <code>/usr/local/bin/pnet-fix-web-credentials</code> (Master Node Background)",
                              f31_how, f31_bg):
         story.append(el)
 
