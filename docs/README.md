@@ -32,6 +32,10 @@ docs/
 ├── manuals/                                          # [Pillar 6] Enterprise Operations Manual
 │   └── AzamLabs_Enterprise_Operations_Manual.pdf     # Downloadable PDF operations and architecture reference
 │
+├── new-version-fix/                                  # [Pillar 7] Automated Script Ingestion Engine
+│   ├── README.md                                     # Overview of version fixes and autonomous tuning
+│   └── Automatic_Script_Application_Guide.md         # Full runbook for auto-applying scripts on install & update
+│
 └── img/                                              # Visual assets and topology screenshot gallery
 ```
 
@@ -42,6 +46,10 @@ docs/
   Hands-off installer runbook for fresh Ubuntu 24.04 / 26.04 LTS servers. Covers Master Controller node setup, Satellite worker compute node enrollment, package SHA256 integrity verification, and pre-bundled offline releases.
 
 ---
+
+### Pillar 7: Version Ingestion & Automatic Script Pipeline
+* **[Automatic Script Application Guide](new-version-fix/Automatic_Script_Application_Guide.md)**:
+  Details how all enterprise optimization scripts, Ultra-KSM deduplication, cgroups v2 resource governance, and canonical `pnet-*` CLI commands are automatically executed during installations and re-applied autonomously during `pnet-update` upgrades without manual intervention.
 
 ### Pillar 2: Enterprise Administration & Operations
 * **[CLI Admin Toolkit Reference](administration/01_CLI_Admin_Toolkit_Reference.md)**:
