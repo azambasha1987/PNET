@@ -70,57 +70,21 @@ fi
 echo -e "${CYAN}================================================================${RESET}"
 
 # ── 1. Register Global Administrative CLI Commands ──────────────────────────
-echo -e "\n${CYAN}[1/7]${RESET} Registering global CLI toolchains in /usr/local/bin/…"
+echo -e "\n${CYAN}[1/7]${RESET} Registering canonical PNetLab CLI toolchains (pnet-*) in /usr/local/bin/…"
 chmod +x "${SCRIPTS}"/azambasha-*.py 2>/dev/null || true
 chmod +x "${SCRIPTS}"/azambasha-*.sh 2>/dev/null || true
 
-# Symlinks for CLI tools (Available identically on Master and Satellite)
-ln -sf "${SCRIPTS}/azambasha-ai-copilot.py"       /usr/local/bin/azam-ai
-ln -sf "${SCRIPTS}/azambasha-config-diff.py"      /usr/local/bin/azam-config-diff
-ln -sf "${SCRIPTS}/azambasha-ping-mesh.py"        /usr/local/bin/azam-ping-mesh
-ln -sf "${SCRIPTS}/azambasha-scheduler.py"        /usr/local/bin/azam-scheduler
-rm -f /usr/local/bin/azam-grader /usr/local/bin/azam-sniffer /usr/local/bin/azam-notify /usr/local/bin/azam-cloud-backup /usr/local/bin/azam-templates 2>/dev/null || true
-ln -sf "${SCRIPTS}/azambasha-cloud-bridge.py"     /usr/local/bin/azam-cloud-bridge
-rm -f /usr/local/bin/azam-image-shrink 2>/dev/null || true
-ln -sf "${SCRIPTS}/azambasha-topology-doc.py"     /usr/local/bin/azam-topology-doc
-ln -sf "${SCRIPTS}/azambasha-bootstorm.py"        /usr/local/bin/azam-bootstorm
-ln -sf "${SCRIPTS}/azambasha-perf.py"             /usr/local/bin/azam-perf
-ln -sf "${SCRIPTS}/azambasha-console-fix.sh"      /usr/local/bin/azam-console-fix
-ln -sf "${SCRIPTS}/azambasha-lab-backup.sh"       /usr/local/bin/azam-backup
-ln -sf "${SCRIPTS}/azambasha-lab-backup.sh"       /usr/local/bin/azam-restore
-ln -sf "${SCRIPTS}/azambasha-topology-git.py"     /usr/local/bin/azam-topology-git
-ln -sf "${SCRIPTS}/azambasha-watchdog.py"         /usr/local/bin/azam-watchdog
-ln -sf "${SCRIPTS}/azambasha-fleet-status.sh"     /usr/local/bin/azam-fleet
-ln -sf "${SCRIPTS}/azambasha-cluster-capacity.py" /usr/local/bin/azam-capacity
-ln -sf "${SCRIPTS}/azambasha-image-doctor.sh"     /usr/local/bin/azam-doctor
-ln -sf "${SCRIPTS}/azambasha-bench.sh"            /usr/local/bin/azam-bench
-ln -sf "${SCRIPTS}/azambasha-ssl.sh"              /usr/local/bin/azam-ssl
-ln -sf "${SCRIPTS}/azambasha-fix-web-credentials.sh" /usr/local/bin/azam-credentials
-ln -sf "${SCRIPTS}/azambasha-airgap-pack.sh"      /usr/local/bin/azam-airgap-pack
-ln -sf "${SCRIPTS}/azambasha-link-impairment.sh"   /usr/local/bin/azam-link-impair
-ln -sf "${SCRIPTS}/azambasha-roce-engine.sh"       /usr/local/bin/azam-roce
-ln -sf "${SCRIPTS}/azambasha-cgroups-v2-engine.sh" /usr/local/bin/azam-cgroups
-ln -sf "${SCRIPTS}/azambasha-cpu-governor.py"      /usr/local/bin/azam-cpu-governor
-ln -sf "${SCRIPTS}/azambasha-eve-lab-importer.py"   /usr/local/bin/azam-lab-importer
-chmod +x "${SCRIPTS}/azambasha-eve-lab-importer.py" 2>/dev/null || true
-ln -sf "${SCRIPTS}/azambasha-update.sh"            /usr/local/bin/azam-update
-rm -f /usr/local/bin/azambasha-update 2>/dev/null || true
-ln -sf "${SCRIPTS}/azambasha-update-banner.sh"     /usr/local/bin/azambasha-update-banner.sh
-ln -sf "${SCRIPTS}/azambasha-quarterly-audit.sh"   /usr/local/bin/azam-audit
-ln -sf "${SCRIPTS}/azambasha-apply-all-fixes.sh"    /usr/local/bin/azam-menu
-ln -sf "${SCRIPTS}/azambasha-apply-all-fixes.sh"    /usr/local/bin/azam-fix
-ln -sf "${SCRIPTS}/azambasha-satellite-join.sh"     /usr/local/bin/azam-satellite-join
-ln -sf "${SCRIPTS}/azambasha-satellite-join.sh"     /usr/local/bin/azam-satellite-join
-ln -sf "${SCRIPTS}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/azam-optimizer
-ln -sf "${SCRIPTS}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/azam-heavy-optimizer
+# Remove any legacy azam-* symlinks from /usr/local/bin to enforce clean pnet-* tooling
+rm -f /usr/local/bin/azam-* /usr/local/bin/azambasha-* /usr/local/bin/apply-heavy-node-optimizer 2>/dev/null || true
 
-# Standard PNetLab (pnet-*) Canonical CLI Symlinks
+# Canonical PNetLab (pnet-*) Global CLI Tooling
 ln -sf "${SCRIPTS}/azambasha-update.sh"              /usr/local/bin/pnet-update
 ln -sf "${SCRIPTS}/azambasha-quarterly-audit.sh"     /usr/local/bin/pnet-audit
 ln -sf "${SCRIPTS}/azambasha-health-check.sh"        /usr/local/bin/pnet-health
 ln -sf "${SCRIPTS}/azambasha-image-doctor.sh"         /usr/local/bin/pnet-doctor
 ln -sf "${SCRIPTS}/azambasha-image-doctor.sh"         /usr/local/bin/pnet-images
 ln -sf "${SCRIPTS}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer
+ln -sf "${SCRIPTS}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer
 ln -sf "${SCRIPTS}/azambasha-bootstorm.py"          /usr/local/bin/pnet-bootstorm
 ln -sf "${SCRIPTS}/azambasha-fix-cluster.sh"         /usr/local/bin/pnet-cluster
 ln -sf "${SCRIPTS}/azambasha-satellite-join.sh"       /usr/local/bin/pnet-satellite-join
@@ -133,10 +97,25 @@ ln -sf "${SCRIPTS}/azambasha-apt-guard.sh"           /usr/local/bin/pnet-apt-gua
 ln -sf "${SCRIPTS}/azambasha-dark-theme.sh"          /usr/local/bin/pnet-dark
 ln -sf "${SCRIPTS}/azambasha-apply-all-fixes.sh"      /usr/local/bin/pnet-menu
 ln -sf "${SCRIPTS}/azambasha-apply-all-fixes.sh"      /usr/local/bin/pnet-fix
-ln -sf "${SCRIPTS}/apply-heavy-node-optimizer.sh"    /usr/local/bin/apply-heavy-node-optimizer
-chmod +x "${SCRIPTS}/azambasha-update.sh" "${SCRIPTS}/azambasha-update-banner.sh" "${SCRIPTS}/azambasha-quarterly-audit.sh" "${SCRIPTS}/azambasha-apply-all-fixes.sh" "${SCRIPTS}/azambasha-satellite-join.sh" "${SCRIPTS}/azambasha-heavy-node-optimizer.sh" "${SCRIPTS}/apply-heavy-node-optimizer.sh" /usr/local/bin/azambasha-update-banner.sh 2>/dev/null || true
-bash "${SCRIPTS}/azambasha-update-banner.sh" 2>/dev/null || true
-
+ln -sf "${SCRIPTS}/azambasha-ai-copilot.py"          /usr/local/bin/pnet-ai
+ln -sf "${SCRIPTS}/azambasha-config-diff.py"         /usr/local/bin/pnet-config-diff
+ln -sf "${SCRIPTS}/azambasha-ping-mesh.py"           /usr/local/bin/pnet-ping-mesh
+ln -sf "${SCRIPTS}/azambasha-scheduler.py"           /usr/local/bin/pnet-scheduler
+ln -sf "${SCRIPTS}/azambasha-cloud-bridge.py"        /usr/local/bin/pnet-cloud-bridge
+ln -sf "${SCRIPTS}/azambasha-topology-doc.py"        /usr/local/bin/pnet-topology-doc
+ln -sf "${SCRIPTS}/azambasha-perf.py"                /usr/local/bin/pnet-perf
+ln -sf "${SCRIPTS}/azambasha-console-fix.sh"         /usr/local/bin/pnet-console-fix
+ln -sf "${SCRIPTS}/azambasha-topology-git.py"        /usr/local/bin/pnet-topology-git
+ln -sf "${SCRIPTS}/azambasha-watchdog.py"            /usr/local/bin/pnet-watchdog
+ln -sf "${SCRIPTS}/azambasha-fleet-status.sh"        /usr/local/bin/pnet-fleet
+ln -sf "${SCRIPTS}/azambasha-cluster-capacity.py"    /usr/local/bin/pnet-capacity
+ln -sf "${SCRIPTS}/azambasha-ssl.sh"                 /usr/local/bin/pnet-ssl
+ln -sf "${SCRIPTS}/azambasha-link-impairment.sh"      /usr/local/bin/pnet-link-impair
+ln -sf "${SCRIPTS}/azambasha-roce-engine.sh"          /usr/local/bin/pnet-roce
+ln -sf "${SCRIPTS}/azambasha-cgroups-v2-engine.sh"    /usr/local/bin/pnet-cgroups
+ln -sf "${SCRIPTS}/azambasha-cpu-governor.py"         /usr/local/bin/pnet-cpu-governor
+ln -sf "${SCRIPTS}/azambasha-eve-lab-importer.py"      /usr/local/bin/pnet-lab-importer
+chmod +x "${SCRIPTS}/azambasha-update.sh" "${SCRIPTS}/azambasha-update-banner.sh" "${SCRIPTS}/azambasha-quarterly-audit.sh" "${SCRIPTS}/azambasha-apply-all-fixes.sh" "${SCRIPTS}/azambasha-satellite-join.sh" "${SCRIPTS}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-* 2>/dev/null || true
 
 # Install scheduler timer and 24/7 autonomous watchdog daemon
 python3 "${SCRIPTS}/azambasha-scheduler.py" --install 2>/dev/null || true

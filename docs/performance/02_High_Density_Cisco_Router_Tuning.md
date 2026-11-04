@@ -69,16 +69,16 @@ A vital design requirement is that **device throughput, forwarding latency, and 
 
 The optimization is designed for both single-server Master deployments and multi-node Satellite worker clusters:
 
-### Quick Deployment via Canonical CLI (`pnet-optimizer (or azam-optimizer)`)
+### Quick Deployment via Canonical CLI (`pnet-optimizer`)
 ```bash
 # On Master Node:
-sudo pnet-optimizer (or azam-optimizer) --master
+sudo pnet-optimizer --master
 
 # On Satellite Worker Node:
-sudo pnet-optimizer (or azam-optimizer) --satellite
+sudo pnet-optimizer --satellite
 
 # Cluster-Wide Synchronization from Master:
-sudo pnet-optimizer (or azam-optimizer) --cluster
+sudo pnet-optimizer --cluster
 ```
 
 *(Alternatively, run `sudo bash scripts/azambasha-heavy-node-optimizer.sh [--master|--satellite|--cluster]`)*
@@ -115,7 +115,7 @@ In addition to static YAML template optimization, PNetLab intercepts node launch
 - **Universal QEMU Interceptor (`device_qemu.php`)**: Dynamically injects `-machine mem-merge=on` and `-device virtio-balloon-pci` into all QEMU nodes via `customFlag()`. Even custom imported appliances or legacy labs imported from EVE-NG automatically participate in KSM 4KB RAM deduplication.
 - **Universal Cisco IOL Interceptor (`device_iol.php`)**:
   - Fronts `iol_wrapper` with `ksm_merge_exec`, triggering `prctl(PR_SET_MEMORY_MERGE, 1)` to opt IOL process memory and dynamic heap into KSM deduplication.
-  - Generates an automated launcher hook pointing to `azam-iol-launcher`, which detects ELF architecture (32-bit or 64-bit) and preloads `azam-iol-shim.so`.
+  - Generates an automated launcher hook pointing to `pnet-iol-launcher`, which detects ELF architecture (32-bit or 64-bit) and preloads `pnet-iol-shim.so`.
   - The adaptive micro-sleep governor eliminates idle spin loops (dropping idle CPU from 25% down to <0.01% per instance) with 0ns latency during active packet flow.
 
 ### 5. QEMU Template Tuning
@@ -148,8 +148,8 @@ no service config
 > [!NOTE]
 > Guest operating system images and base configurations are never automatically modified. All core optimizations in PNetLab operate strictly and non-intrusively at the hypervisor and virtual device hardware execution layer.
 
-### 6. Non-Destructive QCOW2 Image Compression (`azam-images --compress`)
-Run `sudo azam-images --compress` (or `sudo azam-doctor --compress`) to safely compress and sparsify installed QCOW2 base images (`qemu-img convert -c -O qcow2`), saving **40% to 70% disk space** and drastically reducing host RAM page-cache read footprint.
+### 6. Non-Destructive QCOW2 Image Compression (`pnet-images --compress`)
+Run `sudo pnet-images --compress` (or `sudo pnet-doctor --compress`) to safely compress and sparsify installed QCOW2 base images (`qemu-img convert -c -O qcow2`), saving **40% to 70% disk space** and drastically reducing host RAM page-cache read footprint.
 
 ---
 
@@ -157,7 +157,7 @@ Run `sudo azam-images --compress` (or `sudo azam-doctor --compress`) to safely c
 
 | Diagnostic Target | Command | Expected Output |
 | :--- | :--- | :--- |
-| **Comprehensive Audit** | `sudo pnet-optimizer (or azam-optimizer) --check` | `ACTIVE (Saved: ~X GB RAM across identical node pages)` |
+| **Comprehensive Audit** | `sudo pnet-optimizer --check` | `ACTIVE (Saved: ~X GB RAM across identical node pages)` |
 | **Deduplicated Memory Saved** | `cat /sys/kernel/mm/ksm/pages_sharing` | Non-zero number (multiply by 4KB to get saved bytes) |
 | **THP Status** | `cat /sys/kernel/mm/transparent_hugepage/enabled` | `always [madvise] never` |
 | **Lossless Governor Status** | `python3 scripts/azambasha-cpu-governor.py --status` | Lists active nodes, PIDs, and states (`ACTIVE` or `IDLE`) |
@@ -170,6 +170,6 @@ Run `sudo azam-images --compress` (or `sudo azam-doctor --compress`) to safely c
 
 To restore standard default Linux kernel parameters and deactivate the governor:
 ```bash
-sudo pnet-optimizer (or azam-optimizer) --rollback
+sudo pnet-optimizer --rollback
 ```
 

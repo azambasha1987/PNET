@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# AzamLabs One-Step Turnkey Update Command (azam-update)
+# PNetLab One-Step Turnkey Update Command (pnet-update)
 # Unified single-command deployment & update engine for Master & Satellite nodes
 # ==============================================================================
 set -eo pipefail
 
-# Resolve physical script location across symlinks (e.g. /usr/local/bin/azam-update)
+# Resolve physical script location across symlinks (e.g. /usr/local/bin/pnet-update)
 SRC_LOC="${BASH_SOURCE[0]:-$0}"
 set -u
 REAL_PATH="$(realpath "$SRC_LOC" 2>/dev/null || readlink -f "$SRC_LOC" 2>/dev/null || echo "$SRC_LOC")"
@@ -34,14 +34,14 @@ log_err()  { echo -e "${RED}[✘]${RESET} $*"; }
 
 show_banner() {
     echo -e "${BOLD}${BLUE}================================================================================${RESET}"
-    echo -e "${BOLD}         AzamLabs One-Step Master & Satellite Update Utility                    ${RESET}"
+    echo -e "${BOLD}         PNetLab One-Step Master & Satellite Update Utility                    ${RESET}"
     echo -e "${BOLD}         Zero-Glitch Protocol • Native Ubuntu 26.04 Resolute Stack              ${RESET}"
     echo -e "${BOLD}${BLUE}================================================================================${RESET}"
 }
 
 usage() {
     show_banner
-    echo -e "${BOLD}Usage:${RESET} sudo azam-update [OPTION]"
+    echo -e "${BOLD}Usage:${RESET} sudo pnet-update [OPTION]"
     echo ""
     echo -e "${BOLD}Options:${RESET}"
     echo "  --auto, -a       Auto-detect node role (Master vs Satellite) and execute 1-step update"
@@ -50,13 +50,13 @@ usage() {
     echo "  --check, -c      Run non-mutating pre/post-flight system diagnostic check"
     echo "  --dry-run, -d    Simulate update execution and test non-regression probes"
     echo "  --rollback, -r   Quick restore from latest snapshot checkpoint"
-    echo "  --symlink        Install global /usr/local/bin/azam-update symlink"
+    echo "  --symlink        Install global /usr/local/bin/pnet-update symlink"
     echo "  --help, -h       Show this guidance reference"
     echo ""
     echo -e "${BOLD}Canonical One-Line Commands:${RESET}"
-    echo "  Master Node:    sudo azam-update --master"
-    echo "  Satellite Node: sudo azam-update --satellite"
-    echo "  Auto-Detect:    sudo azam-update"
+    echo "  Master Node:    sudo pnet-update --master"
+    echo "  Satellite Node: sudo pnet-update --satellite"
+    echo "  Auto-Detect:    sudo pnet-update"
     exit 0
 }
 
@@ -68,9 +68,10 @@ if [ "$(id -u)" -eq 0 ]; then
     elif [ -f "${SCRIPT_DIR}/azambasha-update.sh" ]; then
         local_target="${SCRIPT_DIR}/azambasha-update.sh"
     fi
-    ln -sf "$local_target" /usr/local/bin/azam-update 2>/dev/null || true
+    ln -sf "$local_target" /usr/local/bin/pnet-update 2>/dev/null || true
+    rm -f /usr/local/bin/azam-* /usr/local/bin/azambasha-* 2>/dev/null || true
     if [ -f "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" ]; then
-        ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/azam-audit 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/azambasha-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
     fi
 fi
 
@@ -80,7 +81,7 @@ if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
 fi
 
 if [ "$(id -u)" -ne 0 ] && [[ ! "${1:-}" =~ ^(--help|-h|--check|-c|--dry-run|-d)$ ]]; then
-    log_err "Please run this update utility as root (sudo azam-update)"
+    log_err "Please run this update utility as root (sudo pnet-update)"
     exit 1
 fi
 
@@ -102,7 +103,7 @@ detect_role() {
 
 run_diagnostics() {
     show_banner
-    log_info "Running AzamLabs Cluster Diagnostics..."
+    log_info "Running PNetLab Cluster Diagnostics..."
     local role
     role="$(detect_role)"
     log_ok "Node Role Identified: ${BOLD}${role^^}${RESET}"
@@ -119,11 +120,11 @@ sync_from_github() {
         return 0
     fi
 
-    log_info "Connecting to GitHub to fetch the latest AzamLabs code..."
-    local github_url="https://github.com/azambasha1987/AzamLabs.git"
-    local github_tar_url="https://github.com/azambasha1987/AzamLabs/archive/refs/heads/main.tar.gz"
+    log_info "Connecting to GitHub to fetch the latest PNetLab code..."
+    local github_url="https://github.com/azambasha1987/PNetLab.git"
+    local github_tar_url="https://github.com/azambasha1987/PNetLab/archive/refs/heads/main.tar.gz"
 
-    local myrepo_dir="/opt/azamlabs"
+    local myrepo_dir="/opt/pnet"
     mkdir -p "$myrepo_dir" 2>/dev/null || true
 
     local synced=0
@@ -142,7 +143,7 @@ sync_from_github() {
     fi
 
     if [ "$synced" -eq 0 ]; then
-        log_info "Cloning latest AzamLabs repository into ${myrepo_dir}..."
+        log_info "Cloning latest PNetLab repository into ${myrepo_dir}..."
         if git clone --depth 1 "$github_url" "$myrepo_dir" 2>/dev/null; then
             synced=1
             log_ok "Fetched latest codebase from GitHub via fresh Git clone."
@@ -170,14 +171,14 @@ sync_from_github() {
     fi
 
     # Clean up legacy nested directory if left over from previous monolithic repo
-    if [ -d "${myrepo_dir}/AzamLabs" ] && [ -f "${myrepo_dir}/VERSION" ]; then
-        rm -rf "${myrepo_dir}/AzamLabs" 2>/dev/null || true
+    if [ -d "${myrepo_dir}/PNetLab" ] && [ -f "${myrepo_dir}/VERSION" ]; then
+        rm -rf "${myrepo_dir}/PNetLab" 2>/dev/null || true
     fi
 
-    # Locate source AzamLabs directory inside repository
+    # Locate source PNetLab directory inside repository
     local src_repo="${myrepo_dir}"
-    if [ -d "${myrepo_dir}/AzamLabs" ] && [ ! -f "${myrepo_dir}/VERSION" ]; then
-        src_repo="${myrepo_dir}/AzamLabs"
+    if [ -d "${myrepo_dir}/PNetLab" ] && [ ! -f "${myrepo_dir}/VERSION" ]; then
+        src_repo="${myrepo_dir}/PNetLab"
     fi
 
     # Maintain system directories and symlinks
@@ -229,8 +230,8 @@ sync_from_github() {
         done
         # Ensure actions.js has top-level sequenced console priority hook
         local act_js="/opt/unetlab/html/themes/default/js/actions.js"
-        if [ -f "$act_js" ] && ! grep -q "AzamLabs Sequenced Console Priority Hook" "$act_js"; then
-            sed -i '1i // === AzamLabs Sequenced Console Priority Hook ===\nif (typeof window !== "undefined") {\n  window.addEventListener("click", function(e) {\n    var t = e.target;\n    var el = t && t.closest ? t.closest(".action-nodesconsole, [data-path=\\"nodes/console\\"], #context-menu a, .context-menu-item") : null;\n    if (el && window.azamSequencedConsole && !window.azamSequencedConsole.isBusy) {\n      var txt = (el.innerText || el.textContent || "").toLowerCase();\n      if (el.classList.contains("action-nodesconsole") || el.getAttribute("data-path") === "nodes/console" || txt.indexOf("console to all") !== -1 || txt.indexOf("all nodes console") !== -1) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.azamSequencedConsole.launch({ mode: "all" });\n        return false;\n      } else if (txt.indexOf("console to selected") !== -1 || txt.indexOf("selected nodes console") !== -1) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.azamSequencedConsole.launch({ mode: "selected" });\n        return false;\n      }\n    }\n  }, true);\n}\n' "$act_js" 2>/dev/null || true
+        if [ -f "$act_js" ] && ! grep -q "PNetLab Sequenced Console Priority Hook" "$act_js"; then
+            sed -i '1i // === PNetLab Sequenced Console Priority Hook ===\nif (typeof window !== "undefined") {\n  window.addEventListener("click", function(e) {\n    var t = e.target;\n    var el = t && t.closest ? t.closest(".action-nodesconsole, [data-path=\\"nodes/console\\"], #context-menu a, .context-menu-item") : null;\n    if (el && window.azamSequencedConsole && !window.azamSequencedConsole.isBusy) {\n      var txt = (el.innerText || el.textContent || "").toLowerCase();\n      if (el.classList.contains("action-nodesconsole") || el.getAttribute("data-path") === "nodes/console" || txt.indexOf("console to all") !== -1 || txt.indexOf("all nodes console") !== -1) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.azamSequencedConsole.launch({ mode: "all" });\n        return false;\n      } else if (txt.indexOf("console to selected") !== -1 || txt.indexOf("selected nodes console") !== -1) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.azamSequencedConsole.launch({ mode: "selected" });\n        return false;\n      }\n    }\n  }, true);\n}\n' "$act_js" 2>/dev/null || true
         fi
     fi
     if [ -d "${src_repo}/html/main" ] && [ -d "/opt/unetlab/html/main/js" ]; then
@@ -265,41 +266,58 @@ sync_from_github() {
         done
     fi
 
-    # Refresh global administrative symlinks
-    ln -sf /opt/unetlab/scripts/azambasha-update.sh /usr/local/bin/azam-update 2>/dev/null || true
-    rm -f /usr/local/bin/azambasha-update 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-quarterly-audit.sh /usr/local/bin/azam-audit 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-apply-all-fixes.sh /usr/local/bin/azam-menu 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-apply-all-fixes.sh /usr/local/bin/azam-fix 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-fix-web-credentials.sh /usr/local/bin/azam-credentials 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-fleet-status.sh /usr/local/bin/azam-fleet 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-cluster-capacity.py /usr/local/bin/azam-capacity 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-fix-cluster.sh /usr/local/bin/azam-cluster 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-satellite-join.sh /usr/local/bin/azam-satellite-join 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/azam-optimizer 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/azam-heavy-optimizer 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-dry-test.py /usr/local/bin/azam-dry-test 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-health-check.sh /usr/local/bin/azam-health 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh /usr/local/bin/azam-doctor 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh /usr/local/bin/azam-image-doctor 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh /usr/local/bin/azam-images 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-fix-node-startup.sh /usr/local/bin/azam-nodes 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-bootstorm.py /usr/local/bin/azam-bootstorm 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-backup-restore.sh /usr/local/bin/azam-backup 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-housekeeping.sh /usr/local/bin/azam-clean 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-dark-theme.sh /usr/local/bin/azam-dark 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-sync-network-config.sh /usr/local/bin/azam-netcfg 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-apt-guard.sh /usr/local/bin/azam-apt-guard 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-perf.py /usr/local/bin/azam-perf 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-watchdog.py /usr/local/bin/azam-watchdog 2>/dev/null || true
+    # Refresh global canonical pnet-* administrative symlinks
+    rm -f /usr/local/bin/azam-* /usr/local/bin/azambasha-* 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-update.sh              /usr/local/bin/pnet-update 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-quarterly-audit.sh     /usr/local/bin/pnet-audit 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-health-check.sh        /usr/local/bin/pnet-health 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh         /usr/local/bin/pnet-doctor 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh         /usr/local/bin/pnet-images 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/pnet-optimizer 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-dry-test.py             /usr/local/bin/pnet-dry-test 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-fix-node-startup.sh    /usr/local/bin/pnet-nodes 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-bootstorm.py          /usr/local/bin/pnet-bootstorm 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-backup-restore.sh       /usr/local/bin/pnet-backup 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-backup-restore.sh       /usr/local/bin/pnet-restore 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-housekeeping.sh        /usr/local/bin/pnet-clean 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-dark-theme.sh          /usr/local/bin/pnet-dark 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-sync-network-config.sh /usr/local/bin/pnet-netcfg 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-apt-guard.sh           /usr/local/bin/pnet-apt-guard 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-perf.py                /usr/local/bin/pnet-perf 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-watchdog.py            /usr/local/bin/pnet-watchdog 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-apply-all-fixes.sh      /usr/local/bin/pnet-menu 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-apply-all-fixes.sh      /usr/local/bin/pnet-fix 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-fix-web-credentials.sh /usr/local/bin/pnet-credentials 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-fleet-status.sh        /usr/local/bin/pnet-fleet 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-cluster-capacity.py    /usr/local/bin/pnet-capacity 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-fix-cluster.sh         /usr/local/bin/pnet-cluster 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/azambasha-satellite-join.sh       /usr/local/bin/pnet-satellite-join 2>/dev/null || true
+    chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /usr/local/bin/pnet-* 2>/dev/null || true
+
+    # Automatically install newly downloaded debian packages if present in repo releases
+    if [ -f "${src_repo}/releases/channel-pointer.json" ]; then
+        target_release="$(grep -o '"release": *"[^"]*"' "${src_repo}/releases/channel-pointer.json" | cut -d'"' -f4)"
+        if [ -n "$target_release" ] && [ -d "${src_repo}/releases/${target_release}/debs" ]; then
+            log_info "Applying release packages for version ${target_release}..."
+            dpkg -i "${src_repo}/releases/${target_release}/debs"/*.deb 2>/dev/null || apt-get install -f -y >/dev/null 2>&1 || true
+        fi
+    fi
+
+    # Automatically execute the full optimization and feature scripts suite for this new version
+    log_info "Executing PNetLab enterprise script pipeline for new release..."
+    bash /opt/unetlab/scripts/azambasha-install-azam-features.sh || true
+    bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh || true
+    bash /opt/unetlab/scripts/azambasha-cgroups-v2-engine.sh || true
+    bash /opt/unetlab/scripts/azambasha-fix-permissions.sh || true
 
     SCRIPT_DIR="/opt/unetlab/scripts"
 
     # Self-reexec to ensure currently running bash process executes the newly updated script
     if [ "${AZAM_REEXEC:-0}" -ne 1 ]; then
         export AZAM_REEXEC=1
-        log_info "Restarting azam-update with latest synchronized code..."
-        exec bash /usr/local/bin/azam-update "$@"
+        log_info "Restarting pnet-update with latest synchronized code..."
+        exec bash /usr/local/bin/pnet-update "$@"
     fi
 }
 
@@ -339,7 +357,7 @@ if os.path.isfile(satd_file):
             code = f.read()
         target_pattern = r'def pkg_version\(\):\s+for pkg in \("azamlabs-satellite", "azamlabs"\):'
         replacement = '''def pkg_version():
-    # AzamLabs authoritative version resolution
+    # PNetLab authoritative version resolution
     for v_path in ("/opt/unetlab/VERSION", "/opt/azambasha/VERSION", "/etc/azamlabs-version"):
         try:
             if os.path.isfile(v_path):
@@ -353,12 +371,12 @@ if os.path.isfile(satd_file):
         except Exception:
             pass
     for pkg in ("azamlabs-satellite", "azamlabs"):'''
-        if "AzamLabs authoritative version resolution" not in code:
+        if "PNetLab authoritative version resolution" not in code:
             new_code = re.sub(target_pattern, replacement, code, count=1)
             if new_code != code:
                 with open(satd_file, "w", encoding="utf-8") as f:
                     f.write(new_code)
-                print("Patched azamlabs-satd.py to report authoritative AzamLabs platform version.")
+                print("Patched azamlabs-satd.py to report authoritative PNetLab platform version.")
     except Exception as e:
         print(f"azamlabs-satd patch note: {e}")
 
@@ -372,7 +390,7 @@ if os.path.isfile(broker_file):
         replacement = '''def _master_version():
     global _MASTER_VERSION
     if _MASTER_VERSION is None:
-        # AzamLabs authoritative version resolution
+        # PNetLab authoritative version resolution
         for v_path in ("/opt/unetlab/VERSION", "/opt/azambasha/VERSION", "/etc/azamlabs-version"):
             try:
                 if os.path.isfile(v_path):
@@ -387,12 +405,12 @@ if os.path.isfile(broker_file):
                                 return _MASTER_VERSION
             except Exception:
                 pass'''
-        if "AzamLabs authoritative version resolution" not in code:
+        if "PNetLab authoritative version resolution" not in code:
             new_code = re.sub(target_pattern, replacement, code, count=1)
             if new_code != code:
                 with open(broker_file, "w", encoding="utf-8") as f:
                     f.write(new_code)
-                print("Patched azamlabs-brokerd.py to report authoritative AzamLabs platform version.")
+                print("Patched azamlabs-brokerd.py to report authoritative PNetLab platform version.")
     except Exception as e:
         print(f"azamlabs-brokerd patch note: {e}")
 PY_DAEMON_ALIGN
@@ -411,7 +429,7 @@ verify_and_stabilize_auth() {
         if [ ! -f /etc/systemd/system/azamlabs-brokerd.service ]; then
             cat << 'EOF_BROKER' > /etc/systemd/system/azamlabs-brokerd.service
 [Unit]
-Description=AzamLabs privilege broker (allowlisted root verbs for the engine)
+Description=PNetLab privilege broker (allowlisted root verbs for the engine)
 After=network.target
 
 [Service]
@@ -640,7 +658,7 @@ EOF_OVERRIDE
         chmod 0600 /etc/azamlabs/cluster-db.conf 2>/dev/null || true
     fi
 
-    # 3c. Align Satellite Daemon & Local Broker with authoritative AzamLabs platform version
+    # 3c. Align Satellite Daemon & Local Broker with authoritative PNetLab platform version
     align_daemon_versions
 
     # 3d. Ensure Satellite labs directory and /root/labs symlink exist
@@ -655,7 +673,7 @@ EOF_OVERRIDE
         if [ ! -f /etc/systemd/system/azamlabs-brokerd.service ]; then
             cat << 'EOF_BROKER' > /etc/systemd/system/azamlabs-brokerd.service
 [Unit]
-Description=AzamLabs privilege broker (allowlisted root verbs for the engine)
+Description=PNetLab privilege broker (allowlisted root verbs for the engine)
 After=network.target
 
 [Service]
@@ -687,7 +705,7 @@ EOF_BROKER
         if [ ! -f /etc/systemd/system/azamlabs-satd.service ]; then
             cat << 'EOF_SATD' > /etc/systemd/system/azamlabs-satd.service
 [Unit]
-Description=AzamLabs Satellite Agent Daemon
+Description=PNetLab Satellite Agent Daemon
 After=network.target azamlabs-brokerd.service
 
 [Service]
@@ -763,9 +781,9 @@ case "$MODE" in
         exit 0
         ;;
     --symlink)
-        ln -sf "$(realpath "$0")" /usr/local/bin/azam-update
+        ln -sf "$(realpath "$0")" /usr/local/bin/pnet-update
         chmod +x "$(realpath "$0")"
-        log_ok "Installed /usr/local/bin/azam-update"
+        log_ok "Installed /usr/local/bin/pnet-update"
         exit 0
         ;;
     --rollback|-r)
@@ -833,7 +851,7 @@ case "$MODE" in
         ;;
     *)
         log_err "Unknown argument: $MODE"
-        echo "Run 'sudo azam-update --help' for options."
+        echo "Run 'sudo pnet-update --help' for options."
         exit 1
         ;;
 esac

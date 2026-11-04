@@ -8,9 +8,9 @@
 
 | Target Node | Local One-Line Command (on Linux VM) | Remote One-Line Command (from Windows Host) |
 |---|---|---|
-| **Master Node (Controller)** | `sudo pnet-update --master  # (or sudo azam-update --master)` | `python scripts/deploy-to-vm.py -H <MASTER_IP> -p azam --apply-all` |
-| **Satellite Node (Worker)** | `sudo pnet-update --satellite  # (or sudo azam-update --satellite)` | `python scripts/deploy-to-vm.py -H <SATELLITE_IP> -p azam --satellite-fixes` |
-| **Universal (Auto-Detect Role)** | `sudo pnet-update` (or `sudo azam-update`) | `python scripts/deploy-to-vm.py -H <NODE_IP> -p azam --auto` |
+| **Master Node (Controller)** | `sudo pnet-update --master  ` | `python scripts/deploy-to-vm.py -H <MASTER_IP> -p azam --apply-all` |
+| **Satellite Node (Worker)** | `sudo pnet-update --satellite  ` | `python scripts/deploy-to-vm.py -H <SATELLITE_IP> -p azam --satellite-fixes` |
+| **Universal (Auto-Detect Role)** | `sudo pnet-update` (or `sudo pnet-update`) | `python scripts/deploy-to-vm.py -H <NODE_IP> -p azam --auto` |
 | **Fleet-Wide Simultaneous** | *Execute on each node* | `python scripts/deploy-to-vm.py -H <MASTER_IP> <SATELLITE_IP> -p azam --fleet` |
 
 ---
@@ -20,11 +20,11 @@
 The Master Controller node runs the PNetLab Web-GUI, Apache FastCGI, MySQL database, Guacamole console proxy, and cluster orchestration.
 
 > [!TIP]
-> **Automated In-Band GitHub Download**: When you run `sudo pnet-update --master  # (or sudo azam-update --master)`, it automatically connects to GitHub (`azambasha1987/PNetLab`), pulls all updated files directly to `/opt/pnet`, creates an atomic safety snapshot, and executes the complete master node pipeline in a single step.
+> **Automated In-Band GitHub Download**: When you run `sudo pnet-update --master  `, it automatically connects to GitHub (`azambasha1987/PNetLab`), pulls all updated files directly to `/opt/pnet`, creates an atomic safety snapshot, and executes the complete master node pipeline in a single step.
 
 ### A. Direct Execution on Master Node (SSH / Console)
 ```bash
-sudo pnet-update --master  # (or sudo azam-update --master)
+sudo pnet-update --master  
 ```
 
 ### What Happens in the Master Node Update Pipeline:
@@ -32,7 +32,7 @@ sudo pnet-update --master  # (or sudo azam-update --master)
 2. **Safety Snapshot**: Captures a timestamped `.tar.gz` checkpoint of `/opt/unetlab/{html/includes,templates,data/branding}`.
 3. **Permanent Session Fix**: Configures 10-year sliding session cookies (`Never-Logout`).
 4. **Lab Export & APT Fix**: Installs `zip`/`unzip`, handles nested folder structures and recursive UUID stripping.
-5. **Upload & Docker Subsystem**: 512MB PHP/Apache limits, Docker CE repository, official `azam-capture-web:1.0` HTML5 packet capture container, and `azamlabs-docker-image-watcher.service`.
+5. **Upload & Docker Subsystem**: 512MB PHP/Apache limits, Docker CE repository, official `pnet-capture-web:1.0` HTML5 packet capture container, and `azamlabs-docker-image-watcher.service`.
 6. **SSL IP-SAN & Console Fix**: Self-signed 5-year IP-SAN cert, Guacamole `:8081` proxy, and 32-byte crypto key.
 7. **Database Deep-Fix**: Cleans SQL modes, raises 1M query limits, configures logrotate.
 8. **File Permissions & Sockets**: Resets `/dev/kvm` and lab node permissions.
@@ -55,11 +55,11 @@ sudo pnet-update --master  # (or sudo azam-update --master)
 Satellite Worker nodes provide headless compute density, KVM virtualization, Soft-RoCE RDMA pipelines, and Docker container execution across cluster nodes.
 
 > [!TIP]
-> **Automated In-Band GitHub Download**: When you run `sudo pnet-update --satellite  # (or sudo azam-update --satellite)`, it automatically connects to GitHub (`azambasha1987/PNetLab`), pulls all updated files directly to `/opt/pnet`, creates an atomic safety snapshot, and executes the complete satellite worker pipeline in a single step.
+> **Automated In-Band GitHub Download**: When you run `sudo pnet-update --satellite  `, it automatically connects to GitHub (`azambasha1987/PNetLab`), pulls all updated files directly to `/opt/pnet`, creates an atomic safety snapshot, and executes the complete satellite worker pipeline in a single step.
 
 ### A. Direct Execution on Satellite Worker Node (SSH / Console)
 ```bash
-sudo pnet-update --satellite  # (or sudo azam-update --satellite)
+sudo pnet-update --satellite  
 ```
 
 ### What Happens in the Satellite Worker Pipeline:
@@ -88,7 +88,7 @@ sudo pnet-update --satellite  # (or sudo azam-update --satellite)
 If running directly on a node and you prefer the system to detect whether it is a Master or Satellite automatically:
 
 ```bash
-sudo azam-update
+sudo pnet-update
 ```
 
 The script inspects `/etc/azamlabs-role` and `dpkg -s azamlabs-satellite`:
@@ -103,16 +103,16 @@ In compliance with the **PNetLab Zero-Glitch Protocol**, an immutable pre-update
 
 ### Create Manual Snapshot:
 ```bash
-sudo azam-audit --snapshot
+sudo pnet-audit --snapshot
 ```
 
 ### Instant 1-Line Rollback Command:
 ```bash
 # Rollback to the most recent pre-update snapshot:
-sudo azam-update --rollback
+sudo pnet-update --rollback
 
 # Or specify a target snapshot archive:
-sudo azam-audit --rollback /opt/unetlab/data/Backup/snapshots/azamlabs_pre_update_<TIMESTAMP>.tar.gz
+sudo pnet-audit --rollback /opt/unetlab/data/Backup/snapshots/azamlabs_pre_update_<TIMESTAMP>.tar.gz
 ```
 
 ---
@@ -123,12 +123,12 @@ Validate system health and ensure 100% operational status after applying updates
 
 ### Local Diagnostic Probe:
 ```bash
-sudo azam-update --check
+sudo pnet-update --check
 ```
 
 ### System Health Audit:
 ```bash
-sudo azam-health
+sudo pnet-health
 ```
 
 ### Full Automated Dry-Run Test Suite (7 Probes):
@@ -139,7 +139,7 @@ python3 scripts/azambasha-dry-test.py
 - Probe 1: Plan & 34-Issue Ledger Integrity
 - Probe 2: Direct Email Dispatch Engine
 - Probe 3: Additive QEMU Template Discovery
-- Probe 4: Turnkey Audit Runner (`azam-audit`) & Rollback
+- Probe 4: Turnkey Audit Runner (`pnet-audit`) & Rollback
 - Probe 5: Canvas Viewport & Zoom Retention
 - Probe 6: PNetLab Operations Center Dashboard Card
 - Probe 7: Docker Container Subsystem & Official Images

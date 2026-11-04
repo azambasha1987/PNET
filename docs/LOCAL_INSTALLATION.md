@@ -42,7 +42,8 @@ sudo bash install/install-master.sh
 3. Installs core Ubuntu dependencies (`apache2`, `mysql-server`, `php-fpm`, `docker.io`, `bridge-utils`, `qemu-kvm`).
 4. Extracts core assets to `/opt/unetlab/`.
 5. Installs the Master Debian packages (`pnetlab`, `pnetlab-schema`, `pnetlab-guacd`, `pnetlab-qemu`, `pnetlab-docker`, `pnetlab-vpcs`, `pnetlab-bridge-dkms`).
-6. Starts and enables background services.
+6. Automatically deploys and executes the enterprise optimization suite (Ultra-KSM 4KB RAM deduplication, cgroups v2, OPcache, permissions, and canonical `pnet-*` CLI toolchains).
+7. Starts and enables background services.
 
 **Accessing PNetLab:**
 - Open your browser at: `https://<server-ip>/` or `https://localhost/`
@@ -60,7 +61,8 @@ sudo bash install/install-satellite.sh
 **What this script does:**
 1. Installs hypervisor and container dependencies (`qemu-kvm`, `docker.io`, `bridge-utils`).
 2. Installs the Satellite agent packages (`pnetlab-satellite`, `pnetlab-docker`, `pnetlab-qemu`, `pnetlab-vpcs`, `pnetlab-bridge-dkms`).
-3. Prepares the node to join your cluster.
+3. Automatically applies satellite hypervisor optimizations and canonical `pnet-*` CLI commands.
+4. Prepares the node to join your cluster.
 
 **Connecting to Master:**
 1. In your Master Web UI, navigate to **System** &rarr; **Satellite Management** &rarr; **Add Satellite**.
@@ -91,4 +93,14 @@ To add an upcoming release (e.g. `6.8.94resolute1`):
    git commit -m "Add PNetLab release 6.8.94resolute1"
    git push origin main
    ```
-4. On your Ubuntu hosts, run `git pull` and re-run `sudo bash install/install-master.sh`.
+4. On your Ubuntu hosts, update and apply the new release:
+   - **Either via local git**:
+     ```bash
+     git pull
+     sudo bash install/install-master.sh
+     ```
+   - **Or via in-band update command**:
+     ```bash
+     sudo pnet-update
+     ```
+   *The update process automatically detects new release `.deb` packages, upgrades them, and re-applies the complete enterprise optimization scripts suite.*

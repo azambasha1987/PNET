@@ -167,8 +167,8 @@ Tested live on both Master (`<MASTER_IP>`) and Satellite (`<SATELLITE_IP>`):
 | **KVM Halt Polling** | `cat /sys/module/kvm/parameters/halt_poll_ns` | `0` |
 | **CPU Governor Service** | `systemctl status azambasha-cpu-governor` | `Active: active (running)` |
 | **QEMU Machine Flags** | `ps aux \| grep qemu-system \| grep mem-merge` | Contains `mem-merge=on`, `virtio-balloon-pci`, `+invtsc` |
-| **Image Compression** | `sudo azam-images --check` | Reports sparsification & compression status |
-| **Cluster Health Audit** | `sudo azam-health` | Comprehensive multi-node diagnostic report |
+| **Image Compression** | `sudo pnet-images --check` | Reports sparsification & compression status |
+| **Cluster Health Audit** | `sudo pnet-health` | Comprehensive multi-node diagnostic report |
 
 ---
 

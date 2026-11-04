@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # PNetLab Satellite Node Local Installer
-# Installs PNetLab Satellite worker role from local release packages.
+# Installs PNetLab Satellite worker role from local release packages and
+# automatically applies hypervisor optimizations and pnet-* CLI tooling.
 #
 
 set -euo pipefail
@@ -39,10 +40,10 @@ echo " Release: $VERSION"
 echo " Source:  $RELEASE_DIR"
 echo "=========================================================="
 
-echo "[1/4] Verifying release package integrity..."
+echo "[1/5] Verifying release package integrity..."
 bash "$SCRIPT_DIR/verify-packages.sh" "$VERSION"
 
-echo "[2/4] Installing hypervisor and bridge dependencies..."
+echo "[2/5] Installing hypervisor and bridge dependencies..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y --no-install-recommends \
@@ -51,11 +52,12 @@ apt-get install -y --no-install-recommends \
     tar \
     zstd \
     curl \
+    git \
     libvirt-daemon-system \
     qemu-kvm \
     docker.io || true
 
-echo "[3/4] Installing PNetLab Satellite packages..."
+echo "[3/5] Installing PNetLab Satellite packages for $VERSION..."
 SATELLITE_DEBS=(
     "pnetlab-bridge-dkms_${VERSION}_all.deb"
     "pnetlab-vpcs_${VERSION}_amd64.deb"
@@ -77,12 +79,29 @@ done
 
 dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y
 
-echo "[4/4] Starting satellite services..."
+echo "[4/5] Applying satellite optimization scripts for $VERSION..."
+if [ -d "$REPO_ROOT/scripts" ]; then
+    mkdir -p /opt/unetlab/scripts
+    cp -rf "$REPO_ROOT/scripts/." /opt/unetlab/scripts/
+    chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
+    
+    # Register global canonical pnet-* CLI tooling on satellite
+    bash /opt/unetlab/scripts/azambasha-install-azam-features.sh --satellite || true
+    
+    # Engage Ultra-KSM deduplication and kernel tuning
+    bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh || true
+    
+    # Standardize socket permissions
+    bash /opt/unetlab/scripts/azambasha-fix-permissions.sh || true
+fi
+
+echo "[5/5] Starting satellite services..."
 systemctl daemon-reload || true
 
 echo "=========================================================="
 echo " PNetLab Satellite Installation Completed!"
-echo " To connect this node to your PNetLab Master:"
-echo " Run the registration command shown on your Master Web UI"
-echo " (System -> Satellite Management -> Add Satellite)."
+echo " Release: $VERSION"
+echo " CLI Tools: Run 'pnet-health' or 'pnet-satellite-join' to manage node"
+echo " To connect this node to your Master Controller:"
+echo "   sudo pnet-satellite-join --master <MASTER_IP> --psk <CLUSTER_KEY>"
 echo "=========================================================="

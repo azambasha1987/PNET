@@ -35,19 +35,19 @@ The **PNetLab Speed Optimizer Suite** ([`scripts/azambasha-speed-optimizer.sh`](
 
 ### One-Click Application via Canonical CLI
 ```bash
-sudo pnet-optimizer (or azam-optimizer)
+sudo pnet-optimizer
 ```
 
 *(Alternatively, run `sudo bash scripts/azambasha-speed-optimizer.sh`)*
 
 ### Non-Destructive Diagnostic Audit (Can run as any user)
 ```bash
-sudo pnet-optimizer (or azam-optimizer) --check
+sudo pnet-optimizer --check
 ```
 
 ### Rollback / Reset to Factory Defaults
 ```bash
-sudo pnet-optimizer (or azam-optimizer) --rollback
+sudo pnet-optimizer --rollback
 ```
 
 ---
@@ -97,5 +97,5 @@ sudo pnet-optimizer (or azam-optimizer) --rollback
 | **OPcache Status** | `php -r "echo ini_get('opcache.memory_consumption');"` | `256` |
 | **Apache Modules** | `apache2ctl -M \| grep -E 'deflate\|expires'` | `deflate_module (shared)`, `expires_module (shared)` |
 | **Socket Buffers** | `sysctl net.core.rmem_max` | `net.core.rmem_max = 16777216` |
-| **System Diagnostics** | `sudo azam-health` | Comprehensive real-time system performance audit |
+| **System Diagnostics** | `sudo pnet-health` | Comprehensive real-time system performance audit |
 

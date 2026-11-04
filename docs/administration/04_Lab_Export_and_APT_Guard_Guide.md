@@ -40,7 +40,7 @@ PNetLab v8 (`6.8.93resolute1`) embeds full recursive subfolder export natively:
    PNetLab enforces natural ascending sort across both layers:
    - **Backend**: `/opt/unetlab/html/includes/api_folders.php` enforces `$a` before `$b`.
    - **Frontend**: `/opt/unetlab/html/main/js/labs.js` (`exportDialog`) enforces client-side alphanumeric sorting via `cmpName(a.name, b.name)`.
-   - **Update Immunity**: Automatically enforced on every install (`install.sh`), update (`azam-update`), and upstream ingestion (`azamlabs_upstream_sync.py`) via [`scripts/azambasha-fix-export-sort.py`](../../scripts/azambasha-fix-export-sort.py).
+   - **Update Immunity**: Automatically enforced on every install (`install.sh`), update (`pnet-update`), and upstream ingestion (`azamlabs_upstream_sync.py`) via [`scripts/azambasha-fix-export-sort.py`](../../scripts/azambasha-fix-export-sort.py).
 
 4. **Manual Repair / Validation Script**:  
    If you ever need to verify or restore export permissions, natural sorting, and tools manually:
@@ -89,17 +89,17 @@ When an upgrade command is attempted, the guard displays:
  [✘] Do Not Try to UPGRADE, this will BREAK PNetLab
 ============================================================
 PNetLab relies on pinned hypervisor, kernel, PHP, and 32-bit
-IOL dependencies. Upgrades must be applied via 'azam-update'.
+IOL dependencies. Upgrades must be applied via 'pnet-update'.
 ```
 
-### Managing APT Guard via CLI (`pnet-apt-guard (or azam-apt-guard)`)
+### Managing APT Guard via CLI (`pnet-apt-guard`)
 
 | Task | Command |
 | :--- | :--- |
-| **Check Guard Status** | `sudo pnet-apt-guard (or azam-apt-guard) --status` |
-| **Re-engage / Enable Guard** | `sudo pnet-apt-guard (or azam-apt-guard) --enable` |
-| **Temporarily Disable Guard** | `sudo pnet-apt-guard (or azam-apt-guard) --disable` |
-| **Emergency One-Time Override** | `sudo apt upgrade --force-azam-override` |
+| **Check Guard Status** | `sudo pnet-apt-guard --status` |
+| **Re-engage / Enable Guard** | `sudo pnet-apt-guard --enable` |
+| **Temporarily Disable Guard** | `sudo pnet-apt-guard --disable` |
+| **Emergency One-Time Override** | `sudo apt upgrade --force-pnet-override` |
 
 ---
 

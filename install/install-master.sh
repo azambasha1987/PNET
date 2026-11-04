@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # PNetLab Master Node Local Installer
-# Installs PNetLab Master from local release packages.
+# Installs PNetLab Master from local release packages and automatically applies
+# the enterprise optimization and management scripts suite.
 #
 
 set -euo pipefail
@@ -40,17 +41,17 @@ echo " Release: $VERSION"
 echo " Source:  $RELEASE_DIR"
 echo "=========================================================="
 
-echo "[1/6] Verifying release package integrity..."
+echo "[1/7] Verifying release package integrity..."
 bash "$SCRIPT_DIR/verify-packages.sh" "$VERSION"
 
-echo "[2/6] Enrolling repository signing key..."
+echo "[2/7] Enrolling repository signing key..."
 if [ -f "$DEB_DIR/debian-repository.key" ]; then
     install -d -m 0755 /usr/share/keyrings
     gpg --dearmor < "$DEB_DIR/debian-repository.key" > /usr/share/keyrings/pnetlab-local.gpg 2>/dev/null || \
         cp "$DEB_DIR/debian-repository.key" /usr/share/keyrings/pnetlab-local.gpg
 fi
 
-echo "[3/6] Updating apt cache and installing base dependencies..."
+echo "[3/7] Updating apt cache and installing base dependencies..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y --no-install-recommends \
@@ -64,10 +65,11 @@ apt-get install -y --no-install-recommends \
     tar \
     zstd \
     curl \
+    git \
     libvirt-daemon-system \
     qemu-kvm || true
 
-echo "[4/6] Unpacking core application assets..."
+echo "[4/7] Unpacking core application assets..."
 mkdir -p /opt/unetlab
 ASSET_ARCHIVE="$ASSET_DIR/pnetlab-core-assets-$VERSION.tar.zst"
 if [ -f "$ASSET_ARCHIVE" ]; then
@@ -77,7 +79,7 @@ if [ -f "$ASSET_ARCHIVE" ]; then
     }
 fi
 
-echo "[5/6] Installing PNetLab Master debian packages..."
+echo "[5/7] Installing PNetLab Master debian packages for $VERSION..."
 MASTER_DEBS=(
     "pnetlab-bridge-dkms_${VERSION}_all.deb"
     "pnetlab-vpcs_${VERSION}_amd64.deb"
@@ -102,7 +104,29 @@ done
 
 dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y
 
-echo "[6/6] Finalizing permissions and services..."
+echo "[6/7] Applying PNetLab enterprise optimization scripts for $VERSION..."
+if [ -d "$REPO_ROOT/scripts" ]; then
+    mkdir -p /opt/unetlab/scripts
+    cp -rf "$REPO_ROOT/scripts/." /opt/unetlab/scripts/
+    chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
+    
+    # 1. Register global canonical /usr/local/bin/pnet-* CLI tooling
+    bash /opt/unetlab/scripts/azambasha-install-azam-features.sh || true
+    
+    # 2. Engage Ultra-KSM (4KB RAM deduplication), OPcache, and kernel tuning
+    bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh || true
+    
+    # 3. Apply cgroups v2 dynamic resource governor
+    bash /opt/unetlab/scripts/azambasha-cgroups-v2-engine.sh || true
+    
+    # 4. Standardize file permissions and device sockets
+    bash /opt/unetlab/scripts/azambasha-fix-permissions.sh || true
+    
+    # 5. Assert canonical web credentials
+    bash /opt/unetlab/scripts/azambasha-fix-web-credentials.sh || true
+fi
+
+echo "[7/7] Finalizing services..."
 if [ -d /opt/unetlab/wrappers ]; then
     chmod -R 755 /opt/unetlab/wrappers || true
 fi
@@ -111,8 +135,10 @@ systemctl daemon-reload || true
 systemctl restart apache2 || true
 
 echo "=========================================================="
-echo " PNetLab Master Installation Completed Successfully!"
-echo " Web UI: https://$(hostname -I | awk '{print $1}')/ or https://localhost/"
+echo " PNetLab Master Installation & Script Optimization Completed!"
+echo " Release: $VERSION"
+echo " CLI Tools: Run 'pnet-health' or 'pnet-menu' to manage system"
+echo " Web UI:    https://$(hostname -I | awk '{print $1}')/ or https://localhost/"
 echo " Default Username: admin"
 echo " Default Password: pnet"
 echo "=========================================================="
