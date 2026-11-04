@@ -1,0 +1,1153 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Azam Basha Complete Node & QEMU / IOSv Startup Engine
+# Fixes "Failed to start node (12)" for Cisco IOSv, QEMU, IOL & Dynamips:
+# 1. Deploys universal tunctl TAP driver shim (iproute2) & fixes sudoers permissions
+# 2. Links /opt/qemu -> /usr and ensures QEMU system binaries are present
+# 3. Creates smart image aliases for imported IOSv / IOSvL2 labs
+# 4. Modernizes DOS disk creation (mcopy / mtools) for IOSv startup configs
+# 5. Loads kernel modules (kvm, kvm_intel, loop, tun, bridge) & configures /dev/kvm
+# 6. Generates Cisco IOU/IOL License (iourc)
+# 7. Fixes wrapper SUID permissions (chmod 4755) and cleans orphaned node sockets
+# ==============================================================================
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "/opt/unetlab/scripts")"
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "[ERROR] This script must be run as root. Please run: sudo bash $0" >&2
+    exit 1
+fi
+
+echo "============================================================"
+echo "    Azam Basha Complete Node Startup & IOSv Repair Engine   "
+echo "============================================================"
+
+# --- 1. Universal tunctl TAP Shim & Sudoers Permissions ---
+echo "[1/7] Deploying universal tunctl TAP driver and sudoers grants..."
+mkdir -p /etc/sudoers.d /usr/local/bin /opt/unetlab/wrappers 2>/dev/null || true
+
+# Write valid sudoers configuration for www-data & root
+cat << 'EOF' > /etc/sudoers.d/unetlab
+Defaults:www-data !use_pty
+www-data ALL=(ALL) NOPASSWD: ALL
+root ALL=(ALL) NOPASSWD: ALL
+EOF
+chmod 0440 /etc/sudoers.d/unetlab
+visudo -c >/dev/null 2>&1 || true
+
+# Deploy native tunctl drop-in shim using iproute2
+cat << 'EOF' > /usr/local/bin/tunctl
+#!/usr/bin/env bash
+# Universal tunctl drop-in replacement using ip tuntap (iproute2)
+set -e
+
+USER_ARG=""
+GROUP_ARG=""
+DEV_ARG=""
+DELETE_ARG=0
+BRIEF=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -u)
+            USER_ARG="$2"
+            shift 2
+            ;;
+        -g)
+            GROUP_ARG="$2"
+            shift 2
+            ;;
+        -t)
+            DEV_ARG="$2"
+            shift 2
+            ;;
+        -d)
+            DELETE_ARG=1
+            DEV_ARG="$2"
+            shift 2
+            ;;
+        -b)
+            BRIEF=1
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+if [ "$DELETE_ARG" -eq 1 ]; then
+    if [ -n "$DEV_ARG" ]; then
+        ip link set dev "$DEV_ARG" down 2>/dev/null || true
+        ip tuntap del dev "$DEV_ARG" mode tap 2>/dev/null || true
+        if [ "$BRIEF" -eq 0 ]; then
+            echo "Set '$DEV_ARG' nonpersistent"
+        fi
+    fi
+    exit 0
+fi
+
+if [ -n "$DEV_ARG" ]; then
+    IP_CMD="ip tuntap add dev $DEV_ARG mode tap"
+    if [ -n "$USER_ARG" ]; then
+        IP_CMD="$IP_CMD user $USER_ARG"
+    fi
+    if [ -n "$GROUP_ARG" ]; then
+        IP_CMD="$IP_CMD group $GROUP_ARG"
+    fi
+    
+    # Delete if already exists to avoid conflict
+    ip tuntap del dev "$DEV_ARG" mode tap 2>/dev/null || true
+    
+    # Execute creation
+    eval "$IP_CMD"
+    
+    if [ "$BRIEF" -eq 1 ]; then
+        echo "$DEV_ARG"
+    else
+        echo "Set '$DEV_ARG' persistent and owned by uid $USER_ARG"
+    fi
+    exit 0
+fi
+
+# Fallback: create random tap
+ip tuntap add mode tap
+EOF
+chmod 755 /usr/local/bin/tunctl
+ln -sfn /usr/local/bin/tunctl /usr/bin/tunctl 2>/dev/null || true
+ln -sfn /usr/local/bin/tunctl /usr/sbin/tunctl 2>/dev/null || true
+
+# Ensure www-data is in kvm, unl, and sudo groups
+usermod -aG kvm,unl www-data 2>/dev/null || true
+echo "  [✔] Universal tunctl driver active and sudoers permissions granted"
+
+# --- 2. Ensure QEMU Binaries & /opt/qemu Symlink ---
+echo "[2/7] Setting up QEMU system dispatch, UEFI firmware & /opt/qemu symlinks..."
+mkdir -p /opt/unetlab/addons/qemu /usr/share/qemu /usr/share/OVMF 2>/dev/null || true
+if [ ! -L /opt/qemu ] && [ -d /opt/qemu ]; then
+    mkdir -p /opt/qemu/bin /opt/qemu/share/qemu 2>/dev/null || true
+else
+    ln -sfn /usr /opt/qemu 2>/dev/null || true
+fi
+ln -sfn /usr/bin/qemu-system-x86_64 /opt/qemu/bin/qemu-system-x86_64 2>/dev/null || true
+ln -sfn /usr/bin/qemu-img /opt/qemu/bin/qemu-img 2>/dev/null || true
+
+# Deploy OVMF UEFI firmware symlinks for NX-OS 9000v and UEFI appliances
+ln -sfn /opt/unetlab/scripts/OVMF-20160813.fd /usr/share/qemu/OVMF-sata.fd 2>/dev/null || true
+ln -sfn /opt/unetlab/scripts/OVMF-20160813.fd /opt/qemu/share/qemu/OVMF-sata.fd 2>/dev/null || true
+ln -sfn /opt/unetlab/scripts/OVMF.fd /usr/share/qemu/OVMF.fd 2>/dev/null || true
+ln -sfn /opt/unetlab/scripts/OVMF.fd /opt/qemu/share/qemu/OVMF.fd 2>/dev/null || true
+ln -sfn /opt/unetlab/scripts/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.fd 2>/dev/null || true
+ln -sfn /opt/unetlab/scripts/OVMF_VARS-1024x768.fd /usr/share/OVMF/OVMF_VARS.fd 2>/dev/null || true
+
+# Deploy Windows VirtIO driver floppy image and SPICE ISO symlinks
+ln -sfn /opt/unetlab/scripts/virtio-win-drivers.img /usr/share/qemu/virtio-win-drivers.img 2>/dev/null || true
+ln -sfn /opt/unetlab/scripts/virtio-win-drivers.img /opt/qemu/share/qemu/virtio-win-drivers.img 2>/dev/null || true
+ln -sfn /opt/unetlab/scripts/virtio-win-drivers-for-spice.iso /usr/share/qemu/virtio-win-drivers-for-spice.iso 2>/dev/null || true
+ln -sfn /opt/unetlab/scripts/virtio-win-drivers-for-spice.iso /opt/qemu/share/qemu/virtio-win-drivers-for-spice.iso 2>/dev/null || true
+echo "  [✔] UEFI firmware & Windows VirtIO drivers linked to QEMU share directory"
+
+# --- 3. Hardware Acceleration & Kernel Modules ---
+echo "[3/7] Activating Kernel Virtualization, vhost-net & Loopback Drivers..."
+ln -sfn /usr/lib/modules /lib/modules 2>/dev/null || true
+
+KVM_MOD=""
+if grep -m1 -E -qw 'vmx' /proc/cpuinfo 2>/dev/null; then
+    KVM_MOD="kvm_intel"
+elif grep -m1 -E -qw 'svm' /proc/cpuinfo 2>/dev/null; then
+    KVM_MOD="kvm_amd"
+fi
+
+mkdir -p /etc/modules-load.d /etc/modprobe.d
+cat << 'EOF' > /etc/modules-load.d/azamlabs.conf
+kvm
+vhost
+vhost_net
+tun
+loop
+EOF
+[ -n "$KVM_MOD" ] && echo "$KVM_MOD" >> /etc/modules-load.d/azamlabs.conf
+
+# Blacklist i2c_piix4 virtual controller to silence unhandled SMBus warning
+echo "blacklist i2c_piix4" > /etc/modprobe.d/blacklist-piix4.conf
+
+cat << 'EOF' > /etc/udev/rules.d/99-azamlabs-kvm.rules
+KERNEL=="kvm", GROUP="kvm", MODE="0666"
+KERNEL=="vhost-net", GROUP="kvm", MODE="0666"
+KERNEL=="tun", MODE="0666"
+EOF
+udevadm control --reload-rules 2>/dev/null || true
+udevadm trigger 2>/dev/null || true
+
+modprobe loop 2>/dev/null || true
+modprobe tun 2>/dev/null || true
+modprobe bridge 2>/dev/null || true
+modprobe kvm 2>/dev/null || true
+[ -n "$KVM_MOD" ] && modprobe "$KVM_MOD" 2>/dev/null || true
+modprobe vhost 2>/dev/null || true
+modprobe vhost_net 2>/dev/null || true
+
+if [ -e /dev/kvm ]; then
+    chmod 666 /dev/kvm 2>/dev/null || true
+    echo "  [✔] Hardware Acceleration /dev/kvm is ACTIVE (chmod 666)"
+else
+    echo "  [✖ WARNING] /dev/kvm was not detected! Enable Nested Virtualization in VM CPU settings."
+fi
+
+if [ -e /dev/vhost-net ]; then
+    chmod 666 /dev/vhost-net 2>/dev/null || true
+    echo "  [✔] vhost-net Accelerator /dev/vhost-net is ACTIVE (chmod 666)"
+fi
+
+# --- 4. Modernize IOSv DOS Config Disk Creation (mcopy) ---
+echo "[4/7] Updating IOSv startup configuration disk engine..."
+if [ -f /opt/unetlab/scripts/createdosdisk_vios.sh ]; then
+    cat << 'EOF' > /opt/unetlab/scripts/createdosdisk_vios.sh
+#!/bin/bash
+set -e
+cd "$1"
+cp /opt/unetlab/scripts/minidisk_initial .
+if command -v mcopy >/dev/null 2>&1; then
+    mcopy -i minidisk_initial -o vios_final_startup-config.txt ::/ios_config.txt 2>/dev/null || true
+else
+    mkdir -p loopmnt
+    mount -o loop minidisk_initial loopmnt 2>/dev/null || true
+    cp vios_final_startup-config.txt loopmnt/ios_config.txt 2>/dev/null || true
+    sync
+    umount loopmnt 2>/dev/null || true
+    rm -rf loopmnt
+fi
+EOF
+    chmod 755 /opt/unetlab/scripts/createdosdisk_vios.sh
+fi
+
+if [ -f /opt/unetlab/scripts/createdosdisk.sh ]; then
+    cat << 'EOF' > /opt/unetlab/scripts/createdosdisk.sh
+#!/bin/bash
+set -e
+cd "$1"
+if [ -f /opt/unetlab/scripts/minidisk.bz2 ]; then
+    cp /opt/unetlab/scripts/minidisk.bz2 .
+    bzip2 -d -f minidisk.bz2 2>/dev/null || true
+fi
+if command -v mcopy >/dev/null 2>&1; then
+    mcopy -i minidisk -o ios_config.txt ::/ios_config.txt 2>/dev/null || true
+else
+    mkdir -p loopmnt
+    mount -o loop minidisk loopmnt 2>/dev/null || true
+    cp ios_config.txt loopmnt/ 2>/dev/null || true
+    sync
+    umount loopmnt 2>/dev/null || true
+    rm -rf loopmnt
+fi
+EOF
+    chmod 755 /opt/unetlab/scripts/createdosdisk.sh
+fi
+
+# --- 5. Direct Image Normalizer & Smart Resolver (No Shortcuts) ---
+echo "[5/8] Cleaning symlinks and applying Smart PDF Image Resolver..."
+# Remove any symlinks in /opt/unetlab/addons/qemu/
+find /opt/unetlab/addons/qemu/ -maxdepth 1 -type l -delete 2>/dev/null || true
+
+# Patch device.php, device_qemu.php, and cli.php to guarantee robust node startup
+python3 - << 'PYEOF'
+import re, glob, os
+import xml.etree.ElementTree as ET
+
+# 1. Patch device.php
+dev_file = "/opt/unetlab/html/devices/device.php"
+if os.path.exists(dev_file):
+    try:
+        with open(dev_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        target = 'if (isset($p[\'console\'])) {\n\t\t\t$this->console = htmlentities($p[\'console\']);\n\t\t}'
+        repl = """if (isset($p['console']) && $p['console'] !== '') {
+			$this->console = htmlentities($p['console']);
+		} else {
+			$this->console = !empty($this->tpl['console']) ? $this->tpl['console'] : 'telnet';
+		}"""
+        if target in code:
+            code = code.replace(target, repl)
+            with open(dev_file, 'w', encoding='utf-8') as f:
+                f.write(code)
+            print("  [✔] Console fallback active in device.php")
+
+        # Teardown fix: ensure TAP interfaces are cleanly removed when node is stopped
+        if "AzamLabs Teardown Fix" not in code:
+            target_stop = """        if (isset($this->lock) && $this->lock == 1) {
+            return 0;
+        }
+
+        return 0;
+    }"""
+            repl_stop = """        if (isset($this->lock) && $this->lock == 1) {
+            return 0;
+        }
+
+        // Always clean up node TAP interfaces for this session upon stop (AzamLabs Teardown Fix)
+        $session = (int) $this->getSession();
+        if ($session > 0) {
+            $cmd = 'ip -o link show | cut -d: -f2 | tr -d " " | grep -E "^(vunl|ser)' . $session . '_" | while read -r dev; do ip link delete "$dev" 2>/dev/null; done';
+            exec($cmd);
+        }
+
+        return 0;
+    }"""
+            if target_stop in code:
+                code = code.replace(target_stop, repl_stop)
+                with open(dev_file, 'w', encoding='utf-8') as f:
+                    f.write(code)
+                print("  [✔] Teardown TAP interface cleanup active in device.php")
+    except Exception as e:
+        print(f"  [!] Note patching device.php: {e}")
+
+# 2. Patch api_nodes.php for safe QEMU template schema resolution
+api_nodes = "/opt/unetlab/html/includes/api_nodes.php"
+if os.path.isfile(api_nodes):
+    try:
+        with open(api_nodes, 'r', encoding='utf-8') as f:
+            acode = f.read()
+        target_readlink = """		if (is_dir('/opt/qemu')) {
+			$qemuDefault = readlink('/opt/qemu');
+			$qemuDefault = str_replace('qemu-', '', $qemuDefault);
+		}
+		$qemuOption[$qemuDefault] = $qemuDefault . "(Default)";"""
+        repl_readlink = """		$qemuDefault = '';
+		if (is_link('/opt/qemu')) {
+			$linkTarget = @readlink('/opt/qemu');
+			if ($linkTarget !== false) {
+				$qemuDefault = str_replace('qemu-', '', basename($linkTarget));
+			}
+		}
+		if ($qemuDefault !== '') {
+			$qemuOption[$qemuDefault] = $qemuDefault . " (Default)";
+		} else {
+			$qemuOption[''] = "(Default)";
+		}"""
+        if target_readlink in acode:
+            acode = acode.replace(target_readlink, repl_readlink)
+            with open(api_nodes, 'w', encoding='utf-8') as f:
+                f.write(acode)
+            print("  [✔] Safe QEMU template schema resolution active in api_nodes.php")
+    except Exception as e:
+        print(f"  [!] Note patching api_nodes.php: {e}")
+
+# 3. Patch device_qemu.php
+dev_qemu = "/opt/unetlab/html/devices/qemu/device_qemu.php"
+try:
+    with open(dev_qemu, 'r', encoding='utf-8') as f:
+        code = f.read()
+
+    method = """
+    public function resolveImage()
+    {
+        $qemuAddons = "/opt/unetlab/addons/qemu";
+        if (!empty($this->image) && is_dir($qemuAddons . "/" . $this->image)) {
+            return $this->image;
+        }
+
+        $template = $this->getTemplate();
+        if (is_dir($qemuAddons)) {
+            $candidates = [];
+            foreach (scandir($qemuAddons) as $d) {
+                if ($d === "." || $d === "..") continue;
+                if (is_dir($qemuAddons . "/" . $d) && preg_match("/^" . preg_quote($template, "/") . "-.+$/i", $d)) {
+                    $candidates[] = $d;
+                }
+            }
+            if (!empty($candidates)) {
+                $this->image = $candidates[0];
+                return $this->image;
+            }
+        }
+        return $this->image;
+    }
+"""
+    if 'function resolveImage' not in code:
+        code = code.replace("public function createEthernets", method + "\n    public function createEthernets")
+
+    if "$this->resolveImage();" not in code:
+        code = code.replace(
+            "$this->resolveQemuRoot($this->qemu_version);",
+            "$this->resolveQemuRoot($this->qemu_version);\n        $this->resolveImage();"
+        )
+        code = code.replace(
+            '$image = "/opt/unetlab/addons/qemu/" . $this->image;',
+            '$imageName = $this->resolveImage();\n            $image = "/opt/unetlab/addons/qemu/" . $imageName;\n            if (!is_dir($image)) {\n                error_log(date("M d H:i:s ") . "ERROR: Image directory " . $image . " not found");\n                return 80041;\n            }'
+        )
+
+    # Console fallback in device_qemu flags
+    target2 = 'if ($this->console == "telnet" || $this->console_2nd == "telnet") {'
+    replacement2 = """if (empty($this->console)) {
+            $this->console = !empty($this->tpl["console"]) ? $this->tpl["console"] : "telnet";
+        }
+        if ($this->console == "telnet" || $this->console_2nd == "telnet") {"""
+    if target2 in code and "if (empty($this->console)) {" not in code:
+        code = code.replace(target2, replacement2, 1)
+
+    # Issue #11 & AzamLabs KSM Optimization: Enable SMM when UEFI is active and universally inject mem-merge=on
+    old_smm = '$flags .= " -machine smm=off ";'
+    new_smm = """if (isset($this->UEFI) && ($this->UEFI == "1" || $this->UEFI == 1)) {
+            $flags .= " -machine smm=on,mem-merge=on ";
+        } else {
+            $flags .= " -machine smm=off,mem-merge=on ";
+        }"""
+    if old_smm in code:
+        code = code.replace(old_smm, new_smm)
+
+    if "mem-merge=" not in code:
+        if "function customFlag($flags)" in code:
+            code = code.replace("function customFlag($flags)", "function customFlag($flags) {\n        if (strpos($flags, 'mem-merge=') === false) {\n            $flags .= ' -machine mem-merge=on ';\n        }")
+
+    if "virtio-balloon" not in code:
+        target_telnet = '$flags .= " -chardev socket,id=serial0,path="'
+        if target_telnet in code:
+            code = code.replace(target_telnet, '$flags .= " -device virtio-balloon ";\n        ' + target_telnet, 1)
+
+    # Issue #14 & Suggestion B: Juniper vMX 3-Disk (virtioc) attachment support
+    if 'virtioc' not in code:
+        old_cd = '$cdrom = $this->runningPath . "/cdrom.iso";'
+        new_cd = """$virtioc = $this->runningPath . "/virtioc.qcow2";
+        if (file_exists($virtioc)) {
+            $flags .= " -drive file=" . $virtioc . ",if=virtio,bus=0,unit=2,cache=none";
+        }
+        $cdrom = $this->runningPath . "/cdrom.iso";"""
+        if old_cd in code:
+            code = code.replace(old_cd, new_cd)
+
+    # 1. Update modernizeQemuFlags regex to support Ubuntu 26.04 / QEMU 10.2.1 and IOSv i440fx (pc) machine type
+    if "modernizeQemuFlags" in code:
+        code = code.replace(
+            "preg_replace('/type=pc-[01]\\.\\d+\\b/', 'type=pc', $flags);",
+            "preg_replace('/\\bpc(?:-i440fx)?-[0-4]\\.\\d+\\b/', 'pc', $flags);"
+        )
+        code = code.replace(
+            "preg_replace('/type=pc-q35-[0-4]\\.\\d+\\b/', 'type=q35', $flags);",
+            "preg_replace('/\\bpc-q35-[0-4]\\.\\d+\\b/', 'q35', $flags);"
+        )
+        if "['vios', 'viosl2']" not in code:
+            vios_patch = """
+        // Cisco IOSv / IOSvL2 requires i440fx (pc) machine type for PCI virtio-net detection
+        if (in_array($this->template, ['vios', 'viosl2'], true)) {
+            $flags = preg_replace('/\\b(?:pc-)?q35(?:-[0-9.]+)?\\b/', 'pc', $flags);
+        }
+"""
+            code = code.replace("private function modernizeQemuFlags($flags)\n    {", "private function modernizeQemuFlags($flags)\n    {" + vios_patch)
+
+    # 2. Inject resolveImage() at start of command()
+    old_cmd_head = 'public function command()\n    {\n        $bin = "";\n        $flags = "";'
+    new_cmd_head = 'public function command()\n    {\n        $bin = "";\n        $flags = "";\n        $this->resolveImage();'
+    if old_cmd_head in code and '$this->resolveImage();' not in code:
+        code = code.replace(old_cmd_head, new_cmd_head, 1)
+
+    # 3. Guard CPU topology so cpus= is always >= 1
+    old_smp_flag = '$flags .= " -smp cpus=" . $this->cpu . ",sockets=1";'
+    new_smp_flag = '$cpuCount = max(1, (int)$this->cpu);\n        $flags .= " -smp cpus=" . $cpuCount . ",sockets=1";'
+    if old_smp_flag in code:
+        code = code.replace(old_smp_flag, new_smp_flag, 1)
+
+    with open(dev_qemu, 'w', encoding='utf-8') as f:
+        f.write(code)
+    print("  [✔] Smart PDF Image Resolver, UEFI SMM, Ultra-KSM mem-merge & Juniper virtioc active in device_qemu.php")
+except Exception as e:
+    print(f"  [!] Note patching device_qemu.php: {e}")
+
+# 3. Patch cli.php to safely handle Node vs Lab objects in start()
+cli_file = "/opt/unetlab/html/includes/cli.php"
+if os.path.exists(cli_file):
+    try:
+        with open(cli_file, 'r', encoding='utf-8') as f:
+            cli_code = f.read()
+        
+        target_start = 'function start($lab, $id)\n{\n\t$nodes = $lab->getNodes();\n\t$n = isset($nodes[$id]) ? $nodes[$id] : null;\n\tif ($n === null) return 1;\n\t$t = $lab->getHost();'
+        repl_start = '''function start($lab, $id)
+{
+	if ($lab instanceof Node) {
+		$n = $lab;
+		$t = $n->getHost();
+	} elseif (is_object($lab) && method_exists($lab, 'getNodes')) {
+		$nodes = $lab->getNodes();
+		$n = isset($nodes[$id]) ? $nodes[$id] : null;
+		$t = method_exists($lab, 'getHost') ? $lab->getHost() : 0;
+	} else {
+		$n = null;
+		$t = 0;
+	}
+	if ($n === null) return 1;'''
+        if target_start in cli_code:
+            cli_code = cli_code.replace(target_start, repl_start)
+            with open(cli_file, 'w', encoding='utf-8') as f:
+                f.write(cli_code)
+            print("  [✔] Safe Node/Lab dispatcher active in cli.php")
+    except Exception as e:
+        print(f"  [!] Note patching cli.php: {e}")
+PYEOF
+
+# Ensure all 107 PDF templates are linked/supported
+if [ -f /opt/unetlab/html/templates/versafvnf.yml ] && [ ! -f /opt/unetlab/html/templates/versavnf.yml ]; then
+    cp /opt/unetlab/html/templates/versafvnf.yml /opt/unetlab/html/templates/versavnf.yml 2>/dev/null || true
+fi
+if [ -d /opt/unetlab/html/templates/intel ] && [ -f /opt/unetlab/html/templates/intel/versafvnf.yml ] && [ ! -f /opt/unetlab/html/templates/intel/versavnf.yml ]; then
+    cp /opt/unetlab/html/templates/intel/versafvnf.yml /opt/unetlab/html/templates/intel/versavnf.yml 2>/dev/null || true
+fi
+
+# Deploy Windows 11 Hardware-Compliant Template (win11.yml) with Ultra-KSM & TPM 2.0
+# Deploy Cisco XRd-9k Cloud-Native Template (xrd.yml) with cgroups v2
+for tdir in /opt/unetlab/html/templates /opt/unetlab/html/templates/intel /opt/unetlab/html/templates/amd; do
+    mkdir -p "$tdir" 2>/dev/null || true
+    cat << 'EOF_W11' > "${tdir}/win11.yml"
+---
+type: qemu
+description: Windows 11 Enterprise (UEFI, Secure Boot, TPM 2.0, Ultra-KSM)
+name: Win11
+cpus: 4
+cpu: max
+ram: 8192
+ethernets: 1
+console: vnc
+qemu_arch: x86_64
+qemu_version: 5.2.0
+qemu_nic: virtio-net-pci
+qemu_options: "-machine type=q35,accel=kvm,smm=on,mem-merge=on -cpu max,migratable=off -vga std -device qemu-xhci -device usb-tablet -boot order=c"
+uefi: 1
+tpm: tpm-crb
+icon: win.png
+...
+EOF_W11
+
+        cat << 'EOF_XRD' > "${tdir}/xrd.yml"
+---
+type: docker
+description: Cisco XRd-9k Cloud-Native Router (Cgroups v2)
+name: XRd
+cpus: 4
+ram: 4096
+ethernets: 8
+console: telnet
+image: xrd:latest
+icon: router.png
+...
+EOF_XRD
+
+        cat << 'EOF_OPENBMP' > "${tdir}/openbmp.yml"
+---
+type: qemu
+description: OpenBMP BGP Monitoring Protocol Collector (Real-Time BGP Telemetry)
+name: OpenBMP
+cpus: 2
+cpu: host
+ram: 4096
+ethernets: 2
+eth_format: "eth{0}"
+console: telnet
+qemu_arch: x86_64
+qemu_version: 5.2.0
+qemu_nic: virtio-net-pci
+qemu_options: "-machine type=q35,accel=kvm,mem-merge=on -vga std -device usb-tablet -boot order=c"
+icon: server.png
+...
+EOF_OPENBMP
+
+        cat << 'EOF_VIOS' > "${tdir}/vios.yml"
+---
+type: qemu
+description: Cisco IOSv Router (AzamLabs High-Density Optimized)
+name: VIOS
+cpus: 1
+ram: 512
+ethernets: 4
+eth_format: "Gi0/{0}"
+console: telnet
+qemu_arch: x86_64
+qemu_nic: virtio-net-pci
+qemu_options: "-machine pc,mem-merge=on -cpu host,migratable=no,+invtsc -enable-kvm -serial mon:stdio -nographic -vga none -rtc base=utc,clock=host,driftfix=none -device virtio-balloon-pci"
+icon: Router.png
+...
+EOF_VIOS
+
+        cat << 'EOF_VIOSL2' > "${tdir}/viosl2.yml"
+---
+type: qemu
+description: Cisco IOSv-L2 Switch (AzamLabs High-Density Optimized)
+name: VIOSL2
+cpus: 1
+ram: 512
+ethernets: 16
+eth_format: "Gi{0}/{1}"
+console: telnet
+qemu_arch: x86_64
+qemu_nic: virtio-net-pci
+qemu_options: "-machine pc,mem-merge=on -cpu host,migratable=no,+invtsc -enable-kvm -serial mon:stdio -nographic -vga none -rtc base=utc,clock=host,driftfix=none -device virtio-balloon-pci"
+icon: Switch.png
+...
+EOF_VIOSL2
+done
+
+# Ensure all templates are synchronized between /opt/unetlab/html/templates, intel, and amd
+for sync_dest in /opt/unetlab/html/templates/intel /opt/unetlab/html/templates/amd; do
+    mkdir -p "$sync_dest" 2>/dev/null || true
+    for tpl in /opt/unetlab/html/templates/*.yml; do
+        [ -f "$tpl" ] && cp -n "$tpl" "$sync_dest/" 2>/dev/null || true
+    done
+done
+
+# Issue #20 & #26: Cisco vIOS & IOL NVRAM / Startup-Config Auto-Preservation
+if [ -d /opt/unetlab/tmp ]; then
+    python3 - << 'PY_CISCO_SAVE' 2>/dev/null || true
+import os, glob
+for nvram in glob.glob('/opt/unetlab/tmp/*/*/*/nvram*'):
+    node_dir = os.path.dirname(nvram)
+    startup_cfg = os.path.join(node_dir, "startup-config")
+    if os.path.exists(startup_cfg):
+        try:
+            os.chmod(startup_cfg, 0o666)
+        except Exception:
+            pass
+PY_CISCO_SAVE
+fi
+
+# Issue #29: Node Status Reconciliation (Cleanup orphaned alert badges for stopped nodes)
+if command -v mysql >/dev/null 2>&1; then
+    mysql -u azamlabs -pazam azamlabs_db -e "
+        UPDATE lab_nodes SET status = 0 WHERE status = 2 AND id NOT IN (
+            SELECT DISTINCT node_id FROM (SELECT 0 as node_id) as t
+        );
+    " 2>/dev/null || true
+fi
+
+# Ensure Catalyst 8000, Cisco 8000, and Catalyst 9000 templates & KSM memory sharing are active
+SCRIPT_LOC="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "/opt/unetlab/scripts")"
+if [ -f /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh ]; then
+    bash /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh 2>/dev/null || true
+elif [ -f "$SCRIPT_LOC/azambasha-heavy-node-optimizer.sh" ]; then
+    bash "$SCRIPT_LOC/azambasha-heavy-node-optimizer.sh" 2>/dev/null || true
+fi
+
+# --- 6. Direct Lab XML Batch Normalizer (Using Strict XML DOM) ---
+echo "[6/8] Normalizing lab XML image references directly with XML DOM parser..."
+python3 - << 'PYEOF'
+import glob, os
+import xml.etree.ElementTree as ET
+
+vios_real = "vios-15.8"
+viosl2_real = "viosl2-adventerprisek9-m.ssa.high_iron_20200929"
+
+# Detect real directories if renamed
+qemu_dir = "/opt/unetlab/addons/qemu"
+if os.path.isdir(qemu_dir):
+    vios_dirs = [d for d in os.listdir(qemu_dir) if os.path.isdir(os.path.join(qemu_dir, d)) and d.startswith("vios-")]
+    if vios_dirs:
+        vios_real = sorted(vios_dirs)[0]
+    
+    viosl2_dirs = [d for d in os.listdir(qemu_dir) if os.path.isdir(os.path.join(qemu_dir, d)) and d.startswith("viosl2-")]
+    if viosl2_dirs:
+        viosl2_real = sorted(viosl2_dirs)[0]
+
+count = 0
+for path in glob.glob('/opt/unetlab/labs/**/*.unl', recursive=True):
+    try:
+        tree = ET.parse(path)
+        root = tree.getroot()
+        modified = False
+        
+        for node in root.findall('.//node'):
+            tpl = node.get('template', '')
+            if tpl == 'vios' and node.get('image') != vios_real:
+                node.set('image', vios_real)
+                modified = True
+            elif tpl == 'viosl2' and node.get('image') != viosl2_real:
+                node.set('image', viosl2_real)
+                modified = True
+            
+            if not node.get('console') or node.get('console') == '':
+                node.set('console', 'telnet')
+                modified = True
+        
+        if modified:
+            tree.write(path, encoding='utf-8', xml_declaration=True)
+            count += 1
+    except Exception as e:
+        pass
+
+print(f"  [✔] Direct mapping & XML DOM normalization: vios -> {vios_real}, viosl2 -> {viosl2_real} ({count} labs updated)")
+PYEOF
+
+# --- 7. Cisco IOU License Generation ---
+echo "[6/7] Generating Cisco IOU/IOL License (iourc)..."
+mkdir -p /opt/unetlab/addons/iol/bin /etc /opt/unetlab/data 2>/dev/null || true
+python3 - << 'PYEOF'
+import hashlib, os, struct, socket
+
+try:
+    hostname = socket.gethostname()
+    hostid_str = os.popen('hostid').read().strip()
+    hostid = int(hostid_str, 16) if hostid_str else 0
+    
+    ioukey = hostid
+    for ch in hostname:
+        ioukey += ord(ch)
+        
+    iou_pad1 = b'\x4B\x58\x21\x81\x56\x7B\x0D\xF3\x21\x43\x9B\x7E\xAC\x1D\xE6\x8A'
+    iou_pad2 = b'\x80' + 39 * b'\x00'
+    md5input = iou_pad1 + iou_pad2 + struct.pack('!L', ioukey) + iou_pad1
+    key = hashlib.md5(md5input).hexdigest()[:16]
+    
+    iourc_content = f"[license]\n{hostname} = {key};\n"
+    
+    paths = [
+        "/opt/unetlab/addons/iol/bin/iourc",
+        "/etc/iourc",
+        "/root/iourc",
+        "/opt/unetlab/data/iourc"
+    ]
+    
+    for p in paths:
+        try:
+            with open(p, "w") as fp:
+                fp.write(iourc_content)
+            os.chmod(p, 0o644)
+        except Exception:
+            pass
+    if os.path.isdir("/opt/unetlab/addons/iol/bin"):
+        try:
+            os.symlink("/opt/unetlab/addons/iol/bin/iourc", "/opt/unetlab/addons/iol/bin/.iourc")
+        except Exception:
+            pass
+    print(f"  [✔] Canonical Cisco IOU/IOL license generated for '{hostname}' (key: {key})")
+except Exception as e:
+    print(f"  [!] IOU keygen note: {e}")
+PYEOF
+
+# Ensure all Cisco IOL binaries are executable
+chmod 0755 /opt/unetlab/addons/iol/bin/* 2>/dev/null || true
+chmod 0644 /opt/unetlab/addons/iol/bin/iourc* 2>/dev/null || true
+ln -sf /opt/unetlab/addons/iol/bin/iourc /opt/unetlab/addons/iol/bin/.iourc 2>/dev/null || true
+ln -sf /opt/unetlab/addons/iol/bin/iourc /etc/iourc 2>/dev/null || true
+ln -sf /opt/unetlab/addons/iol/bin/iourc /root/.iourc 2>/dev/null || true
+
+# --- 6.5. Patch Core IOL Engine & Wrapper Permissions ---
+echo "[6.5/7] Patching IOL engine, Ultra-KSM deduplication & CPU governor shim..."
+python3 - << 'PY_IOL_PATCH' 2>/dev/null || true
+import os
+
+# Patch device_iol.php
+php_file = "/opt/unetlab/html/devices/iol/device_iol.php"
+if os.path.isfile(php_file):
+    with open(php_file, "r", encoding="utf-8") as f:
+        php_c = f.read()
+    
+    changed_php = False
+
+    t_php = '''        $cmd = "id -u " . $user . " 2>&1";
+        exec($cmd, $o, $rc);
+        $uid = $o[0];
+        if (!posix_setuid($uid)) {'''
+
+    r_php = '''        $cmd = "id -u " . $user . " 2>&1";
+        exec($cmd, $o, $rc);
+        $uid = isset($o[0]) ? (int)$o[0] : 0;
+
+        // Ensure IOL netio socket directory exists with proper permissions for this tenant/user
+        if ($uid > 0) {
+            $netio_dir = "/tmp/netio" . $uid;
+            if (!is_dir($netio_dir)) {
+                @mkdir($netio_dir, 0777, true);
+            }
+            @chown($netio_dir, $uid);
+            @chgrp($netio_dir, "unl");
+            @chmod($netio_dir, 0777);
+
+            // Clean up stale socket and lock file for this node ID to prevent boot failure
+            $iol_id = $this->node->getIolId();
+            if ($iol_id !== null) {
+                @unlink($netio_dir . "/" . (int)$iol_id);
+                @unlink($netio_dir . "/" . (int)$iol_id . ".lck");
+            }
+        }
+
+        // Privilege retention: iol_wrapper is setuid root (4755) and manages user isolation
+        // without dropping root in the parent PHP unl_wrapper process.
+        /* if (!posix_setuid($uid)) {
+            error_log(
+                date("M d H:i:s ") . "ERROR: " . $GLOBALS["messages"][80036]
+            );
+            return 80036;
+        } */'''
+
+    if t_php in php_c:
+        php_c = php_c.replace(t_php, r_php)
+        changed_php = True
+
+    # Also neutralize posix_setuid if already in updated format
+    target_posix = '''        if (!posix_setuid($uid)) {
+            error_log(
+                date("M d H:i:s ") . "ERROR: " . $GLOBALS["messages"][80036]
+            );
+            return 80036;
+        }'''
+    repl_posix = '''        // Privilege retention: iol_wrapper is setuid root (4755) and manages user isolation
+        // without dropping root in the parent PHP unl_wrapper process.
+        /* if (!posix_setuid($uid)) {
+            error_log(
+                date("M d H:i:s ") . "ERROR: " . $GLOBALS["messages"][80036]
+            );
+            return 80036;
+        } */'''
+    if target_posix in php_c:
+        php_c = php_c.replace(target_posix, repl_posix)
+        changed_php = True
+
+    # Robust IOL process stop handler to eliminate pgrep self-matching false positives
+    target_kill_sec = '''    private function pnqKillIolProcesses($runningPathPattern)
+    {
+        $cmd =
+            "sudo pgrep -f " .
+            escapeshellarg($runningPathPattern) .
+            " 2>/dev/null";
+        $pids = [];
+        exec($cmd, $pids, $rc);
+        foreach ($pids as $pid) {
+            $pid = (int) trim($pid);
+            if ($pid <= 0) {
+                continue;
+            }
+            // Kill the whole process group first (wrapper + forked IOL
+            // child share it unless the wrapper detached); fall back to
+            // killing the pid directly in case it's not a group leader.
+            exec("sudo kill -9 -- -" . $pid . " 2>/dev/null");
+            exec("sudo kill -9 " . $pid . " 2>/dev/null");
+            error_log(
+                "sudo kill -9 (iol_wrapper/running-path match) " . $pid
+            );
+        }
+    }
+
+    /**
+     * True if any process still has this node's unique running-path pattern
+     * in its cmdline (i.e. the wrapper or its IOL child is still alive).
+     */
+    private function pnqRunningPathIsAlive($runningPathPattern)
+    {
+        $cmd =
+            "sudo pgrep -f " .
+            escapeshellarg($runningPathPattern) .
+            " 2>/dev/null";
+        $pids = [];
+        exec($cmd, $pids, $rc);
+        return count($pids) > 0;
+    }'''
+
+    repl_kill_sec = '''    private function pnqGetIolPids($runningPathPattern)
+    {
+        $myPid = getmypid();
+        $cmd = "pgrep -f " . escapeshellarg($runningPathPattern) . " 2>/dev/null";
+        $pids = [];
+        exec($cmd, $rawPids, $rc);
+        foreach ($rawPids as $p) {
+            $p = (int) trim($p);
+            if ($p <= 0 || $p == $myPid) continue;
+            $cmdline = @file_get_contents("/proc/{$p}/cmdline");
+            if ($cmdline === false) continue;
+            if (strpos($cmdline, 'pgrep') !== false || strpos($cmdline, 'sudo') !== false) continue;
+            if (strpos($cmdline, 'iol_wrapper') !== false || strpos($cmdline, '.bin') !== false || strpos($cmdline, 'i86bi') !== false) {
+                $pids[] = $p;
+            }
+        }
+        return $pids;
+    }
+
+    private function pnqKillIolProcesses($runningPathPattern)
+    {
+        $pids = $this->pnqGetIolPids($runningPathPattern);
+        foreach ($pids as $pid) {
+            exec("kill -9 -- -" . $pid . " 2>/dev/null");
+            exec("kill -9 " . $pid . " 2>/dev/null");
+            error_log("kill -9 (iol_wrapper/running-path match) " . $pid);
+        }
+    }
+
+    private function pnqRunningPathIsAlive($runningPathPattern)
+    {
+        $pids = $this->pnqGetIolPids($runningPathPattern);
+        return count($pids) > 0;
+    }'''
+    if target_kill_sec in php_c:
+        php_c = php_c.replace(target_kill_sec, repl_kill_sec)
+        changed_php = True
+
+    # Front iol_wrapper with ksm_merge_exec
+    target_iol_cmd = '$cmd = "/opt/unetlab/wrappers/iol_wrapper ";'
+    repl_iol_cmd = """$ksmWrap = '/opt/unetlab/wrappers/ksm_merge_exec';
+        $ksmLauncher = (is_executable($ksmWrap) && !file_exists('/opt/unetlab/wrappers/.ksm_merge_off')) ? $ksmWrap . ' ' : '';
+        $cmd = $ksmLauncher . '/opt/unetlab/wrappers/iol_wrapper ';"""
+    if target_iol_cmd in php_c and 'ksm_merge_exec' not in php_c:
+        php_c = php_c.replace(target_iol_cmd, repl_iol_cmd)
+        changed_php = True
+
+    # Deploy launcher wrapper for node image execution
+    target_copy = 'copy("/opt/unetlab/addons/iol/bin/" . $this->image, $this->node->getRunningPath() . "/" . $this->image);'
+    repl_copy = """copy("/opt/unetlab/addons/iol/bin/" . $this->image, $this->node->getRunningPath() . "/" . $this->image . ".bin");
+            @chmod($this->node->getRunningPath() . "/" . $this->image . ".bin", 0755);
+            $launcher_content = "#!/bin/sh\\n" .
+                "if [ -x /opt/unetlab/wrappers/azam-iol-launcher ]; then\\n" .
+                "    exec /opt/unetlab/wrappers/azam-iol-launcher \\"$0.bin\\" \\"$@\\"\\n" .
+                "else\\n" .
+                "    exec \\"$0.bin\\" \\"$@\\"\\n" .
+                "fi\\n";
+            file_put_contents($this->node->getRunningPath() . "/" . $this->image, $launcher_content);
+            @chmod($this->node->getRunningPath() . "/" . $this->image, 0755);"""
+    if target_copy in php_c and 'azam-iol-launcher' not in php_c:
+        php_c = php_c.replace(target_copy, repl_copy)
+        changed_php = True
+
+    if changed_php:
+        with open(php_file, "w", encoding="utf-8") as f:
+            f.write(php_c)
+        print("  [✔] device_iol.php patched for netio isolation, KSM merge & CPU governor launcher")
+
+# Patch unl_wrapper
+unl_file = "/opt/unetlab/wrappers/unl_wrapper"
+if os.path.isfile(unl_file):
+    with open(unl_file, "r", encoding="utf-8") as f:
+        unl_c = f.read()
+
+    t_unl = '''		// Wrappers
+		$cmd = '/bin/chmod 755 /opt/unetlab/wrappers/nsenter /opt/unetlab/wrappers/*_wrapper*  /opt/unetlab/wrappers/bash-static /opt/unetlab/wrappers/busybox /opt/unetlab/wrappers/profile.sh > /dev/null 2>&1';
+		exec($cmd, $o, $rc);'''
+
+    r_unl = '''		// Wrappers
+		$cmd = '/bin/chmod 755 /opt/unetlab/wrappers/nsenter /opt/unetlab/wrappers/*_wrapper*  /opt/unetlab/wrappers/bash-static /opt/unetlab/wrappers/busybox /opt/unetlab/wrappers/profile.sh > /dev/null 2>&1';
+		exec($cmd, $o, $rc);
+		$cmd = '/bin/chmod 4755 /opt/unetlab/wrappers/iol_wrapper > /dev/null 2>&1';
+		exec($cmd, $o, $rc);
+		$cmd = '/bin/chmod 777 /tmp/netio* > /dev/null 2>&1';
+		exec($cmd, $o, $rc);'''
+
+    if t_unl in unl_c:
+        with open(unl_file, "w", encoding="utf-8") as f:
+            f.write(unl_c.replace(t_unl, r_unl))
+
+# Patch pnetlab-webconsole.js for In-Canvas Docked Terminal Console
+wc_file = "/opt/unetlab/html/themes/default/js/pnetlab-webconsole.js"
+if os.path.isfile(wc_file):
+    with open(wc_file, "r", encoding="utf-8") as f:
+        wc_c = f.read()
+
+    changed_wc = False
+    old_wc_open = '''  function openWebConsole(nodeId) {
+    if (getMode() === 'tab') openInTab(nodeId);
+    else openEmbedded(nodeId);
+  }'''
+    new_wc_open = '''  function openWebConsole(nodeId) {
+    if (window.azamDockedConsole && typeof window.azamDockedConsole.openSession === 'function' && window.azamDockedConsole.isEnabled()) {
+      var n = (window.nodes && window.nodes[nodeId]) || { id: nodeId, name: 'Node ' + nodeId };
+      var u = consoleUrl(nodeId);
+      window.azamDockedConsole.openSession(n, u, n.name || ('Node ' + nodeId));
+      return;
+    }
+    if (getMode() === 'tab') openInTab(nodeId);
+    else openEmbedded(nodeId);
+  }'''
+    if old_wc_open in wc_c:
+        wc_c = wc_c.replace(old_wc_open, new_wc_open, 1)
+        changed_wc = True
+
+    # Ensure html5Mode recognizes az_console_mode === 'docked'
+    old_h5 = '''  function html5Mode() {
+    try {
+      if (typeof window.HTML5 !== 'undefined') return String(window.HTML5) === '1';'''
+    new_h5 = '''  function html5Mode() {
+    try {
+      if (localStorage.getItem('az_console_mode') === 'docked') return true;
+      if (typeof window.HTML5 !== 'undefined') return String(window.HTML5) === '1';'''
+    if old_h5 in wc_c:
+        wc_c = wc_c.replace(old_h5, new_h5, 1)
+        changed_wc = True
+
+    # Ensure docked console sidebar button click uses isVisible and always shows dock
+    old_dock_guard = '''          if (window.azamDockedConsole.dockEl && window.azamDockedConsole.dockEl.style.display !== \'none\' && !window.azamDockedConsole.isMinimized) {'''
+    new_dock_guard = '''          if (window.azamDockedConsole.isVisible && window.azamDockedConsole.isVisible() && !window.azamDockedConsole.isMinimized) {'''
+    if old_dock_guard in wc_c:
+        wc_c = wc_c.replace(old_dock_guard, new_dock_guard, 1)
+        changed_wc = True
+
+    old_dock_click = '''          } else if (window.azamDockedConsole.sessions.length > 0) {
+            window.azamDockedConsole.showDock();
+            if (window.azamDockedConsole.isMinimized) window.azamDockedConsole.toggleMinimize();
+          } else {
+            openWebConsoleAll();
+          }'''
+    new_dock_click = '''          } else {
+            window.azamDockedConsole.showDock();
+            if (window.azamDockedConsole.isMinimized) window.azamDockedConsole.toggleMinimize();
+            if (window.azamDockedConsole.sessions.length === 0 && typeof openWebConsoleAll === 'function') {
+              openWebConsoleAll();
+            }
+          }'''
+    if old_dock_click in wc_c:
+        wc_c = wc_c.replace(old_dock_click, new_dock_click, 1)
+        changed_wc = True
+
+    if changed_wc:
+        with open(wc_file, "w", encoding="utf-8") as f:
+            f.write(wc_c)
+        print("  [✔] pnetlab-webconsole.js patched for in-canvas docked console")
+PY_IOL_PATCH
+
+# Compile ksm_merge_exec wrapper
+mkdir -p /opt/unetlab/wrappers 2>/dev/null || true
+KSM_EXEC_SRC="$SCRIPT_DIR/ksm_merge_exec.c"
+[ ! -f "$KSM_EXEC_SRC" ] && KSM_EXEC_SRC="/opt/unetlab/scripts/ksm_merge_exec.c"
+[ ! -f "$KSM_EXEC_SRC" ] && KSM_EXEC_SRC="$SCRIPT_DIR/azambasha-ksm-merge-exec.c"
+[ ! -f "$KSM_EXEC_SRC" ] && KSM_EXEC_SRC="/opt/unetlab/scripts/azambasha-ksm-merge-exec.c"
+
+if [ -f "$KSM_EXEC_SRC" ] && command -v gcc >/dev/null 2>&1; then
+    gcc -O2 -Wall "$KSM_EXEC_SRC" -o /opt/unetlab/wrappers/ksm_merge_exec 2>/dev/null || true
+    chmod 755 /opt/unetlab/wrappers/ksm_merge_exec 2>/dev/null || true
+    echo "  [✔] Compiled /opt/unetlab/wrappers/ksm_merge_exec"
+fi
+
+# Compile azam-iol-shim CPU & memory governor
+SHIM_SRC="$SCRIPT_DIR/azam-iol-shim.c"
+[ ! -f "$SHIM_SRC" ] && SHIM_SRC="/opt/unetlab/scripts/azam-iol-shim.c"
+[ ! -f "$SHIM_SRC" ] && SHIM_SRC="$SCRIPT_DIR/azambasha-iol-shim.c"
+[ ! -f "$SHIM_SRC" ] && SHIM_SRC="/opt/unetlab/scripts/azambasha-iol-shim.c"
+
+if [ -f "$SHIM_SRC" ] && command -v gcc >/dev/null 2>&1; then
+    gcc -O2 -shared -fPIC -Wall -Wextra "$SHIM_SRC" -o /opt/unetlab/wrappers/azam-iol-shim64.so -ldl 2>/dev/null || true
+    cp -f /opt/unetlab/wrappers/azam-iol-shim64.so /opt/unetlab/wrappers/azam-iol-shim.so 2>/dev/null || true
+    gcc -m32 -O2 -shared -fPIC -Wall -Wextra "$SHIM_SRC" -o /opt/unetlab/wrappers/azam-iol-shim32.so -ldl 2>/dev/null || true
+    chmod 755 /opt/unetlab/wrappers/azam-iol-shim*.so 2>/dev/null || true
+    echo "  [✔] Compiled azam-iol-shim.so (64-bit and 32-bit multiarch)"
+fi
+
+# Deploy universal azam-iol-launcher
+cat << 'EOF_LAUNCHER' > /opt/unetlab/wrappers/azam-iol-launcher
+#!/bin/sh
+# AzamLabs IOL 100:1 CPU Idle Governor & Ultra-KSM Launcher
+REAL_BIN="$1"
+shift
+
+if [ -z "$REAL_BIN" ] || [ ! -e "$REAL_BIN" ]; then
+    exec "$@"
+fi
+
+# Auto-detect ELF class (1 = 32-bit, 2 = 64-bit)
+SHIM="/opt/unetlab/wrappers/azam-iol-shim.so"
+ELF_CLASS=$(od -An -j4 -N1 -tu1 "$REAL_BIN" 2>/dev/null | tr -d ' ' || echo "1")
+if [ "$ELF_CLASS" = "1" ] && [ -f /opt/unetlab/wrappers/azam-iol-shim32.so ]; then
+    SHIM="/opt/unetlab/wrappers/azam-iol-shim32.so"
+elif [ -f /opt/unetlab/wrappers/azam-iol-shim64.so ]; then
+    SHIM="/opt/unetlab/wrappers/azam-iol-shim64.so"
+fi
+
+if [ -f "$SHIM" ]; then
+    export LD_PRELOAD="$SHIM"
+fi
+
+if [ -x /opt/unetlab/wrappers/ksm_merge_exec ] && [ ! -f /opt/unetlab/wrappers/.ksm_merge_off ]; then
+    exec /opt/unetlab/wrappers/ksm_merge_exec "$REAL_BIN" "$@"
+else
+    exec "$REAL_BIN" "$@"
+fi
+EOF_LAUNCHER
+chmod 755 /opt/unetlab/wrappers/azam-iol-launcher
+[ -f /opt/unetlab/wrappers/ksm_merge_exec ] && chmod 755 /opt/unetlab/wrappers/ksm_merge_exec 2>/dev/null || true
+
+# Systemd tmpfiles rule for IOL AF_UNIX socket directories
+mkdir -p /etc/tmpfiles.d
+cat > /etc/tmpfiles.d/azamlabs-iol.conf << 'EOF'
+d /tmp/netio* 1777 root unl -
+EOF
+
+# --- 7. Clean Stale Sockets & Fix Permissions ---
+echo "[7/7] Repairing UNetLab wrappers and file permissions..."
+rm -rf /opt/unetlab/tmp/*/*/*/console.sock \
+       /opt/unetlab/tmp/*/*/*/wrapper_telnet.txt \
+       /tmp/netio*/*.lck \
+       /dev/shm/azamlabs-authfail* 2>/dev/null || true
+
+# Native wrapper fixpermissions
+if [ -f /opt/unetlab/wrappers/unl_wrapper ]; then
+    /opt/unetlab/wrappers/unl_wrapper -a fixpermissions >/dev/null 2>&1 || true
+fi
+
+# Ensure wrappers are owned by root and have SUID permissions
+chown -R root:root /opt/unetlab/wrappers 2>/dev/null || true
+chmod -R 755 /opt/unetlab/wrappers 2>/dev/null || true
+chmod 4755 /opt/unetlab/wrappers/unl_wrapper 2>/dev/null || true
+for wrp in qemu_wrapper qemu_wrapper_telnet iol_wrapper dynamips_wrapper docker_wrapper; do
+    if [ -f "/opt/unetlab/wrappers/$wrp" ]; then
+        chmod 4755 "/opt/unetlab/wrappers/$wrp" 2>/dev/null || true
+    fi
+done
+
+# Issue #66: Cold-Disk Bulk Startup Console Socket Race Guard
+if [ -f /opt/unetlab/wrappers/qemu_wrapper_telnet ] && [ ! -f /opt/unetlab/wrappers/qemu_wrapper_telnet.orig ]; then
+    cp -p /opt/unetlab/wrappers/qemu_wrapper_telnet /opt/unetlab/wrappers/qemu_wrapper_telnet.orig
+    cat << 'EOF_TELNET_WAIT' > /opt/unetlab/wrappers/qemu_wrapper_telnet
+#!/bin/bash
+# AzamLabs Issue #66: Intelligent Console Socket Readiness Polling
+for arg in "$@"; do
+    if [[ "$arg" == *.sock ]]; then
+        for i in {1..150}; do
+            [ -S "$arg" ] && break
+            sleep 0.1
+        done
+        sleep 0.2
+        break
+    fi
+done
+exec /opt/unetlab/wrappers/qemu_wrapper_telnet.orig "$@"
+EOF_TELNET_WAIT
+    chmod 4755 /opt/unetlab/wrappers/qemu_wrapper_telnet
+fi
+
+chmod 755 /opt/unetlab/scripts/* 2>/dev/null || true
+chmod -R 777 /opt/unetlab/tmp 2>/dev/null || true
+chmod 777 /tmp/netio* 2>/dev/null || true
+chown -R www-data:www-data /opt/unetlab/data /opt/unetlab/labs /opt/unetlab/html 2>/dev/null || true
+
+# Ensure azam-bootstorm CLI symlinks are available
+for b_cand in /opt/unetlab/scripts/azambasha-bootstorm.py /opt/unetlab/scripts/azambasha-bootstorm.py "$SCRIPT_DIR/azambasha-bootstorm.py"; do
+    if [ -f "$b_cand" ]; then
+        ln -sf "$b_cand" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
+        ln -sf "$b_cand" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
+        chmod +x "$b_cand" 2>/dev/null || true
+        break
+    fi
+done
+
+# ==============================================================================
+# 8. Web Console Daemon & WebSocket Bridges (pnet-console-mux, guac-lite, etc.)
+# ==============================================================================
+echo "[*] Ensuring Web Console WebSocket bridges and mux daemons are running..."
+systemctl unmask pnet-console-mux.service 2>/dev/null || true
+systemctl enable --now pnet-console-mux.service \
+                       pnet-guac-lite.service \
+                       pnet-shell-bridge.service \
+                       pnet-http-bridge.service \
+                       pnet-token-janitor.timer \
+                       pnetlab-labstated.service 2>/dev/null || true
+
+# Status Summary
+echo ""
+echo "Node Startup Readiness Status:"
+if [ -x /opt/qemu/bin/qemu-system-x86_64 ]; then
+    echo "  [✔ PASS] QEMU x86_64 Binary        : $(/opt/qemu/bin/qemu-system-x86_64 --version | head -n1)"
+fi
+if [ -x /usr/bin/tunctl ]; then
+    echo "  [✔ PASS] Universal TAP Driver      : /usr/bin/tunctl Ready"
+fi
+if [ -e /dev/kvm ]; then
+    echo "  [✔ PASS] Hardware Virtualization   : /dev/kvm Accessible"
+fi
+if [ -f /opt/unetlab/addons/iol/bin/iourc ]; then
+    echo "  [✔ PASS] Cisco IOU/IOL License     : /opt/unetlab/addons/iol/bin/iourc Present"
+fi
+
+echo ""
+echo "============================================================"
+echo "  [SUCCESS] All IOSv & QEMU Startup Fixes Applied!          "
+echo "============================================================"

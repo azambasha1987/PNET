@@ -200,10 +200,13 @@ sync_from_github() {
         chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
     fi
 
-    # Apply all Custom Features (Templates, Web-UI, Consoles, Keepalive, Login, Schema, CLI)
-    if [ -f "${src_repo}/custom-features/apply-custom-features.sh" ]; then
-        log_info "Applying Custom Features from ${src_repo}/custom-features..."
-        bash "${src_repo}/custom-features/apply-custom-features.sh" --$(detect_role) 2>/dev/null || true
+    # Apply all Tri-Pillar Custom Subsystems (Performance, Customization, Features)
+    if [ -f "${src_repo}/apply-all-custom.sh" ]; then
+        log_info "Applying Tri-Pillar Custom Subsystems via apply-all-custom.sh..."
+        bash "${src_repo}/apply-all-custom.sh" --$(detect_role) 2>/dev/null || true
+    elif [ -f "${src_repo}/Custom-Features/apply-custom-features.sh" ]; then
+        log_info "Applying Custom Features from ${src_repo}/Custom-Features..."
+        bash "${src_repo}/Custom-Features/apply-custom-features.sh" --$(detect_role) 2>/dev/null || true
     elif [ -d "${src_repo}/html/templates" ]; then
         mkdir -p /opt/unetlab/html/templates/intel /opt/unetlab/html/templates/amd 2>/dev/null || true
         cp -rf "${src_repo}"/html/templates/* /opt/unetlab/html/templates/ 2>/dev/null || true
@@ -307,12 +310,14 @@ sync_from_github() {
         fi
     fi
 
-    # Automatically execute the full optimization and Custom Features suite for this new version
-    log_info "Executing PNetLab enterprise script pipeline and Custom Features for new release..."
-    if [ -f "${src_repo}/custom-features/apply-custom-features.sh" ]; then
-        bash "${src_repo}/custom-features/apply-custom-features.sh" --$(detect_role) || true
-    elif [ -f /usr/local/bin/pnet-custom-features ]; then
-        bash /usr/local/bin/pnet-custom-features --$(detect_role) || true
+    # Automatically execute the full Tri-Pillar Custom Subsystems suite for this new version
+    log_info "Executing PNetLab Tri-Pillar Custom Subsystems for new release..."
+    if [ -f "${src_repo}/apply-all-custom.sh" ]; then
+        bash "${src_repo}/apply-all-custom.sh" --$(detect_role) || true
+    elif [ -f "${src_repo}/Custom-Features/apply-custom-features.sh" ]; then
+        bash "${src_repo}/Custom-Features/apply-custom-features.sh" --$(detect_role) || true
+    elif [ -f /usr/local/bin/pnet-apply-all ]; then
+        bash /usr/local/bin/pnet-apply-all --$(detect_role) || true
     else
         bash /opt/unetlab/scripts/azambasha-install-azam-features.sh || true
         bash /opt/unetlab/scripts/azambasha-speed-optimizer.sh || true

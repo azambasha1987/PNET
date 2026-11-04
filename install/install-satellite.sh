@@ -86,9 +86,11 @@ if [ -d "$REPO_ROOT/scripts" ]; then
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 fi
 
-# Apply all Custom Features in Satellite mode (QEMU templates, pnet-* CLI tools, Ultra-KSM, watchdog)
-if [ -f "$REPO_ROOT/custom-features/apply-custom-features.sh" ]; then
-    bash "$REPO_ROOT/custom-features/apply-custom-features.sh" --satellite || true
+# Apply all Tri-Pillar Custom Subsystems in Satellite mode (QEMU templates, pnet-* CLI tools, Ultra-KSM, watchdog)
+if [ -f "$REPO_ROOT/apply-all-custom.sh" ]; then
+    bash "$REPO_ROOT/apply-all-custom.sh" --satellite || true
+elif [ -f "$REPO_ROOT/Custom-Features/apply-custom-features.sh" ]; then
+    bash "$REPO_ROOT/Custom-Features/apply-custom-features.sh" --satellite || true
 elif [ -f /opt/unetlab/scripts/azambasha-install-azam-features.sh ]; then
     bash /opt/unetlab/scripts/azambasha-install-azam-features.sh --satellite || true
 fi

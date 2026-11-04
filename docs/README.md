@@ -36,14 +36,26 @@ docs/
 │   ├── README.md                                     # Overview of version fixes and autonomous tuning
 │   └── Automatic_Script_Application_Guide.md         # Full runbook for auto-applying scripts on install & update
 │
-├── custom-features/                                  # [Pillar 8] Enterprise Custom Features & UI Suite
-│   ├── apply-custom-features.sh                      # Master hook auto-executing on install & updates
-│   ├── templates/                                    # 500+ CPU-tuned AMD & Intel QEMU templates
+├── Custom-Features/                                  # [Pillar 8] Functional Enhancements & Automation
+│   ├── apply-features.sh                             # Standalone idempotent deployment hook
+│   ├── scripts/                                      # 24 direct feature & automation tools (AI, Topology Git, Diff)
 │   ├── web-ui/                                       # Docked Multi-Tab Console & CLI Syntax Highlighter
-│   ├── session-engine/                               # Sliding-auth keepalive heartbeat
-│   ├── login-portal/                                 # Cyber-Glass futuristic login portal & branding
 │   ├── schema/                                       # Database extensions & Guacamole optimizations
-│   └── tests/                                        # Continuous integration & test suites
+│   └── docs/                                         # Mirrored AI and export documentation
+│
+├── Custom-Customization/                             # [Pillar 9] Theming, Templates, Branding & Clients
+│   ├── apply-customization.sh                        # Standalone idempotent deployment hook
+│   ├── scripts/                                      # 22 customization & packaging tools (branding, theme, SSL)
+│   ├── login-portal/                                 # Cyber-Glass dynamic login portal & console selector
+│   ├── templates/                                    # 500+ CPU-tuned AMD & Intel QEMU templates
+│   ├── assets/                                       # High-res logos, favicons, and branding
+│   └── docs/                                         # Mirrored session & operations manual
+│
+├── Custom-Performance/                               # [Pillar 10] Ultra-KSM, Dataplane, Cgroups & Watchdog
+│   ├── apply-performance.sh                          # Standalone idempotent deployment hook
+│   ├── scripts/                                      # 35 hypervisor, speed & dataplane tools (KSM, IOL, cgroups)
+│   ├── docs/                                         # Mirrored tuning guides & benchmarks
+│   └── tests/                                        # Automated performance benchmarks
 │
 └── img/                                              # Visual assets and topology screenshot gallery
 ```
@@ -102,6 +114,18 @@ docs/
 
 ---
 
-### Pillar 8: Custom Features & Upgrade Persistence
-* **[Custom Features Suite](../custom-features/README.md)**:
-  Complete reference for the custom enhancements bundle (`custom-features/`). Documents the automatic application hook (`apply-custom-features.sh`), CPU-specific QEMU templates, multi-tab docked consoles, live syntax highlighter, 180s sliding keepalive engine, cyber-glass login interface, database extensions, and continuous validation test suites. Automatically re-applied on every new version release.
+### Pillar 8: Custom-Features Subsystem
+* **[Custom-Features Reference](../Custom-Features/README.md)**:
+  Full documentation for functional enhancements: Operations Center modal, Quantum docked multi-tab terminal console, line-speed syntax highlighter, local Ollama AI copilot, topology Git versioning, config diffing, ping mesh, cloud bridge, and database extensions.
+
+---
+
+### Pillar 9: Custom-Customization Subsystem
+* **[Custom-Customization Reference](../Custom-Customization/README.md)**:
+  Complete guide for theming, branding, and templates: Futuristic Cyber-Glass login interface, Pure Black OLED dark mode engine, 500+ AMD Zen & Intel CPU-tuned appliance templates, vector branding, and Windows client tools (SecureCRT, Wireshark, SSL trust).
+
+---
+
+### Pillar 10: Custom-Performance Subsystem
+* **[Custom-Performance Reference](../Custom-Performance/README.md)**:
+  Extreme high-density hypervisor architecture: Ultra-KSM 4KB RAM deduplication C-engine, Cisco IOL memory C-shim (<64MB), Cgroups v2 dynamic resource governor, autonomous CPU frequency scaling, Cat8000v heavy node multi-core optimizer, silicon dataplane fast-path (MTU 9000), and 24/7 watchdog.
