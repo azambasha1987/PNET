@@ -97,19 +97,27 @@ MASTER_DEBS=(
     "pnetlab_${VERSION}_amd64.deb"
 )
 
-DEB_LIST=()
-for deb_name in "${MASTER_DEBS[@]}"; do
-    deb_path="$DEB_DIR/$deb_name"
-    if [ -f "$deb_path" ]; then
-        DEB_LIST+=("$deb_path")
-    else
-        echo "Warning: Package $deb_path not found, searching in $DEB_DIR..."
-        match=( "$DEB_DIR"/*"${deb_name#*_}" )
-        [ -f "${match[0]}" ] && DEB_LIST+=("${match[0]}")
-    fi
-done
+# 1. Direct payload unpack to guarantee all web and engine files exist
+MAIN_DEB="$DEB_DIR/pnetlab_${VERSION}_amd64.deb"
+[ -f "$MAIN_DEB" ] || MAIN_DEB="$(ls -1 "$DEB_DIR"/pnetlab*.deb 2>/dev/null | grep -v satellite | head -n1)"
+if [ -f "$MAIN_DEB" ]; then
+    echo "Unpacking PNetLab core payload directly to filesystem..."
+    dpkg -x "$MAIN_DEB" / 2>/dev/null || dpkg-deb -x "$MAIN_DEB" / 2>/dev/null || true
+fi
 
-dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y 2>/dev/null || true
+# 2. Install pre-dependent and supporting packages first
+dpkg -i --force-all \
+    "$DEB_DIR"/pnetlab-schema*.deb \
+    "$DEB_DIR"/pnetlab-guacd*.deb \
+    "$DEB_DIR"/pnetlab-docker*.deb \
+    "$DEB_DIR"/pnetlab-qemu*.deb \
+    "$DEB_DIR"/pnetlab-vpcs*.deb \
+    "$DEB_DIR"/pnetlab-bridge-dkms*.deb 2>/dev/null || true
+
+# 3. Install main pnetlab debian package
+if [ -f "$MAIN_DEB" ]; then
+    dpkg -i --force-all "$MAIN_DEB" 2>/dev/null || true
+fi
 
 echo "[6/7] Applying PNetLab enterprise optimization scripts and Custom Features for $VERSION..."
 if [ -d "$REPO_ROOT/scripts" ]; then

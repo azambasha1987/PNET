@@ -220,6 +220,30 @@ log_info "[4/5] Refreshing and repairing Apache2 routing, mod_rewrite, and PHP-F
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Ensure /opt/unetlab/html/api.php is extracted on disk
+if [ ! -f /opt/unetlab/html/api.php ]; then
+    log_info "Deploying core web engine files from release package..."
+    MAIN_DEB=""
+    for cand in \
+        "/opt/PNET/releases/6.8.93/debs/pnetlab_6.8.93_amd64.deb" \
+        "/opt/pnet/releases/6.8.93/debs/pnetlab_6.8.93_amd64.deb" \
+        "$SCRIPT_DIR/../releases/6.8.93/debs/pnetlab_6.8.93_amd64.deb" \
+        "$SCRIPT_DIR/../../releases/6.8.93/debs/pnetlab_6.8.93_amd64.deb" \
+        /opt/PNET/releases/*/debs/pnetlab_*_amd64.deb \
+        /opt/pnet/releases/*/debs/pnetlab_*_amd64.deb; do
+        if [ -f "$cand" ] && ! echo "$cand" | grep -q "satellite"; then
+            MAIN_DEB="$cand"
+            break
+        fi
+    done
+    if [ -n "$MAIN_DEB" ] && [ -f "$MAIN_DEB" ]; then
+        log_info "Extracting $MAIN_DEB to / ..."
+        dpkg -x "$MAIN_DEB" / 2>/dev/null || dpkg-deb -x "$MAIN_DEB" / 2>/dev/null || true
+        chmod 755 /opt /opt/unetlab /opt/unetlab/html 2>/dev/null || true
+        chown -R www-data:www-data /opt/unetlab/html 2>/dev/null || true
+    fi
+fi
+
 # Enable required Apache modules
 a2enmod rewrite ssl proxy proxy_http proxy_wstunnel headers http2 2>/dev/null || true
 
@@ -290,8 +314,10 @@ for svc in $(systemctl list-unit-files | grep -o 'php[0-9.]*-fpm\.service' || ec
     systemctl restart "$svc" 2>/dev/null || true
 done
 
-# Restart Apache2
+# Restart Apache2 and PNetLab Broker daemon
+systemctl daemon-reload 2>/dev/null || true
 systemctl restart apache2 2>/dev/null || true
+systemctl restart pnetlab-brokerd 2>/dev/null || systemctl start pnetlab-brokerd 2>/dev/null || true
 log_ok "Web services and routing repaired."
 
 # 5. Execute Live Diagnostic Probes
