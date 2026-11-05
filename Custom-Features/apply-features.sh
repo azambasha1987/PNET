@@ -77,9 +77,26 @@ if [ -d "${SCRIPT_DIR}/web-ui/ops-center" ]; then
     done
 fi
 
+if [ -d "${SCRIPT_DIR}/web-ui/main/js" ]; then
+    cp -rf "${SCRIPT_DIR}/web-ui/main/js/"* "${PNET_HTML}/main/js/" 2>/dev/null || true
+fi
 if [ -f "${SCRIPT_DIR}/web-ui/main/pnet-features.js" ]; then
     cp -f "${SCRIPT_DIR}/web-ui/main/pnet-features.js" "${PNET_HTML}/main/js/pnet-features.js"
 fi
+
+# ── Ensure Svelte Islands canonical symlinks & registration ───────────────────
+ISLANDS_DIR="${PNET_HTML}/themes/default/islands/js"
+if [ -d "$ISLANDS_DIR" ]; then
+    LABS_WS="$(ls -1 "$ISLANDS_DIR"/labs-workspace.*.js 2>/dev/null | grep -v 'labs-workspace\.js$' | head -n1)"
+    ICONS_MGR="$(ls -1 "$ISLANDS_DIR"/icons-manager.*.js 2>/dev/null | grep -v 'icons-manager\.js$' | head -n1)"
+    [ -n "$LABS_WS" ] && ln -sf "$(basename "$LABS_WS")" "$ISLANDS_DIR/labs-workspace.js" 2>/dev/null || true
+    [ -n "$ICONS_MGR" ] && ln -sf "$(basename "$ICONS_MGR")" "$ISLANDS_DIR/icons-manager.js" 2>/dev/null || true
+fi
+
+# Ensure labs storage directory exists and has correct permissions
+mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs 2>/dev/null || true
+chmod 775 /opt/unetlab/labs 2>/dev/null || true
+chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html 2>/dev/null || true
 
 THEME_INDEX="${PNET_HTML}/themes/default/index.html"
 if [ -f "${THEME_INDEX}" ]; then
@@ -99,7 +116,14 @@ if [ -f "${ACTIONS_JS}" ] && ! grep -q "PNetLab Sequenced Console Priority Hook"
 fi
 
 MAIN_INDEX="${PNET_HTML}/main/index.html"
+if [ -f "${SCRIPT_DIR}/web-ui/main/index.html" ]; then
+    cp -f "${SCRIPT_DIR}/web-ui/main/index.html" "${MAIN_INDEX}" 2>/dev/null || true
+fi
 if [ -f "${MAIN_INDEX}" ]; then
+    # Ensure Svelte Island module tags exist in main/index.html
+    if ! grep -q "labs-workspace" "${MAIN_INDEX}"; then
+        sed -i 's|<script src="/main/js/labs.js|<script type="module" src="/themes/default/islands/js/labs-workspace.js"></script>\n\t<script type="module" src="/themes/default/islands/js/icons-manager.js"></script>\n\t<script src="/main/js/labs.js|' "${MAIN_INDEX}" 2>/dev/null || true
+    fi
     CACHE_TS="$(date +%s)"
     if grep -q "pnet-features" "${MAIN_INDEX}"; then
         sed -i "s|/main/js/pnet-features.js[^\"]*|/main/js/pnet-features.js?v=${CACHE_TS}|g" "${MAIN_INDEX}" 2>/dev/null || true

@@ -255,6 +255,37 @@ if [ -f /opt/unetlab/html/login/index.html ]; then
     sed -i '/Offline appliance access/d' /opt/unetlab/html/login/index.html 2>/dev/null || true
 fi
 
+# ── Ensure Svelte Islands canonical symlinks & registration ───────────────────
+ISLANDS_DIR="/opt/unetlab/html/themes/default/islands/js"
+if [ -d "$ISLANDS_DIR" ]; then
+    LABS_WS="$(ls -1 "$ISLANDS_DIR"/labs-workspace.*.js 2>/dev/null | grep -v 'labs-workspace\.js$' | head -n1)"
+    ICONS_MGR="$(ls -1 "$ISLANDS_DIR"/icons-manager.*.js 2>/dev/null | grep -v 'icons-manager\.js$' | head -n1)"
+    [ -n "$LABS_WS" ] && ln -sf "$(basename "$LABS_WS")" "$ISLANDS_DIR/labs-workspace.js" 2>/dev/null || true
+    [ -n "$ICONS_MGR" ] && ln -sf "$(basename "$ICONS_MGR")" "$ISLANDS_DIR/icons-manager.js" 2>/dev/null || true
+fi
+
+# Ensure main/index.html includes islands module scripts
+MAIN_INDEX="/opt/unetlab/html/main/index.html"
+if [ -f "$MAIN_INDEX" ] && ! grep -q "labs-workspace" "$MAIN_INDEX"; then
+    sed -i 's|<script src="/main/js/labs.js|<script type="module" src="/themes/default/islands/js/labs-workspace.js"></script>\n\t<script type="module" src="/themes/default/islands/js/icons-manager.js"></script>\n\t<script src="/main/js/labs.js|' "$MAIN_INDEX" 2>/dev/null || true
+fi
+
+# Deploy resilient labs.js and icons.js
+for js_src in \
+    "$SCRIPT_DIR/../Custom-Features/web-ui/main/js" \
+    "/opt/PNET/Custom-Features/web-ui/main/js" \
+    "/opt/pnet/Custom-Features/web-ui/main/js"; do
+    if [ -d "$js_src" ]; then
+        cp -f "$js_src/"*.js /opt/unetlab/html/main/js/ 2>/dev/null || true
+        break
+    fi
+done
+
+# Ensure labs directory permissions
+mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs 2>/dev/null || true
+chmod 775 /opt/unetlab/labs 2>/dev/null || true
+chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html 2>/dev/null || true
+
 # Run GUI version sync engine if present
 for sync_sh in \
     "$SCRIPT_DIR/pnet-sync-gui-version.sh" \
