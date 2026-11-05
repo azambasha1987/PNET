@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Azam Basha — Dynamic Web-GUI Version Synchronization Engine
+# Synchronizes the Web-GUI Version view (/main/#/version) and sidebar branding
+# with the latest implemented upstream release and package version.
+#
+# Usage:
+#   sudo bash scripts/azambasha-sync-gui-version.sh [VERSION] [PACKAGE_VERSION]
+#
+# Examples:
+#   sudo bash scripts/azambasha-sync-gui-version.sh 6.8.85 6.8.85resolute1
+#   sudo bash scripts/azambasha-sync-gui-version.sh auto
+# ==============================================================================
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "/opt/unetlab/scripts")"
+set -u
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+log_info() { echo -e "\033[1;34m[*] $*\033[0m"; }
+log_ok()   { echo -e "\033[1;32m[✔] $*\033[0m"; }
+log_warn() { echo -e "\033[1;33m[!] $*\033[0m"; }
+log_err()  { echo -e "\033[1;31m[ERROR] $*\033[0m" >&2; }
+
+if [ "$(id -u)" -ne 0 ]; then
+    log_err "This utility must be run as root: sudo bash $0"
+    exit 1
+fi
+
+# ── 1. Determine Target Version & Command Options ─────────────────────────────
+TARGET_INPUT="${1:-auto}"
+TARGET_PKG="${2:-}"
+
+if [ "$TARGET_INPUT" = "-h" ] || [ "$TARGET_INPUT" = "--help" ]; then
+    echo "Usage: sudo bash $0 [--check | auto | <VERSION> [PACKAGE_VERSION]]"
+    echo ""
+    echo "Options:"
+    echo "  --check, check, status  Display current system and GUI version without modifying files"
+    echo "  auto                    Auto-detect and synchronize latest version"
+    echo "  <VERSION>               Specify target version (e.g. 6.8.85 or 6.8.85resolute1)"
+    exit 0
+fi
+
+if [ "$TARGET_INPUT" = "--check" ] || [ "$TARGET_INPUT" = "check" ] || [ "$TARGET_INPUT" = "-c" ] || [ "$TARGET_INPUT" = "status" ]; then
+    echo "============================================================"
+    echo "  Azam Basha Platform Version Inspection                    "
+    echo "============================================================"
+    if [ -f "/opt/unetlab/VERSION" ]; then
+        echo "[*] /opt/unetlab/VERSION:"
+        cat /opt/unetlab/VERSION | sed 's/^/    /'
+    else
+        echo "[!] /opt/unetlab/VERSION not found"
+    fi
+    if [ -f "/opt/unetlab/html/includes/version.php" ]; then
+        echo "[*] /opt/unetlab/html/includes/version.php:"
+        grep -E 'PNET_(RELEASE|VERSION|PACKAGE_VERSION)' /opt/unetlab/html/includes/version.php 2>/dev/null | sed 's/^/    /' || true
+    fi
+    exit 0
+fi
+
+# Auto-detect latest release from repo or installed packages
+if [ "$TARGET_INPUT" = "auto" ] || [ -z "$TARGET_INPUT" ]; then
+    BASE_DETECT=""
+    # Search all candidate VERSION file locations (repo candidates first, then system paths)
+    for v_candidate in \
+        "/opt/azamlabs/VERSION" \
+        "/opt/azambasha/VERSION" \
+        "${SCRIPT_DIR}/../VERSION" \
+        "${REPO_ROOT}/VERSION" \
+        "/etc/azamlabs-version" \
+        "/opt/unetlab/VERSION"; do
+        if [ -f "$v_candidate" ]; then
+            BASE_DETECT="$(grep -E '^PACKAGE_VERSION=' "$v_candidate" 2>/dev/null | cut -d'=' -f2 | tr -d ' \r\n' || true)"
+            [ -n "$BASE_DETECT" ] && break
+        fi
+    done
+    if [ -z "$BASE_DETECT" ]; then
+        for doc_candidate in \
+            "${REPO_ROOT}/docs/update-check-plan/UPDATE_CHECK_PLAN.md" \
+            "${REPO_ROOT}/docs/reports/UPDATE_CHECK_PLAN.md" \
+            "${REPO_ROOT}/docs/reports/update-Docs/UPDATE_CHECK_PLAN.md" \
+            "${REPO_ROOT}/docs/UPDATE_CHECK_PLAN.md" \
+            "/opt/azamlabs/docs/reports/UPDATE_CHECK_PLAN.md" \
+            "/opt/azamlabs/docs/UPDATE_CHECK_PLAN.md" \
+            "/opt/azambasha/docs/reports/UPDATE_CHECK_PLAN.md" \
+            "/opt/azambasha/docs/UPDATE_CHECK_PLAN.md" \
+            "/opt/unetlab/docs/reports/UPDATE_CHECK_PLAN.md" \
+            "/opt/unetlab/docs/UPDATE_CHECK_PLAN.md"; do
+            if [ -f "$doc_candidate" ]; then
+                BASE_DETECT="$(grep -oP '(?<=Implemented Package Version\*\*: `)[^`]+' "$doc_candidate" 2>/dev/null | head -n1 || true)"
+                [ -n "$BASE_DETECT" ] && break
+            fi
+        done
+    fi
+    if [ -z "$BASE_DETECT" ]; then
+        BASE_DETECT="6.8.92resolute1"
+    fi
+    TARGET_INPUT="$BASE_DETECT"
+fi
+
+# Validate format before proceeding to prevent accidental file corruption
+TARGET_CLEAN="$(echo "$TARGET_INPUT" | sed -E 's/^v//')"
+if ! [[ "$TARGET_CLEAN" =~ ^[0-9]+(\.[0-9]+)+ ]]; then
+    log_err "Invalid version format: '${TARGET_INPUT}'. Expected semantic version (e.g. 6.8.85 or auto)."
+    echo "Usage: sudo bash $0 [--check | auto | <VERSION> [PACKAGE_VERSION]]"
+    exit 1
+fi
+
+# Normalize version and package strings
+# e.g. "6.8.79resolute1" -> RELEASE="6.8.79", PKG="6.8.79resolute1"
+if [[ "$TARGET_CLEAN" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(.*)$ ]]; then
+    RELEASE_VER="${BASH_REMATCH[1]}"
+    SUF="${BASH_REMATCH[2]}"
+    if [ -n "$TARGET_PKG" ]; then
+        PACKAGE_VER="$TARGET_PKG"
+    elif [ -n "$SUF" ]; then
+        PACKAGE_VER="${RELEASE_VER}${SUF}"
+    else
+        PACKAGE_VER="${RELEASE_VER}resolute1"
+    fi
+else
+    RELEASE_VER="$TARGET_CLEAN"
+    PACKAGE_VER="${TARGET_PKG:-${TARGET_CLEAN}resolute1}"
+fi
+
+log_info "Synchronizing Web-GUI Version to: Release v${RELEASE_VER} | Package ${PACKAGE_VER}"
+
+# ── 2. Update /opt/unetlab/html/includes/version.php ──────────────────────────
+VERSION_PHP="/opt/unetlab/html/includes/version.php"
+if [ -d "$(dirname "$VERSION_PHP")" ]; then
+    cat << PHPEOF > "$VERSION_PHP"
+<?php
+/**
+ * Azam Basha Platform Version Configuration
+ * Dynamically Synchronized with Latest Implemented Release: ${RELEASE_VER}
+ */
+if (!defined('PNET_RELEASE')) {
+    define('PNET_RELEASE', 'v${RELEASE_VER}');
+}
+
+if (!defined('PNET_VERSION')) {
+    define('PNET_VERSION', '${RELEASE_VER}');
+}
+
+if (!defined('PNET_PACKAGE_VERSION')) {
+    define('PNET_PACKAGE_VERSION', '${PACKAGE_VER}');
+}
+PHPEOF
+    chown www-data:www-data "$VERSION_PHP" 2>/dev/null || true
+    chmod 0644 "$VERSION_PHP" 2>/dev/null || true
+    log_ok "Updated ${VERSION_PHP} (PNET_RELEASE: v${RELEASE_VER}, PNET_PACKAGE_VERSION: ${PACKAGE_VER})"
+fi
+
+# Persist authoritative VERSION metadata across system paths
+for v_dest in "/opt/unetlab/VERSION" "/opt/azambasha/VERSION" "/opt/azamlabs/AzamLabs/VERSION" "/opt/azamlabs/EMULATOR/AzamLabs/VERSION" "/etc/azamlabs-version"; do
+    if [ -d "$(dirname "$v_dest")" ]; then
+        cat << VEOF > "$v_dest"
+VERSION=${RELEASE_VER}
+PACKAGE_VERSION=${PACKAGE_VER}
+RELEASE_DATE=$(date +'%Y-%m-%d')
+PLATFORM=Ubuntu 26.04 Resolute LTS
+VEOF
+        chmod 0644 "$v_dest" 2>/dev/null || true
+    fi
+done
+
+# ── 3. Patch /opt/unetlab/html/status/api.php for Package Version Override ────
+STATUS_API="/opt/unetlab/html/status/api.php"
+if [ -f "$STATUS_API" ]; then
+    # Inject PNET_PACKAGE_VERSION check if not already present
+    python3 - << 'PYEOF'
+status_api = "/opt/unetlab/html/status/api.php"
+try:
+    with open(status_api, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+    
+    old_needle = "'azamlabs'  => str_replace('noble', 'resolute', $vget('dpkg-query -W -f=\\'${Version}\\' azamlabs 2>/dev/null')),"
+    new_code   = "'azamlabs'  => defined('PNET_PACKAGE_VERSION') ? PNET_PACKAGE_VERSION : str_replace('noble', 'resolute', $vget('dpkg-query -W -f=\\'${Version}\\' azamlabs 2>/dev/null')),"
+    
+    if old_needle in content:
+        content = content.replace(old_needle, new_code)
+        with open(status_api, "w", encoding="utf-8") as f:
+            f.write(content)
+        print("Patched status/api.php with PNET_PACKAGE_VERSION precedence.")
+    elif "PNET_PACKAGE_VERSION" in content:
+        print("status/api.php already has PNET_PACKAGE_VERSION support.")
+except Exception as e:
+    print(f"status/api.php note: {e}")
+PYEOF
+fi
+
+# ── 4. Update Database Control Table (ctrl_version) ───────────────────────────
+MYSQL_CMD="mysql"
+if [ -f /root/.my.cnf ]; then
+    MYSQL_CMD="mysql --defaults-file=/root/.my.cnf"
+elif mysql -u root -ppnetlab -e "SELECT 1;" >/dev/null 2>&1; then
+    MYSQL_CMD="mysql -u root -ppnetlab"
+elif mysql -u pnetlab -ppnetlab -e "SELECT 1;" >/dev/null 2>&1; then
+    MYSQL_CMD="mysql -u pnetlab -ppnetlab"
+elif mysql -u root -pazam -e "SELECT 1;" >/dev/null 2>&1; then
+    MYSQL_CMD="mysql -u root -pazam"
+elif mysql -u azamlabs -pazam -e "SELECT 1;" >/dev/null 2>&1; then
+    MYSQL_CMD="mysql -u azamlabs -pazam"
+fi
+
+for db in "pnetlab_db" "azamlabs_db"; do
+    if $MYSQL_CMD -e "USE ${db};" >/dev/null 2>&1; then
+        $MYSQL_CMD -e "
+USE ${db};
+INSERT INTO control (control_name, control_value) VALUES ('ctrl_version', '${RELEASE_VER}')
+ON DUPLICATE KEY UPDATE control_value = '${RELEASE_VER}';
+" 2>/dev/null || true
+        log_ok "Updated ${db}.control.ctrl_version to: ${RELEASE_VER}"
+    fi
+done
+
+# ── 5. Restart PHP-FPM to Flush OPcache ───────────────────────────────────────
+PHP_FPM_SVC="$(systemctl list-unit-files 'php*-fpm.service' --no-legend 2>/dev/null | awk '{print $1}' | head -n1 || echo "")"
+if [ -n "$PHP_FPM_SVC" ]; then
+    systemctl restart "$PHP_FPM_SVC" 2>/dev/null || true
+fi
+systemctl restart apache2 2>/dev/null || true
+
+# ── 6. Live Verification Probe ────────────────────────────────────────────────
+CK_FILE="/tmp/pnet-ver-check.txt"
+ADMIN_TOKEN=""
+for cand in \
+    "mysql --defaults-file=/etc/mysql/debian.cnf" \
+    "mysql -u root -pazam" \
+    "mysql -u root" \
+    "mysql -u azamlabs -pazam" \
+    "mysql azamlabs_db" \
+    "mariadb -u root"; do
+    ADMIN_TOKEN=$($cand azamlabs_db -N -e "SELECT cookie FROM users WHERE username='admin' AND cookie IS NOT NULL AND LENGTH(cookie) >= 16 ORDER BY session DESC LIMIT 1;" 2>/dev/null || true)
+    [ -n "$ADMIN_TOKEN" ] && break
+done
+
+if [ -n "$ADMIN_TOKEN" ]; then
+    printf "127.0.0.1\tFALSE\t/\tTRUE\t2147483647\ttoken\t%s\n" "$ADMIN_TOKEN" > "$CK_FILE"
+else
+    curl -sk -X POST https://127.0.0.1/api/auth \
+         -H "Content-Type: application/json" \
+         -d '{"username":"admin","password":"azam"}' \
+         -c "$CK_FILE" >/dev/null 2>&1 || true
+fi
+
+VER_JSON=$(curl -sk https://127.0.0.1/status/api.php?action=version -b "$CK_FILE" 2>/dev/null || true)
+rm -f "$CK_FILE" 2>/dev/null || true
+
+echo ""
+echo "============================================================"
+echo " [SUCCESS] WEB-GUI VERSION SYNCHRONIZATION COMPLETE!        "
+echo "============================================================"
+echo " Web UI Display: AzamLabs v${RELEASE_VER}"
+echo " Release Row   : v${RELEASE_VER}"
+echo " Package Row   : ${PACKAGE_VER}"
+if echo "$VER_JSON" | grep -q "\"release\":\"v${RELEASE_VER}\""; then
+    echo " Live API Check: VERIFIED (status/api.php returned v${RELEASE_VER})"
+fi
+echo "============================================================"

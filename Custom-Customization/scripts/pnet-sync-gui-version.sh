@@ -193,20 +193,26 @@ fi
 MYSQL_CMD="mysql"
 if [ -f /root/.my.cnf ]; then
     MYSQL_CMD="mysql --defaults-file=/root/.my.cnf"
+elif mysql -u root -ppnetlab -e "SELECT 1;" >/dev/null 2>&1; then
+    MYSQL_CMD="mysql -u root -ppnetlab"
+elif mysql -u pnetlab -ppnetlab -e "SELECT 1;" >/dev/null 2>&1; then
+    MYSQL_CMD="mysql -u pnetlab -ppnetlab"
 elif mysql -u root -pazam -e "SELECT 1;" >/dev/null 2>&1; then
     MYSQL_CMD="mysql -u root -pazam"
 elif mysql -u azamlabs -pazam -e "SELECT 1;" >/dev/null 2>&1; then
     MYSQL_CMD="mysql -u azamlabs -pazam"
 fi
 
-if $MYSQL_CMD -e "USE azamlabs_db;" >/dev/null 2>&1; then
-    $MYSQL_CMD -e "
-USE azamlabs_db;
+for db in "pnetlab_db" "azamlabs_db"; do
+    if $MYSQL_CMD -e "USE ${db};" >/dev/null 2>&1; then
+        $MYSQL_CMD -e "
+USE ${db};
 INSERT INTO control (control_name, control_value) VALUES ('ctrl_version', '${RELEASE_VER}')
 ON DUPLICATE KEY UPDATE control_value = '${RELEASE_VER}';
 " 2>/dev/null || true
-    log_ok "Updated database control.ctrl_version to: ${RELEASE_VER}"
-fi
+        log_ok "Updated ${db}.control.ctrl_version to: ${RELEASE_VER}"
+    fi
+done
 
 # ── 5. Restart PHP-FPM to Flush OPcache ───────────────────────────────────────
 PHP_FPM_SVC="$(systemctl list-unit-files 'php*-fpm.service' --no-legend 2>/dev/null | awk '{print $1}' | head -n1 || echo "")"

@@ -309,13 +309,17 @@ INSERT INTO control (control_name, control_value) VALUES
   ('ctrl_online_mode', '0'),
   ('ctrl_default_mode', 'offline'),
   ('ctrl_captcha', '0'),
-  ('ctrl_version', '8.2.0')
+  ('ctrl_version', '6.8.93')
 ON DUPLICATE KEY UPDATE control_value = VALUES(control_value);
 " 2>/dev/null || true
     done
 
     # ── Re-assert Cyber-Glass Badge Anti-Regression in Web-UI ─────────────────
     if [ -f /opt/unetlab/html/login/index.html ]; then
+        sed -i -E 's/v8\.2\.0/v6.8.93/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
+        sed -i -E 's/id="version-value">[0-9.]+<\/span>/id="version-value">6.8.93<\/span>/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
+        sed -i -E 's/admin<\/strong> \/ <strong class="glow-text">azam/admin<\/strong> \/ <strong class="glow-text">pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
+        sed -i -E 's/admin<\/strong> \/ <strong>azam/admin<\/strong> \/ <strong>pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
         sed -i -E 's/admin<\/strong> \/ <strong>[a-zA-Z0-9]+/admin<\/strong> \/ <strong>pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
         sed -i -E 's/admin<\/strong> \/ <strong class="glow-text">[a-zA-Z0-9_-]+/admin<\/strong> \/ <strong class="glow-text">pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
         sed -i '/Offline appliance access/d' /opt/unetlab/html/login/index.html 2>/dev/null || true

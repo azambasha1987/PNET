@@ -190,7 +190,7 @@ INSERT INTO users (
 " 2>/dev/null || true
 fi
 
-# Ensure captcha is disabled in control table
+# Ensure captcha is disabled and version is updated in control table
 $MYSQL_CMD -e "
 USE pnetlab_db;
 INSERT INTO control (control_name, control_value) VALUES
@@ -198,16 +198,75 @@ INSERT INTO control (control_name, control_value) VALUES
   ('ctrl_online_mode', '0'),
   ('ctrl_default_mode', 'offline'),
   ('ctrl_captcha', '0'),
-  ('ctrl_version', '8.2.0')
+  ('ctrl_version', '6.8.93')
 ON DUPLICATE KEY UPDATE control_value = VALUES(control_value);
 " 2>/dev/null || true
 
-# Guarantee Cyber-Glass portal and badge in /opt/unetlab/html/login/index.html
+# Deploy Cyber-Glass portal and ensure version tag & default creds badge
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for portal_dir in \
+    "$SCRIPT_DIR/../Custom-Customization/login-portal" \
+    "$SCRIPT_DIR/login-portal" \
+    "/opt/PNET/Custom-Customization/login-portal" \
+    "/opt/pnet/Custom-Customization/login-portal"; do
+    if [ -d "$portal_dir" ]; then
+        log_info "Deploying Cyber-Glass login portal from $portal_dir..."
+        mkdir -p /opt/unetlab/html/login 2>/dev/null || true
+        cp -rf "$portal_dir/"* /opt/unetlab/html/login/ 2>/dev/null || true
+        break
+    fi
+done
+
+# Synchronize authoritative version.php
+mkdir -p /opt/unetlab/html/includes /opt/unetlab 2>/dev/null || true
+cat > /opt/unetlab/html/includes/version.php << 'VER_PHP_EOF'
+<?php
+if (!defined('PNET_RELEASE')) {
+    define('PNET_RELEASE', 'v6.8.93');
+}
+if (!defined('PNET_VERSION')) {
+    define('PNET_VERSION', '6.8.93');
+}
+if (!defined('PNET_PACKAGE_VERSION')) {
+    define('PNET_PACKAGE_VERSION', '6.8.93');
+}
+if (!defined('PNET_RELEASE_VERSION')) {
+    define('PNET_RELEASE_VERSION', '6.8.93');
+}
+VER_PHP_EOF
+chmod 0644 /opt/unetlab/html/includes/version.php 2>/dev/null || true
+chown www-data:www-data /opt/unetlab/html/includes/version.php 2>/dev/null || true
+
+cat > /opt/unetlab/VERSION << 'VER_EOF'
+VERSION=6.8.93
+PACKAGE_VERSION=6.8.93
+RELEASE_DATE=2026-11-05
+PLATFORM=Ubuntu 26.04 Resolute LTS
+VER_EOF
+chmod 0644 /opt/unetlab/VERSION 2>/dev/null || true
+
+# Authoritatively assert Cyber-Glass Badge & Version in Web-UI
 if [ -f /opt/unetlab/html/login/index.html ]; then
+    sed -i -E 's/v8\.2\.0/v6.8.93/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
+    sed -i -E 's/id="version-value">[0-9.]+<\/span>/id="version-value">6.8.93<\/span>/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
+    sed -i -E 's/admin<\/strong> \/ <strong class="glow-text">azam/admin<\/strong> \/ <strong class="glow-text">pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
+    sed -i -E 's/admin<\/strong> \/ <strong>azam/admin<\/strong> \/ <strong>pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
     sed -i -E 's/admin<\/strong> \/ <strong>[a-zA-Z0-9]+/admin<\/strong> \/ <strong>pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
-    sed -i -E 's/admin<\/strong> \/ <strong class="glow-text">[a-zA-Z0-9_-]+/admin<\/strong> \/ <strong class="glow-text">pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
     sed -i '/Offline appliance access/d' /opt/unetlab/html/login/index.html 2>/dev/null || true
 fi
+
+# Run GUI version sync engine if present
+for sync_sh in \
+    "$SCRIPT_DIR/pnet-sync-gui-version.sh" \
+    "$SCRIPT_DIR/../Custom-Customization/scripts/pnet-sync-gui-version.sh" \
+    "/opt/PNET/scripts/pnet-sync-gui-version.sh" \
+    "/opt/pnet/scripts/pnet-sync-gui-version.sh" \
+    "/opt/unetlab/scripts/pnet-sync-gui-version.sh"; do
+    if [ -f "$sync_sh" ]; then
+        bash "$sync_sh" 6.8.93 2>/dev/null || true
+        break
+    fi
+done
 
 # System SSH root/pnet credentials
 echo "root:pnet" | chpasswd 2>/dev/null || true

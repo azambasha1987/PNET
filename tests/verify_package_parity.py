@@ -69,7 +69,7 @@ def run_on_vm():
     dpkg-deb -x /tmp/verify_core_deb.deb "$WORK"
     
     echo "=== Checking Required PNetLab Patterns in Core Engine ==="
-    grep -q -E "Default:.*admin.*azam" "$WORK/opt/unetlab/html/login/index.html" && echo "PASS: Login azam creds" || echo "FAIL: Login azam creds"
+    grep -q -E "Default:.*admin.*(pnet|azam)" "$WORK/opt/unetlab/html/login/index.html" && echo "PASS: Login default creds" || echo "FAIL: Login default creds"
     grep -q "laser-sweep-ring" "$WORK/opt/unetlab/html/login/index.html" && echo "PASS: Login holographic avatar" || echo "FAIL: Login holographic avatar"
     grep -q "Anti-Bootstorm Engine" "$WORK/opt/unetlab/html/main/js/pnet-features.js" && echo "PASS: Bootstorm in main GUI" || echo "FAIL: Bootstorm in main GUI"
     grep -q "pnet-features.js" "$WORK/opt/unetlab/html/themes/default/index.html" && echo "PASS: Canvas HUD injected" || echo "FAIL: Canvas HUD injected"
