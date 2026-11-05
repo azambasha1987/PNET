@@ -118,13 +118,19 @@ elif [ -f "$REPO_ROOT/Custom-Features/apply-features.sh" ]; then
     bash "$REPO_ROOT/Custom-Features/apply-features.sh" --master || true
 fi
 
-echo "[7/7] Finalizing services..."
+echo "[7/7] Finalizing services and configuring Apache Web-UI..."
+if [ -f "$REPO_ROOT/scripts/pnet-fix-apache-web.sh" ]; then
+    bash "$REPO_ROOT/scripts/pnet-fix-apache-web.sh" || true
+elif [ -f "/opt/unetlab/scripts/pnet-fix-apache-web.sh" ]; then
+    bash "/opt/unetlab/scripts/pnet-fix-apache-web.sh" || true
+fi
+
 if [ -d /opt/unetlab/wrappers ]; then
     chmod -R 755 /opt/unetlab/wrappers || true
 fi
 
 systemctl daemon-reload || true
-systemctl restart apache2 || true
+systemctl restart apache2 2>/dev/null || true
 
 echo "=========================================================="
 echo " PNetLab Master Installation & Script Optimization Completed!"
