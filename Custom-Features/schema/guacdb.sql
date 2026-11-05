@@ -9,10 +9,9 @@
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-DROP TABLE IF EXISTS `guacamole_connection`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_connection` (
+CREATE TABLE IF NOT EXISTS `guacamole_connection` (
   `connection_id` int NOT NULL AUTO_INCREMENT,
   `connection_name` varchar(128) NOT NULL,
   `parent_id` int DEFAULT NULL,
@@ -30,10 +29,9 @@ CREATE TABLE `guacamole_connection` (
   CONSTRAINT `guacamole_connection_ibfk_1` FOREIGN KEY (`parent_id`) REFERENCES `guacamole_connection_group` (`connection_group_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_connection_attribute`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_connection_attribute` (
+CREATE TABLE IF NOT EXISTS `guacamole_connection_attribute` (
   `connection_id` int NOT NULL,
   `attribute_name` varchar(128) NOT NULL,
   `attribute_value` varchar(4096) NOT NULL,
@@ -42,10 +40,9 @@ CREATE TABLE `guacamole_connection_attribute` (
   CONSTRAINT `guacamole_connection_attribute_ibfk_1` FOREIGN KEY (`connection_id`) REFERENCES `guacamole_connection` (`connection_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_connection_group`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_connection_group` (
+CREATE TABLE IF NOT EXISTS `guacamole_connection_group` (
   `connection_group_id` int NOT NULL AUTO_INCREMENT,
   `parent_id` int DEFAULT NULL,
   `connection_group_name` varchar(128) NOT NULL,
@@ -59,10 +56,9 @@ CREATE TABLE `guacamole_connection_group` (
   CONSTRAINT `guacamole_connection_group_ibfk_1` FOREIGN KEY (`parent_id`) REFERENCES `guacamole_connection_group` (`connection_group_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_connection_group_attribute`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_connection_group_attribute` (
+CREATE TABLE IF NOT EXISTS `guacamole_connection_group_attribute` (
   `connection_group_id` int NOT NULL,
   `attribute_name` varchar(128) NOT NULL,
   `attribute_value` varchar(4096) NOT NULL,
@@ -71,10 +67,9 @@ CREATE TABLE `guacamole_connection_group_attribute` (
   CONSTRAINT `guacamole_connection_group_attribute_ibfk_1` FOREIGN KEY (`connection_group_id`) REFERENCES `guacamole_connection_group` (`connection_group_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_connection_group_permission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_connection_group_permission` (
+CREATE TABLE IF NOT EXISTS `guacamole_connection_group_permission` (
   `entity_id` int NOT NULL,
   `connection_group_id` int NOT NULL,
   `permission` enum('READ','UPDATE','DELETE','ADMINISTER') NOT NULL,
@@ -84,10 +79,9 @@ CREATE TABLE `guacamole_connection_group_permission` (
   CONSTRAINT `guacamole_connection_group_permission_ibfk_1` FOREIGN KEY (`connection_group_id`) REFERENCES `guacamole_connection_group` (`connection_group_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_connection_history`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_connection_history` (
+CREATE TABLE IF NOT EXISTS `guacamole_connection_history` (
   `history_id` int NOT NULL AUTO_INCREMENT,
   `user_id` int DEFAULT NULL,
   `username` varchar(128) NOT NULL,
@@ -110,10 +104,9 @@ CREATE TABLE `guacamole_connection_history` (
   CONSTRAINT `guacamole_connection_history_ibfk_3` FOREIGN KEY (`sharing_profile_id`) REFERENCES `guacamole_sharing_profile` (`sharing_profile_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_connection_parameter`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_connection_parameter` (
+CREATE TABLE IF NOT EXISTS `guacamole_connection_parameter` (
   `connection_id` int NOT NULL,
   `parameter_name` varchar(128) NOT NULL,
   `parameter_value` varchar(4096) NOT NULL,
@@ -121,10 +114,9 @@ CREATE TABLE `guacamole_connection_parameter` (
   CONSTRAINT `guacamole_connection_parameter_ibfk_1` FOREIGN KEY (`connection_id`) REFERENCES `guacamole_connection` (`connection_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_connection_permission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_connection_permission` (
+CREATE TABLE IF NOT EXISTS `guacamole_connection_permission` (
   `entity_id` int NOT NULL,
   `connection_id` int NOT NULL,
   `permission` enum('READ','UPDATE','DELETE','ADMINISTER') NOT NULL,
@@ -134,10 +126,9 @@ CREATE TABLE `guacamole_connection_permission` (
   CONSTRAINT `guacamole_connection_permission_ibfk_1` FOREIGN KEY (`connection_id`) REFERENCES `guacamole_connection` (`connection_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_entity`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_entity` (
+CREATE TABLE IF NOT EXISTS `guacamole_entity` (
   `entity_id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(128) NOT NULL,
   `type` enum('USER','USER_GROUP') NOT NULL,
@@ -145,10 +136,9 @@ CREATE TABLE `guacamole_entity` (
   UNIQUE KEY `guacamole_entity_name_scope` (`type`,`name`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_sharing_profile`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_sharing_profile` (
+CREATE TABLE IF NOT EXISTS `guacamole_sharing_profile` (
   `sharing_profile_id` int NOT NULL AUTO_INCREMENT,
   `sharing_profile_name` varchar(128) NOT NULL,
   `primary_connection_id` int NOT NULL,
@@ -158,10 +148,9 @@ CREATE TABLE `guacamole_sharing_profile` (
   CONSTRAINT `guacamole_sharing_profile_ibfk_1` FOREIGN KEY (`primary_connection_id`) REFERENCES `guacamole_connection` (`connection_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_sharing_profile_attribute`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_sharing_profile_attribute` (
+CREATE TABLE IF NOT EXISTS `guacamole_sharing_profile_attribute` (
   `sharing_profile_id` int NOT NULL,
   `attribute_name` varchar(128) NOT NULL,
   `attribute_value` varchar(4096) NOT NULL,
@@ -170,10 +159,9 @@ CREATE TABLE `guacamole_sharing_profile_attribute` (
   CONSTRAINT `guacamole_sharing_profile_attribute_ibfk_1` FOREIGN KEY (`sharing_profile_id`) REFERENCES `guacamole_sharing_profile` (`sharing_profile_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_sharing_profile_parameter`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_sharing_profile_parameter` (
+CREATE TABLE IF NOT EXISTS `guacamole_sharing_profile_parameter` (
   `sharing_profile_id` int NOT NULL,
   `parameter_name` varchar(128) NOT NULL,
   `parameter_value` varchar(4096) NOT NULL,
@@ -181,10 +169,9 @@ CREATE TABLE `guacamole_sharing_profile_parameter` (
   CONSTRAINT `guacamole_sharing_profile_parameter_ibfk_1` FOREIGN KEY (`sharing_profile_id`) REFERENCES `guacamole_sharing_profile` (`sharing_profile_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_sharing_profile_permission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_sharing_profile_permission` (
+CREATE TABLE IF NOT EXISTS `guacamole_sharing_profile_permission` (
   `entity_id` int NOT NULL,
   `sharing_profile_id` int NOT NULL,
   `permission` enum('READ','UPDATE','DELETE','ADMINISTER') NOT NULL,
@@ -194,20 +181,18 @@ CREATE TABLE `guacamole_sharing_profile_permission` (
   CONSTRAINT `guacamole_sharing_profile_permission_ibfk_1` FOREIGN KEY (`sharing_profile_id`) REFERENCES `guacamole_sharing_profile` (`sharing_profile_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_system_permission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_system_permission` (
+CREATE TABLE IF NOT EXISTS `guacamole_system_permission` (
   `entity_id` int NOT NULL,
   `permission` enum('CREATE_CONNECTION','CREATE_CONNECTION_GROUP','CREATE_SHARING_PROFILE','CREATE_USER','CREATE_USER_GROUP','AUDIT','ADMINISTER') NOT NULL,
   PRIMARY KEY (`entity_id`,`permission`),
   CONSTRAINT `guacamole_system_permission_entity` FOREIGN KEY (`entity_id`) REFERENCES `guacamole_entity` (`entity_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_user`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_user` (
+CREATE TABLE IF NOT EXISTS `guacamole_user` (
   `user_id` int NOT NULL AUTO_INCREMENT,
   `entity_id` int NOT NULL,
   `password_hash` binary(32) NOT NULL,
@@ -229,10 +214,9 @@ CREATE TABLE `guacamole_user` (
   CONSTRAINT `guacamole_user_entity` FOREIGN KEY (`entity_id`) REFERENCES `guacamole_entity` (`entity_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_user_attribute`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_user_attribute` (
+CREATE TABLE IF NOT EXISTS `guacamole_user_attribute` (
   `user_id` int NOT NULL,
   `attribute_name` varchar(128) NOT NULL,
   `attribute_value` varchar(4096) NOT NULL,
@@ -241,10 +225,9 @@ CREATE TABLE `guacamole_user_attribute` (
   CONSTRAINT `guacamole_user_attribute_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `guacamole_user` (`user_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_user_group`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_user_group` (
+CREATE TABLE IF NOT EXISTS `guacamole_user_group` (
   `user_group_id` int NOT NULL AUTO_INCREMENT,
   `entity_id` int NOT NULL,
   `disabled` tinyint(1) NOT NULL DEFAULT '0',
@@ -253,10 +236,9 @@ CREATE TABLE `guacamole_user_group` (
   CONSTRAINT `guacamole_user_group_entity` FOREIGN KEY (`entity_id`) REFERENCES `guacamole_entity` (`entity_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_user_group_attribute`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_user_group_attribute` (
+CREATE TABLE IF NOT EXISTS `guacamole_user_group_attribute` (
   `user_group_id` int NOT NULL,
   `attribute_name` varchar(128) NOT NULL,
   `attribute_value` varchar(4096) NOT NULL,
@@ -265,10 +247,9 @@ CREATE TABLE `guacamole_user_group_attribute` (
   CONSTRAINT `guacamole_user_group_attribute_ibfk_1` FOREIGN KEY (`user_group_id`) REFERENCES `guacamole_user_group` (`user_group_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_user_group_member`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_user_group_member` (
+CREATE TABLE IF NOT EXISTS `guacamole_user_group_member` (
   `user_group_id` int NOT NULL,
   `member_entity_id` int NOT NULL,
   PRIMARY KEY (`user_group_id`,`member_entity_id`),
@@ -277,10 +258,9 @@ CREATE TABLE `guacamole_user_group_member` (
   CONSTRAINT `guacamole_user_group_member_parent_id` FOREIGN KEY (`user_group_id`) REFERENCES `guacamole_user_group` (`user_group_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_user_group_permission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_user_group_permission` (
+CREATE TABLE IF NOT EXISTS `guacamole_user_group_permission` (
   `entity_id` int NOT NULL,
   `affected_user_group_id` int NOT NULL,
   `permission` enum('READ','UPDATE','DELETE','ADMINISTER') NOT NULL,
@@ -290,10 +270,9 @@ CREATE TABLE `guacamole_user_group_permission` (
   CONSTRAINT `guacamole_user_group_permission_entity` FOREIGN KEY (`entity_id`) REFERENCES `guacamole_entity` (`entity_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_user_history`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_user_history` (
+CREATE TABLE IF NOT EXISTS `guacamole_user_history` (
   `history_id` int NOT NULL AUTO_INCREMENT,
   `user_id` int DEFAULT NULL,
   `username` varchar(128) NOT NULL,
@@ -308,10 +287,9 @@ CREATE TABLE `guacamole_user_history` (
   CONSTRAINT `guacamole_user_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `guacamole_user` (`user_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_user_password_history`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_user_password_history` (
+CREATE TABLE IF NOT EXISTS `guacamole_user_password_history` (
   `password_history_id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `password_hash` binary(32) NOT NULL,
@@ -322,10 +300,9 @@ CREATE TABLE `guacamole_user_password_history` (
   CONSTRAINT `guacamole_user_password_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `guacamole_user` (`user_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `guacamole_user_permission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `guacamole_user_permission` (
+CREATE TABLE IF NOT EXISTS `guacamole_user_permission` (
   `entity_id` int NOT NULL,
   `affected_user_id` int NOT NULL,
   `permission` enum('READ','UPDATE','DELETE','ADMINISTER') NOT NULL,

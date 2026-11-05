@@ -155,6 +155,13 @@ if systemctl is-active --quiet mysql 2>/dev/null || systemctl is-active --quiet 
             log_ok "Applied Guacamole HTML5 optimization tables."
         fi
     fi
+
+    # Authoritatively assert admin / pnet user and control settings in pnetlab_db
+    mysql -u root pnetlab_db -e "
+    UPDATE users SET password = SHA2('pnet', 256), role = '0', user_status = 1, offline = 1, session = UNIX_TIMESTAMP() + 315360000 WHERE username = 'admin';
+    INSERT IGNORE INTO users (pod, username, email, name, password, role, user_status, offline, session, folder, ip) VALUES (0, 'admin', 'root@localhost', 'Administrator', SHA2('pnet', 256), '0', 1, 1, UNIX_TIMESTAMP() + 315360000, '/', '127.0.0.1');
+    INSERT INTO control (control_name, control_value) VALUES ('ctrl_offline_mode', '1'), ('ctrl_version', '6.8.93'), ('ctrl_captcha', '0') ON DUPLICATE KEY UPDATE control_value = VALUES(control_value);
+    " 2>/dev/null || true
 fi
 
 # 4. Backend Operations API & Apache Reverse Proxy

@@ -9,25 +9,23 @@
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-DROP TABLE IF EXISTS `control`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `control` (
+CREATE TABLE IF NOT EXISTS `control` (
   `control_name` varchar(150) NOT NULL,
   `control_value` text,
   PRIMARY KEY (`control_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `schema_version`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `schema_version` (
+CREATE TABLE IF NOT EXISTS `schema_version` (
   `version` int NOT NULL,
   `applied_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `description` text,
   PRIMARY KEY (`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
-INSERT INTO `schema_version` (`version`, `description`) VALUES
+INSERT IGNORE INTO `schema_version` (`version`, `description`) VALUES
   (1, 'users.user_max_cpu'),
   (2, 'users.user_max_ram'),
   (3, 'users.access_days'),
@@ -41,10 +39,9 @@ INSERT INTO `schema_version` (`version`, `description`) VALUES
   (11, 'activity_log'),
   (12, 'password_resets');
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `activity_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `activity_log` (
+CREATE TABLE IF NOT EXISTS `activity_log` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `created_at` int unsigned NOT NULL,
   `pod` int DEFAULT NULL,
@@ -65,10 +62,9 @@ CREATE TABLE `activity_log` (
   KEY `activity_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `password_resets`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `password_resets` (
+CREATE TABLE IF NOT EXISTS `password_resets` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `token_hash` char(64) NOT NULL,
   `pod` int NOT NULL,
@@ -81,19 +77,17 @@ CREATE TABLE `password_resets` (
   KEY `password_resets_expires` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `html5`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `html5` (
+CREATE TABLE IF NOT EXISTS `html5` (
   `username` text,
   `pod` int DEFAULT NULL,
   `token` text
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `if_sessions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `if_sessions` (
+CREATE TABLE IF NOT EXISTS `if_sessions` (
   `if_session_id` bigint NOT NULL AUTO_INCREMENT,
   `if_session_lab` int DEFAULT NULL,
   `if_session_node` int DEFAULT NULL,
@@ -112,10 +106,9 @@ CREATE TABLE `if_sessions` (
   CONSTRAINT `if_sessions_ibfk_1` FOREIGN KEY (`if_session_node`) REFERENCES `node_sessions` (`node_session_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `lab_sessions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `lab_sessions` (
+CREATE TABLE IF NOT EXISTS `lab_sessions` (
   `lab_session_id` int NOT NULL AUTO_INCREMENT,
   `lab_session_lid` varchar(150) DEFAULT NULL,
   `lab_session_pod` int DEFAULT NULL,
@@ -127,10 +120,9 @@ CREATE TABLE `lab_sessions` (
   KEY `lab_session_pod` (`lab_session_pod`) USING BTREE
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `node_sessions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `node_sessions` (
+CREATE TABLE IF NOT EXISTS `node_sessions` (
   `node_session_id` int NOT NULL,
   `node_session_nid` int DEFAULT NULL,
   `node_session_lab` int DEFAULT NULL,
@@ -158,10 +150,9 @@ CREATE TABLE `node_sessions` (
   KEY `node_session_iol` (`node_session_iol`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `cluster_hosts`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `cluster_hosts` (
+CREATE TABLE IF NOT EXISTS `cluster_hosts` (
   `host_id` tinyint NOT NULL,
   `host_name` varchar(64) NOT NULL,
   `host_ip` varchar(45) NOT NULL,
@@ -172,20 +163,18 @@ CREATE TABLE `cluster_hosts` (
   PRIMARY KEY (`host_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `cluster_placements`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `cluster_placements` (
+CREATE TABLE IF NOT EXISTS `cluster_placements` (
   `placement_lab`  CHAR(36)  NOT NULL,
   `placement_nid`  INT       NOT NULL,
   `placement_host` TINYINT   NOT NULL DEFAULT 0,
   PRIMARY KEY (`placement_lab`, `placement_nid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `process`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `process` (
+CREATE TABLE IF NOT EXISTS `process` (
   `process_id` varchar(200) NOT NULL,
   `process_dtotal` int DEFAULT NULL,
   `process_dnow` int DEFAULT NULL,
@@ -200,10 +189,9 @@ CREATE TABLE `process` (
   KEY `process_finish` (`process_finish`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `process_device`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `process_device` (
+CREATE TABLE IF NOT EXISTS `process_device` (
   `process_device_id` varchar(150) NOT NULL,
   `process_device_dtotal` int DEFAULT NULL,
   `process_device_dnow` int DEFAULT NULL,
@@ -213,10 +201,9 @@ CREATE TABLE `process_device` (
   UNIQUE KEY `process_device_id` (`process_device_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `user_permission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `user_permission` (
+CREATE TABLE IF NOT EXISTS `user_permission` (
   `user_per_id` int NOT NULL AUTO_INCREMENT,
   `user_per_role` int DEFAULT NULL,
   `user_per_name` varchar(150) DEFAULT NULL,
@@ -225,10 +212,9 @@ CREATE TABLE `user_permission` (
   KEY `user_per_name` (`user_per_name`)
 ) ENGINE=InnoDB AUTO_INCREMENT=251 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `user_roles`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `user_roles` (
+CREATE TABLE IF NOT EXISTS `user_roles` (
   `user_role_id` int NOT NULL AUTO_INCREMENT,
   `user_role_name` varchar(150) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci DEFAULT NULL,
   `user_role_workspace` text CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci,
@@ -243,10 +229,9 @@ CREATE TABLE `user_roles` (
   KEY `user_role_hdd` (`user_role_hdd`)
 ) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
   `pod` int NOT NULL AUTO_INCREMENT,
   `username` text CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci,
   `cookie` text CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci,
@@ -286,10 +271,9 @@ CREATE TABLE `users` (
   KEY `max_node_lab` (`max_node_lab`)
 ) ENGINE=InnoDB AUTO_INCREMENT=44 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `wiresharks`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `wiresharks` (
+CREATE TABLE IF NOT EXISTS `wiresharks` (
   `ws_id` bigint NOT NULL AUTO_INCREMENT,
   `ws_tenant` int DEFAULT NULL,
   `ws_lab` varchar(200) DEFAULT NULL,
@@ -314,3 +298,30 @@ CREATE TABLE `wiresharks` (
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- ==============================================================================
+-- PNetLab Authoritative Default Administrator & Control Configuration
+-- Default Credentials: admin / pnet
+-- ==============================================================================
+INSERT INTO `users` (
+  pod, username, email, name, password, role,
+  user_status, active_time, expired_time, access_days,
+  offline, ext_auth, session, folder, ip
+) VALUES (
+  0, 'admin', 'root@localhost', 'Administrator', SHA2('pnet', 256), '0',
+  1, NULL, NULL, NULL,
+  1, NULL, UNIX_TIMESTAMP() + 315360000, '/', '127.0.0.1'
+) ON DUPLICATE KEY UPDATE
+  password = SHA2('pnet', 256),
+  role = '0',
+  user_status = 1,
+  offline = 1,
+  session = UNIX_TIMESTAMP() + 315360000;
+
+INSERT INTO `control` (control_name, control_value) VALUES
+  ('ctrl_offline_mode', '1'),
+  ('ctrl_online_mode', '0'),
+  ('ctrl_default_mode', 'offline'),
+  ('ctrl_captcha', '0'),
+  ('ctrl_version', '6.8.93')
+ON DUPLICATE KEY UPDATE control_value = VALUES(control_value);

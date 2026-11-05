@@ -137,6 +137,45 @@ if [ "$MODE" = "master" ]; then
         log_info "Ensuring Apache2 HTTP/HTTPS VirtualHost and SSL stack are configured..."
         bash "$APACHE_FIX" || true
     fi
+
+    # Ensure Privilege Broker Daemon service unit is active
+    BROKER_SCRIPT="/opt/unetlab/scripts/pnet-brokerd.py"
+    if [ -f "$BROKER_SCRIPT" ]; then
+        if [ ! -f /etc/systemd/system/pnetlab-brokerd.service ]; then
+            cat << 'EOF_BROKER' > /etc/systemd/system/pnetlab-brokerd.service
+[Unit]
+Description=PNetLab privilege broker (allowlisted root verbs for the engine)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/unetlab/scripts/pnet-brokerd.py
+RuntimeDirectory=azamlabs
+RuntimeDirectoryMode=0755
+User=root
+Group=root
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF_BROKER
+            chmod 0644 /etc/systemd/system/pnetlab-brokerd.service 2>/dev/null || true
+            ln -sf /etc/systemd/system/pnetlab-brokerd.service /etc/systemd/system/azamlabs-brokerd.service 2>/dev/null || true
+        fi
+        systemctl daemon-reload 2>/dev/null || true
+        systemctl enable pnetlab-brokerd.service 2>/dev/null || true
+        systemctl restart pnetlab-brokerd.service 2>/dev/null || true
+    fi
+
+    # Authoritatively assert Web-GUI credentials (admin / pnet) and version
+    FIX_LOGIN="${SCRIPT_DIR}/scripts/pnet-fix-login.sh"
+    [ -f "$FIX_LOGIN" ] || FIX_LOGIN="/opt/unetlab/scripts/pnet-fix-login.sh"
+    [ -f "$FIX_LOGIN" ] || FIX_LOGIN="/opt/pnet/scripts/pnet-fix-login.sh"
+    if [ -f "$FIX_LOGIN" ]; then
+        log_info "Finalizing authoritative admin credentials (admin / pnet) and Web-UI integrity..."
+        bash "$FIX_LOGIN" || true
+    fi
 fi
 
 systemctl daemon-reload 2>/dev/null || true
