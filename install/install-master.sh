@@ -12,6 +12,13 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Normalize repository path symlinks (/opt/PNET <-> /opt/pnet)
+if [ -d "/opt/PNET" ] && [ ! -e "/opt/pnet" ]; then
+    ln -sfn /opt/PNET /opt/pnet 2>/dev/null || true
+elif [ -d "/opt/pnet" ] && [ ! -e "/opt/PNET" ]; then
+    ln -sfn /opt/pnet /opt/PNET 2>/dev/null || true
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 

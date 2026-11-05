@@ -43,6 +43,13 @@ echo -e "   Target Mode: ${BOLD}${MODE^^}${RESET} | Base Repository: ${SCRIPT_DI
 echo -e "${CYAN}${BOLD}================================================================${RESET}"
 
 # ── 0. Core Permissions and Symlinks Standardization ─────────────────────────
+# Normalize repository path symlinks (/opt/PNET <-> /opt/pnet)
+if [ -d "/opt/PNET" ] && [ ! -e "/opt/pnet" ]; then
+    ln -sfn /opt/PNET /opt/pnet 2>/dev/null || true
+elif [ -d "/opt/pnet" ] && [ ! -e "/opt/PNET" ]; then
+    ln -sfn /opt/pnet /opt/PNET 2>/dev/null || true
+fi
+
 mkdir -p /usr/local/bin /opt/unetlab/scripts 2>/dev/null || true
 
 # Copy all scripts from scripts/ to /opt/unetlab/scripts/

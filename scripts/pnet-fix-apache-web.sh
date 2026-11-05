@@ -11,6 +11,13 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Normalize repository path symlinks (/opt/PNET <-> /opt/pnet)
+if [ -d "/opt/PNET" ] && [ ! -e "/opt/pnet" ]; then
+    ln -sfn /opt/PNET /opt/pnet 2>/dev/null || true
+elif [ -d "/opt/pnet" ] && [ ! -e "/opt/PNET" ]; then
+    ln -sfn /opt/pnet /opt/PNET 2>/dev/null || true
+fi
+
 GREEN="\033[1;32m"
 YELLOW="\033[1;33m"
 CYAN="\033[1;36m"
@@ -57,6 +64,12 @@ if [ ! -f /etc/ssl/certs/pnetlab-selfsigned.crt ] || [ ! -f /etc/ssl/private/pne
         -subj "/CN=${MASTER_IP}" 2>/dev/null
     chmod 0600 /etc/ssl/private/pnetlab-selfsigned.key
     log_ok "Certificate generated."
+fi
+
+# Ensure legacy apache-selfsigned cert paths also resolve
+if [ -f /etc/ssl/certs/pnetlab-selfsigned.crt ] && [ ! -f /etc/ssl/certs/apache-selfsigned.crt ]; then
+    ln -sf /etc/ssl/certs/pnetlab-selfsigned.crt /etc/ssl/certs/apache-selfsigned.crt 2>/dev/null || true
+    ln -sf /etc/ssl/private/pnetlab-selfsigned.key /etc/ssl/private/apache-selfsigned.key 2>/dev/null || true
 fi
 
 # 4. Write PNetLab Global & VirtualHost configurations

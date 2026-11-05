@@ -22,6 +22,13 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Normalize /opt/PNET and /opt/pnet symlinks
+if [ -d "/opt/PNET" ] && [ ! -e "/opt/pnet" ]; then
+    ln -sfn /opt/PNET /opt/pnet 2>/dev/null || true
+elif [ -d "/opt/pnet" ] && [ ! -e "/opt/PNET" ]; then
+    ln -sfn /opt/pnet /opt/PNET 2>/dev/null || true
+fi
+
 echo -e "${CYAN}${BOLD}================================================================${RESET}"
 echo -e "${BOLD}       PNetLab Web-UI Login Diagnostic & Repair Engine          ${RESET}"
 echo -e "       Target Default Credentials: ${BOLD}admin / pnet${RESET}"
@@ -208,16 +215,94 @@ id -u pnet >/dev/null 2>&1 && echo "pnet:pnet" | chpasswd 2>/dev/null || true
 
 log_ok "Database and credentials authoritatively updated."
 
-# 4. Restart web services and PHP-FPM
-log_info "[4/5] Refreshing PHP-FPM and Apache2 sessions..."
+# 4. Refresh & repair Apache Web-UI routing, rewrite rules, and PHP-FPM
+log_info "[4/5] Refreshing and repairing Apache2 routing, mod_rewrite, and PHP-FPM..."
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Enable required Apache modules
+a2enmod rewrite ssl proxy proxy_http proxy_wstunnel headers http2 2>/dev/null || true
+
+# Run Apache Stack provisioner if available
+for cand_fix in \
+    "$SCRIPT_DIR/pnet-fix-apache-web.sh" \
+    "$SCRIPT_DIR/../../scripts/pnet-fix-apache-web.sh" \
+    "/opt/PNET/scripts/pnet-fix-apache-web.sh" \
+    "/opt/pnet/scripts/pnet-fix-apache-web.sh" \
+    "/opt/unetlab/scripts/pnet-fix-apache-web.sh"; do
+    if [ -f "$cand_fix" ]; then
+        log_info "Invoking Apache web stack provisioner ($cand_fix)..."
+        bash "$cand_fix" 2>/dev/null || true
+        break
+    fi
+done
+
+# Enforce global AllowOverride All so /opt/unetlab/html/.htaccess is always evaluated
+mkdir -p /etc/apache2/conf-available /etc/apache2/conf-enabled
+cat > /etc/apache2/conf-available/pnetlab-global.conf << 'APACHE_GLOBAL'
+<Directory /opt/unetlab/>
+    Options FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>
+
+<Directory /opt/unetlab/html/>
+    Options FollowSymLinks Indexes
+    AllowOverride All
+    Require all granted
+    DirectoryIndex index.php index.html
+</Directory>
+
+<Directory /opt/unetlab/html/login/>
+    Options FollowSymLinks Indexes
+    AllowOverride All
+    Require all granted
+    DirectoryIndex index.html index.php
+</Directory>
+APACHE_GLOBAL
+
+a2enconf pnetlab-global 2>/dev/null || true
+
+# Ensure .htaccess exists in /opt/unetlab/html with API rewrite rules
+if [ -d "/opt/unetlab/html" ]; then
+    if [ ! -f "/opt/unetlab/html/.htaccess" ] || ! grep -q "api.php" "/opt/unetlab/html/.htaccess"; then
+        log_info "Restoring API rewrite directives in /opt/unetlab/html/.htaccess..."
+        cat > /opt/unetlab/html/.htaccess << 'HTACCESS_EOF'
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    RewriteCond %{REQUEST_URI} ^/api/
+    RewriteRule ^(.*)$ /api.php [B,L,QSA]
+    RewriteCond %{REQUEST_URI} ^/auth/
+    RewriteRule ^(.*)$ /auth.php [B,L,QSA]
+    RewriteRule ^$ /main/ [R=302,L]
+</IfModule>
+HTACCESS_EOF
+    fi
+fi
+
+# Ensure web directory ownership and permissions
+chmod 755 /opt /opt/unetlab /opt/unetlab/html 2>/dev/null || true
+chown -R www-data:www-data /opt/unetlab/html 2>/dev/null || true
+
+# Restart PHP-FPM
 for svc in $(systemctl list-unit-files | grep -o 'php[0-9.]*-fpm\.service' || echo ""); do
     systemctl restart "$svc" 2>/dev/null || true
 done
+
+# Restart Apache2
 systemctl restart apache2 2>/dev/null || true
-log_ok "Web services restarted."
+log_ok "Web services and routing repaired."
 
 # 5. Execute Live Diagnostic Probes
 log_info "[5/5] Running verification probes..."
+
+# Check if /opt/unetlab/html/api.php is present
+if [ ! -f /opt/unetlab/html/api.php ]; then
+    log_warn "/opt/unetlab/html/api.php is not found on disk."
+    log_warn "If this VM needs installation of PNetLab core packages, run:"
+    log_warn "  sudo bash install/install-master.sh"
+fi
 
 # Diagnostic 1: PHP PDO direct check
 PHP_PDO_STATUS=$(php -r '
@@ -240,21 +325,40 @@ API_RESP=$(curl -sk -X POST https://127.0.0.1/api/auth \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"pnet"}' 2>/dev/null || echo "")
 
+# If HTTPS curl is 404 or empty, try HTTP fallback probe
+if [ -z "$API_RESP" ] || echo "$API_RESP" | grep -qi "404 Not Found"; then
+    HTTP_RESP=$(curl -sk -X POST http://127.0.0.1/api/auth \
+      -H "Content-Type: application/json" \
+      -d '{"username":"admin","password":"pnet"}' 2>/dev/null || echo "")
+    if echo "$HTTP_RESP" | grep -qi '"status":"success"'; then
+        API_RESP="$HTTP_RESP"
+    fi
+fi
+
 echo ""
 echo -e "${CYAN}${BOLD}================================================================${RESET}"
 echo -e "${BOLD}                     DIAGNOSTIC RESULTS                         ${RESET}"
 echo -e "${CYAN}${BOLD}================================================================${RESET}"
 echo -e "PHP PDO Database Probe : $PHP_PDO_STATUS"
 
+MASTER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
+[ -z "$MASTER_IP" ] && MASTER_IP="127.0.0.1"
+
 if echo "$API_RESP" | grep -qi '"status":"success"'; then
     echo -e "Live API Authentication: ${GREEN}${BOLD}SUCCESS (HTTP 200 / User authenticated)${RESET}"
     echo ""
     echo -e "${GREEN}${BOLD}✔ LOGIN IS READY!${RESET}"
-    echo -e "  URL     : ${CYAN}https://$(hostname -I 2>/dev/null | awk '{print $1}')/${RESET}"
+    echo -e "  URL     : ${CYAN}https://${MASTER_IP}/${RESET}"
     echo -e "  Username: ${BOLD}admin${RESET}"
     echo -e "  Password: ${BOLD}pnet${RESET}"
 else
     echo -e "Live API Authentication: ${RED}${BOLD}FAILED${RESET}"
     echo -e "Raw API Response       : $API_RESP"
+    if echo "$API_RESP" | grep -qi "404 Not Found"; then
+        echo ""
+        echo -e "${YELLOW}[!] Notice: Apache returned 404 for /api/auth.${RESET}"
+        echo -e "${YELLOW}    If PNetLab master packages have not been installed yet, execute:${RESET}"
+        echo -e "    ${BOLD}sudo bash install/install-master.sh${RESET}"
+    fi
 fi
 echo -e "${CYAN}${BOLD}================================================================${RESET}"
