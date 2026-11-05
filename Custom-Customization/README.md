@@ -1,6 +1,6 @@
 # PNetLab Custom-Customization Subsystem
 
-The **`Custom-Customization`** pillar contains platform theming, futuristic Cyber-Glass login interface, 500+ CPU-tuned appliance templates, vector branding, and client workstation integration for **PNetLab v8**.
+The **`Custom-Customization`** pillar contains platform theming, futuristic Cyber-Glass login interface, 500+ CPU-tuned appliance templates, vector branding, Local AI Lab Builder & Ollama MCP integration, and client workstation integration for **PNetLab v8**.
 
 ---
 
@@ -10,7 +10,17 @@ The **`Custom-Customization`** pillar contains platform theming, futuristic Cybe
 Custom-Customization/
 ├── apply-customization.sh            # Standalone idempotent deployment hook (+x)
 ├── README.md                         # This reference manual
-├── scripts/                          # Customization, branding & template scripts (22 tools)
+├── mcp/                              # Model Context Protocol (MCP) AI Subsystem (Port 5701)
+│   ├── pnet-mcp.py                   # Canonical MCP Streamable SSE Server
+│   ├── pnet-mcp.service              # Systemd unit for pnetlab-mcp daemon
+│   ├── ai_lab_agent.py               # Natural language network topology synthesizer
+│   ├── ai_plans.py                   # Multi-vendor configuration provisioning engine
+│   ├── ai_efficiency.py              # Lab resource & hypervisor optimizer
+│   └── ai_ledger.py                  # Audit & change ledger tracking
+├── scripts/                          # Customization, branding, AI & template scripts (25 tools)
+│   ├── pnet-ai-copilot.py            # Local Ollama AI terminal copilot & topology builder
+│   ├── pnet-setup-ollama.sh          # VM-side Ollama host linker & systemd MCP daemon installer
+│   ├── pnet-setup-ollama-host.ps1    # Windows host 1-click Ollama firewall & external bind setup
 │   ├── pnet-apply-branding.sh        # Platform branding & favicon installer
 │   ├── pnet-deploy-homelogo.sh       # Dynamic avatar logo injector
 │   ├── pnet-dark-theme.sh            # Pure Black OLED Dark Theme Engine
@@ -45,10 +55,21 @@ Custom-Customization/
 ├── session-engine/                   # Session persistence engine
 │   └── pnet-keepalive.js             # 180s sliding-auth keepalive heartbeat
 ├── docs/                             # Subsystem Documentation
+│   ├── AI_Lab_Builder_Ollama_Guide.md # Local Ollama LLM integration via Model Context Protocol
 │   ├── 03_Permanent_Session_Never_Logout_Guide.md # 10-year session persistence guide
 │   └── AzamLabs_Enterprise_Operations_Manual.pdf # PDF Enterprise Operations Manual
 └── tests/                            # Automated template & theme tests
 ```
+
+---
+
+## 🤖 Local AI Lab Builder & Ollama MCP Integration
+
+The **Model Context Protocol (MCP)** subsystem integrates local LLMs (e.g., `qwen2.5:14b-instruct`, `llama3.1:8b`) with PNetLab without cloud dependencies or subscription APIs:
+- **`pnet-mcp.py`**: Runs a dedicated FastMCP streamable HTTP/SSE server on port `5701` managed by `pnetlab-mcp.service`.
+- **`pnet-ai` (`pnet-ai-copilot.py`)**: Terminal AI copilot for natural language network lab generation, multi-vendor node interconnect calculation, and live telemetry querying.
+- **`pnet-ollama` (`pnet-setup-ollama.sh`)**: Automated linker that provisions required Python dependencies (`mcp==1.29.1`, `httpx`), sets up token-based bearer authentication in `/opt/unetlab/data/ai/config.json`, and links the host machine's Ollama instance.
+- **Full Guide**: See [`docs/AI_Lab_Builder_Ollama_Guide.md`](docs/AI_Lab_Builder_Ollama_Guide.md).
 
 ---
 
@@ -70,3 +91,5 @@ sudo bash /opt/pnet/apply-all-custom.sh
 - `pnet-credentials`: Re-asserts canonical admin credentials (`admin / pnet`) across web and database.
 - `pnet-ssl`: Generates and binds valid IP-SAN SSL certificates with auto-trust.
 - `pnet-templates`: Applies CPU-optimized appliance templates (`intel` vs `amd`).
+- `pnet-ai`: Interactive AI terminal copilot & natural language lab topology builder.
+- `pnet-ollama`: 1-click linker connecting PNetLab with local/remote Ollama endpoints.

@@ -253,6 +253,20 @@ class PNetReleaseEngine:
                     overlays.append(("opt/unetlab/html/login/img/pnet_home_avatar.png", avatar, 0o644))
                     overlays.append(("opt/unetlab/html/login/img/azam_home_avatar.png", avatar, 0o644))
 
+            # 2b. Custom-Customization: MCP Subsystem
+            mcp_dir = self.custom_cust_dir / "mcp"
+            if mcp_dir.is_dir():
+                for f in mcp_dir.glob("*"):
+                    if f.is_file():
+                        overlays.append((f"opt/unetlab/scripts/mcp/{f.name}", f, 0o755 if f.suffix == ".py" else 0o644))
+
+            # 2c. Custom-Customization: AI & Custom Scripts
+            cust_scripts = self.custom_cust_dir / "scripts"
+            if cust_scripts.is_dir():
+                for f in cust_scripts.glob("pnet-*"):
+                    if f.is_file():
+                        overlays.append((f"opt/unetlab/scripts/{f.name}", f, 0o755 if f.suffix in [".sh", ".py"] else 0o644))
+
             # 3. Custom-Features: Web-UI and Themes Engine
             web_main = self.custom_feat_dir / "web-ui" / "main"
             if web_main.is_dir():

@@ -64,7 +64,9 @@ class TestDatabaseAndServices(unittest.TestCase):
 
     def test_systemd_service_syntax(self):
         """Verify systemd service units have correct structure and point to executables."""
-        mcp_svc = os.path.join(ROOT_DIR, "Custom-Features", "mcp", "pnet-mcp.service")
+        mcp_svc = os.path.join(ROOT_DIR, "Custom-Customization", "mcp", "pnet-mcp.service")
+        if not os.path.isfile(mcp_svc):
+            mcp_svc = os.path.join(ROOT_DIR, "Custom-Features", "mcp", "pnet-mcp.service")
         if not os.path.isfile(mcp_svc):
             mcp_svc = os.path.join(SCRIPTS_DIR, "mcp", "pnet-mcp.service")
         self.assertTrue(os.path.isfile(mcp_svc), "pnet-mcp.service must exist")

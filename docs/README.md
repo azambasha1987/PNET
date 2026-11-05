@@ -22,13 +22,13 @@ PNET/
 │   └── verify-packages.sh                            # SHA256 package verification suite
 │
 ├── Custom-Customization/docs/                        # Pillar 2: Theming, Templates & Identity
+│   ├── AI_Lab_Builder_Ollama_Guide.md                # Local Ollama LLM integration via Model Context Protocol
 │   ├── 03_Permanent_Session_Never_Logout_Guide.md    # 10-year sliding session configuration
 │   └── AzamLabs_Enterprise_Operations_Manual.pdf     # Downloadable PDF operations and architecture reference
 │
-├── Custom-Features/docs/                             # Pillar 1: Features, AI & Automation
+├── Custom-Features/docs/                             # Pillar 1: Features & Automation
 │   ├── Anti_Bootstorm_Engine_Guide.md                # Anti-Bootstorm Staggered Startup Runbook
-│   ├── 04_Lab_Export_and_APT_Guard_Guide.md          # Multi-folder ZIP export and kernel APT protection
-│   └── AI_Lab_Builder_Ollama_Guide.md                # Local Ollama LLM integration via Model Context Protocol
+│   └── 04_Lab_Export_and_APT_Guard_Guide.md          # Multi-folder ZIP export and kernel APT protection
 │
 └── Custom-Performance/docs/                          # Pillar 3: Ultra-KSM, Dataplane & Hypervisor
     ├── 01_System_Speed_and_Resource_Tuning.md        # Ultra-KSM, PHP OPcache & socket buffers
@@ -54,7 +54,9 @@ PNET/
 
 ### 🎨 2. Custom-Customization Subsystem (`Custom-Customization/`)
 * **[Custom-Customization Overview](../Custom-Customization/README.md)**:
-  Complete guide for theming, branding, and templates: Futuristic Cyber-Glass login interface, Pure Black OLED dark mode engine, 500+ AMD Zen & Intel CPU-tuned appliance templates, vector branding, and Windows client tools (SecureCRT, Wireshark, SSL trust).
+  Complete guide for theming, branding, templates, and local AI: Futuristic Cyber-Glass login interface, Pure Black OLED dark mode engine, 500+ AMD Zen & Intel CPU-tuned appliance templates, vector branding, Local AI Lab Builder & Ollama MCP integration, and Windows client tools (SecureCRT, Wireshark, SSL trust).
+* **[AI Lab Builder & Ollama Integration Guide](../Custom-Customization/docs/AI_Lab_Builder_Ollama_Guide.md)**:
+  Step-by-step setup to connect PNetLab with local Ollama LLMs (e.g. `qwen2.5:14b-instruct`) using Model Context Protocol (MCP) over streamable SSE transports.
 * **[Permanent Session & "Never-Logout" Guide](../Custom-Customization/docs/03_Permanent_Session_Never_Logout_Guide.md)**:
   How to configure 10-year sliding session persistence and eliminate unexpected web-UI logouts during long simulation runs.
 * **[Enterprise Operations Manual (PDF)](../Custom-Customization/docs/AzamLabs_Enterprise_Operations_Manual.pdf)**:
@@ -64,13 +66,11 @@ PNET/
 
 ### ⚡ 3. Custom-Features Subsystem (`Custom-Features/`)
 * **[Custom-Features Overview](../Custom-Features/README.md)**:
-  Full documentation for functional enhancements: Operations Center modal, Quantum docked multi-tab terminal console, line-speed syntax highlighter, local Ollama AI copilot, topology Git versioning, config diffing, ping mesh, cloud bridge, and database extensions.
+  Full documentation for functional enhancements: Operations Center modal, Quantum docked multi-tab terminal console, line-speed syntax highlighter, topology Git versioning, config diffing, ping mesh, cloud bridge, and database extensions.
 * **[Anti-Bootstorm Staggered Node Startup Guide](../Custom-Features/docs/Anti_Bootstorm_Engine_Guide.md)**:
   Three-tier automated startup orchestration (Heavy, Medium, Light) eliminating 100% vCPU lockups, disk I/O saturation, and OOM panics during mass lab boot.
 * **[Lab Export & APT Guard Guide](../Custom-Features/docs/04_Lab_Export_and_APT_Guard_Guide.md)**:
   Configures robust multi-level ZIP packaging and installs APT Guard to protect 32-bit IOL libraries and kernel modules from unwanted upstream overrides.
-* **[AI Lab Builder & Ollama Integration Guide](../Custom-Features/docs/AI_Lab_Builder_Ollama_Guide.md)**:
-  Step-by-step setup to connect PNetLab with local Ollama LLMs (e.g. `qwen2.5:14b-instruct`) using Model Context Protocol (MCP) over streamable SSE transports.
 
 ---
 

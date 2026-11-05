@@ -1,6 +1,6 @@
 # PNetLab Custom-Features Subsystem
 
-The **`Custom-Features`** pillar contains all advanced functional enhancements, automation daemons, interactive canvas tooling, and AI integration for **PNetLab v8**.
+The **`Custom-Features`** pillar contains all advanced functional enhancements, automation daemons, and interactive canvas tooling for **PNetLab v8**.
 
 ---
 
@@ -10,11 +10,8 @@ The **`Custom-Features`** pillar contains all advanced functional enhancements, 
 Custom-Features/
 ├── apply-features.sh                 # Standalone idempotent deployment hook (+x)
 ├── README.md                         # This reference manual
-├── scripts/                          # Feature automation and daemon scripts (25 tools)
+├── scripts/                          # Feature automation and daemon scripts (21 tools)
 │   ├── pnet-bootstorm.py             # Anti-Bootstorm Staggered Node Startup Engine
-│   ├── pnet-ai-copilot.py            # Local Ollama AI Lab Assistant & MCP server
-│   ├── pnet-setup-ollama.sh          # Ollama model downloader & runner
-│   ├── pnet-setup-ollama-host.ps1    # Windows host Ollama bridge
 │   ├── pnet-topology-doc.py          # Automated topology documentation generator
 │   ├── pnet-topology-git.py          # Topology Git versioning & snapshot engine
 │   ├── pnet-config-diff.py           # Device configuration backup, diff & rollback
@@ -26,7 +23,6 @@ Custom-Features/
 │   ├── pnet-scheduler.py             # Lab auto-shutdown & student quota engine
 │   ├── pnet-setup-scheduler.sh       # Systemd timer installer for scheduler
 │   ├── pnet-lab-grader.py            # Automated lab assessment & exam grading
-│   ├── pnet-eve-lab-importer.py      # EVE-NG to PNetLab lab archive converter
 │   ├── pnet-fix-export-and-apt.sh    # Multi-folder ZIP export engine
 │   ├── pnet-fix-export-sort.py       # Lab export alphabetical sorting
 │   ├── pnet-upload-and-docker-fix.sh # 512MB uploads & Docker CE engine
@@ -35,13 +31,6 @@ Custom-Features/
 │   ├── pnet-ui-enhancements.sh       # UI enhancements helper
 │   ├── pnet-prep-frr.sh / pnet-config-frr.py # FRRouting BGP/OSPF lab setup
 │   └── pnet-vpcs-mux.py              # VPCS console multiplexer
-├── mcp/                              # Model Context Protocol (MCP) AI Subsystem
-│   ├── pnet-mcp.py                   # Local MCP server bridge
-│   ├── pnet-mcp.service              # MCP server background service
-│   ├── ai_lab_agent.py               # Autonomous AI lab architect agent
-│   ├── ai_plans.py                   # Automated topology execution plans
-│   ├── ai_ledger.py                  # Token usage & interaction ledger
-│   └── ai_efficiency.py              # LLM inference metrics
 ├── web-ui/                           # Interactive Web UI Components
 │   ├── ops-center/                   # Docked Console, CLI Syntax Highlighter, Sequenced Launcher
 │   │   ├── pnet-docked-console.js    # Multi-tab embedded terminal drawer
@@ -59,7 +48,6 @@ Custom-Features/
 │   └── openbmp.yml                   # BGP Monitoring Protocol schema
 ├── docs/                             # Subsystem Documentation
 │   ├── Anti_Bootstorm_Engine_Guide.md # Anti-Bootstorm Staggered Startup Runbook
-│   ├── AI_Lab_Builder_Ollama_Guide.md # Ollama LLM integration runbook
 │   └── 04_Lab_Export_and_APT_Guard_Guide.md # Multi-folder export runbook
 └── tests/                            # Automated verification test harness
 ```
@@ -81,11 +69,9 @@ sudo bash /opt/pnet/apply-all-custom.sh
 
 ## 🛠️ Canonical CLI Commands Mapped
 - `pnet-bootstorm`: Orchestrates anti-bootstorm staggered startup across large multi-vendor labs.
-- `pnet-ai`: Launches the interactive AI copilot connected to local Ollama LLMs.
 - `pnet-cloud-bridge`: Manages WireGuard / NAT / Cloud transit bridges.
 - `pnet-config-diff`: Snapshots, compares, and rolls back multi-vendor device configurations.
 - `pnet-ping-mesh`: Executes automated full-mesh latency and packet loss matrices.
 - `pnet-scheduler`: Configures automated lab sleep schedules and student resource quotas.
 - `pnet-topology-doc`: Auto-generates Markdown / HTML network topology documentation.
 - `pnet-topology-git`: Takes Git snapshots of active topologies with visual diffing.
-- `pnet-lab-importer`: Automatically converts EVE-NG `.unl` packages into PNetLab.

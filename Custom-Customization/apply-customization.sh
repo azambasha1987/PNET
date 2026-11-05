@@ -43,16 +43,26 @@ echo -e "${CYAN}${BOLD}=========================================================
 log_info "[1/4] Registering Customization CLI Tools in /usr/local/bin/..."
 mkdir -p /usr/local/bin /opt/unetlab/scripts 2>/dev/null || true
 
-# Copy scripts to runtime location
+# Copy scripts and mcp tools to runtime location
 if [ -d "${SCRIPT_DIR}/scripts" ]; then
     cp -rf "${SCRIPT_DIR}/scripts/"* /opt/unetlab/scripts/ 2>/dev/null || true
 fi
-chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
+if [ -d "${SCRIPT_DIR}/mcp" ]; then
+    mkdir -p /opt/unetlab/scripts/mcp 2>/dev/null || true
+    cp -rf "${SCRIPT_DIR}/mcp/"* /opt/unetlab/scripts/mcp/ 2>/dev/null || true
+    ln -sf pnet-mcp.py /opt/unetlab/scripts/mcp/pnetlab-mcp.py 2>/dev/null || true
+    ln -sf pnet-mcp.py /opt/unetlab/scripts/mcp/azamlabs-mcp.py 2>/dev/null || true
+    ln -sf pnet-mcp.service /opt/unetlab/scripts/mcp/pnetlab-mcp.service 2>/dev/null || true
+    ln -sf pnet-mcp.service /opt/unetlab/scripts/mcp/azamlabs-mcp.service 2>/dev/null || true
+fi
+chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /opt/unetlab/scripts/mcp/*.py 2>/dev/null || true
 
 ln -sf /opt/unetlab/scripts/pnet-dark-theme.sh          /usr/local/bin/pnet-dark
 ln -sf /opt/unetlab/scripts/pnet-fix-web-credentials.sh /usr/local/bin/pnet-credentials
 ln -sf /opt/unetlab/scripts/pnet-ssl.sh                 /usr/local/bin/pnet-ssl
-ln -sf "${SCRIPT_DIR}/apply-customization.sh"               /usr/local/bin/pnet-apply-customization
+ln -sf /opt/unetlab/scripts/pnet-ai-copilot.py          /usr/local/bin/pnet-ai
+ln -sf /opt/unetlab/scripts/pnet-setup-ollama.sh        /usr/local/bin/pnet-ollama
+ln -sf "${SCRIPT_DIR}/apply-customization.sh"           /usr/local/bin/pnet-apply-customization
 chmod +x /usr/local/bin/pnet-* 2>/dev/null || true
 log_ok "Registered customization CLI commands."
 

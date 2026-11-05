@@ -43,22 +43,12 @@ echo -e "${CYAN}${BOLD}=========================================================
 log_info "[1/4] Registering Feature CLI Tools in /usr/local/bin/..."
 mkdir -p /usr/local/bin /opt/unetlab/scripts 2>/dev/null || true
 
-# Copy scripts and mcp tools to runtime location
+# Copy scripts to runtime location
 if [ -d "${SCRIPT_DIR}/scripts" ]; then
     cp -rf "${SCRIPT_DIR}/scripts/"* /opt/unetlab/scripts/ 2>/dev/null || true
 fi
-if [ -d "${SCRIPT_DIR}/mcp" ]; then
-    mkdir -p /opt/unetlab/scripts/mcp 2>/dev/null || true
-    cp -rf "${SCRIPT_DIR}/mcp/"* /opt/unetlab/scripts/mcp/ 2>/dev/null || true
-    ln -sf pnet-mcp.py /opt/unetlab/scripts/mcp/pnetlab-mcp.py 2>/dev/null || true
-    ln -sf pnet-mcp.py /opt/unetlab/scripts/mcp/azamlabs-mcp.py 2>/dev/null || true
-    ln -sf pnet-mcp.service /opt/unetlab/scripts/mcp/pnetlab-mcp.service 2>/dev/null || true
-    ln -sf pnet-mcp.service /opt/unetlab/scripts/mcp/azamlabs-mcp.service 2>/dev/null || true
-fi
-chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /opt/unetlab/scripts/mcp/*.py 2>/dev/null || true
+chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 
-ln -sf /opt/unetlab/scripts/pnet-ai-copilot.py          /usr/local/bin/pnet-ai
-ln -sf /opt/unetlab/scripts/pnet-setup-ollama.sh        /usr/local/bin/pnet-ollama
 ln -sf /opt/unetlab/scripts/pnet-bootstorm.py           /usr/local/bin/pnet-bootstorm
 ln -sf /opt/unetlab/scripts/pnet-config-diff.py         /usr/local/bin/pnet-config-diff
 ln -sf /opt/unetlab/scripts/pnet-ping-mesh.py           /usr/local/bin/pnet-ping-mesh
@@ -66,7 +56,6 @@ ln -sf /opt/unetlab/scripts/pnet-scheduler.py           /usr/local/bin/pnet-sche
 ln -sf /opt/unetlab/scripts/pnet-cloud-bridge.py        /usr/local/bin/pnet-cloud-bridge
 ln -sf /opt/unetlab/scripts/pnet-topology-doc.py        /usr/local/bin/pnet-topology-doc
 ln -sf /opt/unetlab/scripts/pnet-topology-git.py        /usr/local/bin/pnet-topology-git
-ln -sf /opt/unetlab/scripts/pnet-eve-lab-importer.py    /usr/local/bin/pnet-lab-importer
 ln -sf "${SCRIPT_DIR}/apply-features.sh"                 /usr/local/bin/pnet-apply-features
 chmod +x /usr/local/bin/pnet-* 2>/dev/null || true
 log_ok "Registered feature CLI commands."
