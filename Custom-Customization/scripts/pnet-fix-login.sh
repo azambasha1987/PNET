@@ -412,10 +412,66 @@ for svc in $(systemctl list-unit-files | grep -o 'php[0-9.]*-fpm\.service' || ec
     systemctl restart "$svc" 2>/dev/null || true
 done
 
+# Ensure 10-year session timeout in config.php
+CONFIG_FILE="/opt/unetlab/html/includes/config.php"
+if [ -f "$CONFIG_FILE" ]; then
+    if ! grep -q "define('SESSION', '315360000')" "$CONFIG_FILE"; then
+        sed -i "1a if (!defined('SESSION')) { define('SESSION', '315360000'); }" "$CONFIG_FILE" 2>/dev/null || true
+    fi
+else
+    cat << 'CONFIG_EOF' > "$CONFIG_FILE"
+<?php
+if (!defined('SESSION')) { define('SESSION', '315360000'); }
+if (!defined('TEMPLATE_DISABLED')) { define('TEMPLATE_DISABLED', '.hided'); }
+ini_set('session.gc_maxlifetime', 315360000);
+ini_set('session.cookie_lifetime', 315360000);
+CONFIG_EOF
+    chmod 0644 "$CONFIG_FILE" 2>/dev/null || true
+    chown www-data:www-data "$CONFIG_FILE" 2>/dev/null || true
+fi
+
 # Restart Apache2 and PNetLab Broker daemon
 systemctl daemon-reload 2>/dev/null || true
 systemctl restart apache2 2>/dev/null || true
-systemctl restart pnetlab-brokerd 2>/dev/null || systemctl start pnetlab-brokerd 2>/dev/null || true
+
+# Ensure Privilege Broker Daemon service unit exists and is active
+BROKER_SCRIPT=""
+for cand in "/opt/unetlab/scripts/pnet-brokerd.py" "$SCRIPT_DIR/pnet-brokerd.py" "/opt/PNET/scripts/pnet-brokerd.py" "/opt/pnet/scripts/pnet-brokerd.py"; do
+    if [ -f "$cand" ]; then
+        BROKER_SCRIPT="$cand"
+        break
+    fi
+done
+if [ -n "$BROKER_SCRIPT" ]; then
+    mkdir -p /opt/unetlab/scripts 2>/dev/null || true
+    [ -f /opt/unetlab/scripts/pnet-brokerd.py ] || cp -f "$BROKER_SCRIPT" /opt/unetlab/scripts/pnet-brokerd.py 2>/dev/null || true
+    chmod +x /opt/unetlab/scripts/pnet-brokerd.py 2>/dev/null || true
+    if [ ! -f /etc/systemd/system/pnetlab-brokerd.service ]; then
+        cat << 'EOF_BROKER' > /etc/systemd/system/pnetlab-brokerd.service
+[Unit]
+Description=PNetLab privilege broker (allowlisted root verbs for the engine)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/unetlab/scripts/pnet-brokerd.py
+RuntimeDirectory=azamlabs
+RuntimeDirectoryMode=0755
+User=root
+Group=root
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF_BROKER
+        chmod 0644 /etc/systemd/system/pnetlab-brokerd.service 2>/dev/null || true
+        ln -sf /etc/systemd/system/pnetlab-brokerd.service /etc/systemd/system/azamlabs-brokerd.service 2>/dev/null || true
+    fi
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable pnetlab-brokerd.service 2>/dev/null || true
+    systemctl restart pnetlab-brokerd.service 2>/dev/null || true
+fi
 log_ok "Web services and routing repaired."
 
 # 5. Execute Live Diagnostic Probes

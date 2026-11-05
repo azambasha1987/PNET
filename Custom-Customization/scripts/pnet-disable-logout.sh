@@ -87,11 +87,13 @@ UPDATE users SET
     access_days = NULL, user_status = 1;
 SQL
 
-# Apply to azamlabs_db
-mysql -u azamlabs -pazam azamlabs_db < "$SESSION_SQL" 2>/dev/null \
-    || mysql -u root -pazam azamlabs_db < "$SESSION_SQL" 2>/dev/null \
-    || mysql azamlabs_db < "$SESSION_SQL" 2>/dev/null \
-    || true
+# Apply to pnetlab_db and azamlabs_db
+for target_db in pnetlab_db azamlabs_db; do
+    mysql -u root "$target_db" < "$SESSION_SQL" 2>/dev/null \
+        || mysql "$target_db" < "$SESSION_SQL" 2>/dev/null \
+        || mysql -u azamlabs -pazam "$target_db" < "$SESSION_SQL" 2>/dev/null \
+        || true
+done
 
 rm -f "$SESSION_SQL"
 

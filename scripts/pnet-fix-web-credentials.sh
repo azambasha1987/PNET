@@ -325,6 +325,24 @@ ON DUPLICATE KEY UPDATE control_value = VALUES(control_value);
         sed -i '/Offline appliance access/d' /opt/unetlab/html/login/index.html 2>/dev/null || true
     fi
 
+    # ── Ensure 10-Year Permanent Session in config.php ────────────────────────
+    CONFIG_FILE="/opt/unetlab/html/includes/config.php"
+    if [ -f "$CONFIG_FILE" ]; then
+        if ! grep -q "define('SESSION', '315360000')" "$CONFIG_FILE"; then
+            sed -i "1a if (!defined('SESSION')) { define('SESSION', '315360000'); }" "$CONFIG_FILE" 2>/dev/null || true
+        fi
+    else
+        cat << 'CONFIG_EOF' > "$CONFIG_FILE"
+<?php
+if (!defined('SESSION')) { define('SESSION', '315360000'); }
+if (!defined('TEMPLATE_DISABLED')) { define('TEMPLATE_DISABLED', '.hided'); }
+ini_set('session.gc_maxlifetime', 315360000);
+ini_set('session.cookie_lifetime', 315360000);
+CONFIG_EOF
+        chmod 0644 "$CONFIG_FILE" 2>/dev/null || true
+        chown www-data:www-data "$CONFIG_FILE" 2>/dev/null || true
+    fi
+
     # ── PHP-FPM & Apache FastCGI Handler Enforcement ─────────────────────────
     log_info "Verifying PHP-FPM and Apache FastCGI execution pipeline..."
     PHP_VER="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "8.5")"

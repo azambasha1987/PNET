@@ -128,6 +128,9 @@ fi
 
 # 4. Session Engine & Keepalive Heartbeat
 log_info "[4/4] Deploying sliding session keepalive heartbeat engine..."
+if [ "$MODE" = "master" ] && [ -f "${SCRIPT_DIR}/scripts/pnet-disable-logout.sh" ]; then
+    bash "${SCRIPT_DIR}/scripts/pnet-disable-logout.sh" || true
+fi
 mkdir -p "${PNET_HTML}/themes/default/js" 2>/dev/null || true
 if [ -f "${SCRIPT_DIR}/session-engine/pnet-keepalive.js" ]; then
     cp -f "${SCRIPT_DIR}/session-engine/pnet-keepalive.js" "${PNET_HTML}/themes/default/js/pnet-keepalive.js"
