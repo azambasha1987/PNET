@@ -142,11 +142,11 @@ EOF_DAEMON
 fi
 chmod 0644 /etc/docker/daemon.json 2>/dev/null || true
 
-# Authoritative PNetLab iptables=false service drop-in
+# Authoritative PNetLab iptables=false service drop-in (supports socket activation and direct launch)
 cat << 'EOF_SVC' > /etc/systemd/system/docker.service.d/service.conf
 [Service]
 ExecStart=
-ExecStart=/usr/bin/dockerd --iptables=false
+ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock --iptables=false
 EOF_SVC
 
 # Authoritative pnetlab-fwd reconciliation hook (with - prefix so error never halts docker)
@@ -366,21 +366,43 @@ systemctl daemon-reload
 systemctl unmask docker.socket docker.service containerd.service guacd.service 2>/dev/null || true
 systemctl unmask pnet-console-mux.service pnet-guac-lite.service pnet-shell-bridge.service pnet-http-bridge.service pnetlab-brokerd.service pnetlab-labstated.service 2>/dev/null || true
 
-# 1. Containerd & Docker
+# 1. Containerd & Docker Runtime
 systemctl enable --now containerd 2>/dev/null || true
 systemctl restart containerd 2>/dev/null || true
-systemctl enable --now docker 2>/dev/null || true
-systemctl restart docker 2>/dev/null || true
+systemctl enable --now docker.socket 2>/dev/null || true
+systemctl restart docker.socket 2>/dev/null || true
+systemctl enable --now docker.service 2>/dev/null || true
+systemctl restart docker.service 2>/dev/null || true
+
+# Active wait loop for Docker to transition to active (dockerd initializing overlay2 and plugins)
+log_info "Waiting for Docker daemon to transition from activating to active..."
+DOCKER_READY=false
+for i in {1..30}; do
+    D_STATE="$(systemctl is-active docker 2>/dev/null || true)"
+    if [ "$D_STATE" = "active" ]; then
+        if docker version >/dev/null 2>&1; then
+            DOCKER_READY=true
+            log_ok "Docker daemon is active and responsive (took ${i}s)."
+            break
+        fi
+    fi
+    sleep 1
+done
+
+if [ "$DOCKER_READY" = false ]; then
+    log_warn "Docker state is '$D_STATE'. Attempting recovery restart..."
+    # If socket activation conflict, try starting without socket override
+    systemctl reset-failed docker 2>/dev/null || true
+    systemctl restart containerd 2>/dev/null || true
+    systemctl restart docker 2>/dev/null || true
+    sleep 3
+fi
 
 # 2. Guacd
 systemctl enable --now guacd 2>/dev/null || true
 systemctl restart guacd 2>/dev/null || true
 
-# 3. Privilege Broker Daemon
-systemctl enable --now pnetlab-brokerd 2>/dev/null || true
-systemctl restart pnetlab-brokerd 2>/dev/null || true
-
-# 4. Web Console Bridges
+# 3. Web Console Bridges
 systemctl enable --now pnet-console-mux.service 2>/dev/null || true
 systemctl restart pnet-console-mux.service 2>/dev/null || true
 
@@ -396,13 +418,18 @@ systemctl restart pnet-http-bridge.service 2>/dev/null || true
 systemctl enable --now pnetlab-labstated.service 2>/dev/null || true
 systemctl restart pnetlab-labstated.service 2>/dev/null || true
 
+# 4. Privilege Broker Daemon (restarted after Docker is up so it links to /var/run/docker.sock)
+systemctl enable --now pnetlab-brokerd 2>/dev/null || true
+systemctl restart pnetlab-brokerd 2>/dev/null || true
+sleep 1
+
 log_ok "Platform daemons enabled and started."
 
 # ------------------------------------------------------------------------------
 # 8. HTML5 Packet Capture Container Image Preload
 # ------------------------------------------------------------------------------
 log_info "[8/9] Ensuring HTML5 packet capture container image is loaded..."
-if command -v docker >/dev/null 2>&1 && systemctl is-active docker >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1 && [ "$(systemctl is-active docker 2>/dev/null)" = "active" ]; then
     if ! docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -q '^pnet-capture-web:'; then
         # Check if an existing image can be tagged
         FIRST_IMG=$(docker images -q 2>/dev/null | head -n 1)
@@ -413,12 +440,13 @@ if command -v docker >/dev/null 2>&1 && systemctl is-active docker >/dev/null 2>
             echo -e "FROM scratch\nLABEL maintainer=pnetlab" | docker build -t pnet-capture-web:1.0 - 2>/dev/null || \
             docker import - pnet-capture-web:1.0 <<< "pnet-capture-web" 2>/dev/null || true
         fi
+        docker tag pnet-capture-web:1.0 azam-capture-web:1.0 2>/dev/null || true
         # Background pull official image if internet is available
         ( docker pull rspnet/pnet-capture-web:latest 2>/dev/null && docker tag rspnet/pnet-capture-web:latest pnet-capture-web:1.0 2>/dev/null ) &
     fi
     log_ok "HTML5 capture image (pnet-capture-web:1.0) verified."
 else
-    log_warn "Docker service not fully responsive yet; capture preload deferred."
+    log_warn "Docker service not fully active; capture preload deferred."
 fi
 
 # ------------------------------------------------------------------------------
