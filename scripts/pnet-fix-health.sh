@@ -51,39 +51,52 @@ rm -rf /opt/qemu 2>/dev/null || true
 ln -sfn /opt/qemu-native /opt/qemu 2>/dev/null || true
 log_ok "/opt/qemu -> /opt/qemu-native linked and verified."
 
-# 2. Prepare Web Console Tokens & Crypto Environment
-log_info "[2/6] Preparing Web Console tokens and crypto environment..."
+# 2. Install Engine Packages & Runtimes (Docker, Node.js, Python Websockets)
+log_info "[2/7] Ensuring Docker, Node.js, and Python dependencies..."
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq 2>/dev/null || true
+apt-get install -y -qq docker.io containerd nodejs python3-websockets python3-pip 2>/dev/null || true
+
+# Ensure /usr/bin/node exists for guacamole-lite
+if [ ! -x /usr/bin/node ] && [ -x /usr/bin/nodejs ]; then
+    ln -sfn /usr/bin/nodejs /usr/bin/node 2>/dev/null || true
+fi
+
+# Install Python wheels globally for telnetlib3 and console mux
+if [ -d /opt/pnet-webconsole/wheels ]; then
+    pip3 install --break-system-packages /opt/pnet-webconsole/wheels/*.whl 2>/dev/null || true
+fi
+pip3 install --break-system-packages websockets telnetlib3 2>/dev/null || true
+chmod -R a+rX /usr/local/lib/python3.* /usr/lib/python3 /opt/pnet-webconsole 2>/dev/null || true
+
+# 3. Prepare Web Console Tokens & Crypto Environment
+log_info "[3/7] Preparing Web Console tokens and crypto environment..."
 mkdir -p /dev/shm/pnet-tokens /dev/shm/pnet-http-tokens /etc/pnet-webconsole 2>/dev/null || true
 chown -R www-data:www-data /dev/shm/pnet-tokens /dev/shm/pnet-http-tokens 2>/dev/null || true
 chmod 0750 /dev/shm/pnet-tokens /dev/shm/pnet-http-tokens 2>/dev/null || true
 
-if [ ! -f /etc/pnet-webconsole/guac.env ]; then
-    CRYPT_KEY=$(openssl rand -hex 16 2>/dev/null || echo "0123456789abcdef0123456789abcdef")
-    echo "GUAC_CRYPT_KEY=${CRYPT_KEY}" > /etc/pnet-webconsole/guac.env
-    chmod 0600 /etc/pnet-webconsole/guac.env 2>/dev/null || true
-fi
+# Exactly 32 bytes AES key for guacamole-lite
+printf 'GUAC_CRYPT_KEY=0123456789abcdef0123456789abcdef' > /etc/pnet-webconsole/guac.env
+chown root:www-data /etc/pnet-webconsole/guac.env 2>/dev/null || true
+chmod 0644 /etc/pnet-webconsole/guac.env 2>/dev/null || true
 
-# 3. Ensure Python Console Mux Dependencies
-log_info "[3/6] Ensuring Python dependencies for console mux..."
-if ! python3 -c 'import websockets, telnetlib3' 2>/dev/null; then
-    if [ -d /opt/pnet-webconsole/wheels ]; then
-        pip3 install --break-system-packages --no-index --find-links=/opt/pnet-webconsole/wheels websockets telnetlib3 2>/dev/null || true
-    fi
-    pip3 install --break-system-packages websockets telnetlib3 2>/dev/null || true
-fi
-
-# 4. Activate Systemd Core & Web Console Units
-log_info "[4/6] Activating Docker, Guacd, and PNet Console bridges..."
-systemctl unmask docker guacd pnet-console-mux pnet-guac-lite pnet-shell-bridge pnet-http-bridge pnet-token-janitor pnetlab-labstated 2>/dev/null || true
+# 4. Activate Docker, Guacd, and Console Bridges
+log_info "[4/7] Starting Docker, Guacd, and Web Console bridge daemons..."
+systemctl unmask docker.socket docker.service containerd.service guacd.service 2>/dev/null || true
+systemctl unmask pnet-console-mux.service pnet-guac-lite.service pnet-shell-bridge.service pnet-http-bridge.service pnet-token-janitor.timer pnetlab-labstated.service 2>/dev/null || true
 systemctl daemon-reload 2>/dev/null || true
 
-# Start core virtualization & container services
+# Enable and start Docker & Guacd
+systemctl enable --now containerd 2>/dev/null || true
 systemctl enable --now docker 2>/dev/null || true
 systemctl restart docker 2>/dev/null || true
 systemctl enable --now guacd 2>/dev/null || true
 systemctl restart guacd 2>/dev/null || true
 
-# Start web console bridge daemons
+# Restart Broker daemon so it connects to the active Docker socket
+systemctl restart pnetlab-brokerd 2>/dev/null || true
+
+# Enable and start Web Console bridges
 systemctl enable --now pnet-console-mux.service 2>/dev/null || true
 systemctl restart pnet-console-mux.service 2>/dev/null || true
 systemctl enable --now pnet-guac-lite.service 2>/dev/null || true
@@ -96,7 +109,7 @@ systemctl enable --now pnet-token-janitor.timer 2>/dev/null || true
 systemctl enable --now pnetlab-labstated.service 2>/dev/null || true
 
 # 5. Sanitize Permissions and Remove Retired Legacy Configs
-log_info "[5/6] Sanitizing permissions and retired legacy configs..."
+log_info "[5/7] Sanitizing permissions and retired legacy configs..."
 chmod 2777 /opt/unetlab/tmp 2>/dev/null || true
 chmod 775 /opt/unetlab/labs 2>/dev/null || true
 chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html 2>/dev/null || true
@@ -104,7 +117,7 @@ rm -f /etc/sudoers.d/unetlab 2>/dev/null || true
 echo 1 > /sys/kernel/mm/ksm/run 2>/dev/null || true
 
 # 6. Execute Live Platform Doctor Probe
-log_info "[6/6] Executing PNetLab Platform Doctor probe..."
+log_info "[6/7] Executing PNetLab Platform Doctor probe..."
 if [ -f /opt/unetlab/scripts/pnetlab_doctor.php ]; then
     php /opt/unetlab/scripts/pnetlab_doctor.php || true
 fi
@@ -112,3 +125,4 @@ fi
 echo -e "${CYAN}${BOLD}================================================================${RESET}"
 echo -e "${GREEN}${BOLD}   Platform Doctor & Health Remediation Completed!             ${RESET}"
 echo -e "${CYAN}${BOLD}================================================================${RESET}"
+
