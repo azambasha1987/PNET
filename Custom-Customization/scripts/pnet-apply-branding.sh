@@ -30,7 +30,7 @@ elif [ -f "/opt/unetlab/scripts/pnet-sync-gui-version.sh" ]; then
     bash "/opt/unetlab/scripts/pnet-sync-gui-version.sh" auto || true
 fi
 
-# 2. Deploy Modernized Login Page & Default Credentials Notice (admin / azam)
+# 2. Deploy Modernized Login Page & Default Credentials Notice (admin / pnet)
 LOGIN_SRC="${PARENT_DIR}/login-portal"
 [ ! -d "$LOGIN_SRC" ] && LOGIN_SRC="${PARENT_DIR}/login"
 if [ -d "$LOGIN_SRC" ]; then
@@ -96,25 +96,32 @@ if [ -d "$LOGIN_SRC" ]; then
         echo "  [!] Avatar source not found at $AVATAR_SRC — skipping universal logo deploy"
     fi
 elif [ -f /opt/unetlab/html/login/index.html ]; then
-    sed -i -E 's/admin<\/strong> \/ <strong>[a-zA-Z0-9]+/admin<\/strong> \/ <strong>azam/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
+    sed -i -E 's/admin<\/strong> \/ <strong>[a-zA-Z0-9]+/admin<\/strong> \/ <strong>pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
     sed -i '/Offline appliance access/d' /opt/unetlab/html/login/index.html 2>/dev/null || true
-    echo "  [✔] Login page default credentials set to admin / azam (footnote removed)"
+    echo "  [✔] Login page default credentials set to admin / pnet (footnote removed)"
 fi
 
-# 3. Update Database Admin Password to 'azam' and Synchronize Version
-AZAM_HASH="aec7a491c6e8d1433b213e694f086222fe6fde75a17c379b7fc22472539ff8e1"
-SQL_UPDATE="UPDATE users SET password = '${AZAM_HASH}' WHERE username = 'admin';"
-mysql -u azamlabs -pazam azamlabs_db -e "$SQL_UPDATE" 2>/dev/null || mysql azamlabs_db -e "$SQL_UPDATE" 2>/dev/null || true
-if [ -f "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" ]; then
+# 3. Update Database Admin Password to 'pnet' and Synchronize Version
+PNET_HASH="fcfcbba4e322bb69d53fe0f8a2b03d7f3c37ee3fb3d51864785c899aaeaaeb5d"
+SQL_UPDATE="UPDATE users SET password = '${PNET_HASH}' WHERE username = 'admin';"
+for db_target in pnetlab_db azamlabs_db; do
+    mysql -u root -ppnetlab "$db_target" -e "$SQL_UPDATE" 2>/dev/null \
+        || mysql -u root "$db_target" -e "$SQL_UPDATE" 2>/dev/null \
+        || mysql -u azamlabs -pazam "$db_target" -e "$SQL_UPDATE" 2>/dev/null \
+        || mysql "$db_target" -e "$SQL_UPDATE" 2>/dev/null || true
+done
+if [ -f "${SCRIPT_DIR}/pnet-sync-gui-version.sh" ]; then
+    bash "${SCRIPT_DIR}/pnet-sync-gui-version.sh" auto 2>/dev/null || true
+elif [ -f "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" ]; then
     bash "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" auto 2>/dev/null || true
 fi
-echo "  [✔] Database Web Admin password updated to 'azam' (SHA-256)"
+echo "  [✔] Database Web Admin password updated to 'pnet' (SHA-256)"
 echo "  [✔] Database control version synchronized to latest release"
 
-# 4. Update Linux System Passwords (root & pnet to 'azam')
-echo "root:azam" | chpasswd 2>/dev/null || true
-id -u pnet >/dev/null 2>&1 && echo "pnet:azam" | chpasswd 2>/dev/null || true
-echo "  [✔] System SSH root/pnet password updated to 'azam'"
+# 4. Update Linux System Passwords (root & pnet to 'pnet')
+echo "root:pnet" | chpasswd 2>/dev/null || true
+id -u pnet >/dev/null 2>&1 && echo "pnet:pnet" | chpasswd 2>/dev/null || true
+echo "  [✔] System SSH root/pnet password updated to 'pnet'"
 
 # 5. Clear any lingering login rate-limit / lockout tokens
 rm -rf /dev/shm/azamlabs-authfail* /tmp/azamlabs-authfail* 2>/dev/null || true

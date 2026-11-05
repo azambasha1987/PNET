@@ -104,7 +104,7 @@ echo "22) High-Density Heavy Node Optimizer (Cat8000, Cisco 8000, Cat9000)"
 echo "23) Soft-RoCE (RXE) & RDMA Dataplane Controller"
 echo "24) Run 3-Month Quarterly Intelligence Audit & Governance Check (azam-audit)"
 echo "25) Apply Full SATELLITE Worker Node Optimization Suite"
-echo "26) Reset Web-GUI & Cluster Database Credentials (admin / azam)"
+echo "26) Reset Web-GUI & Cluster Database Credentials (admin / pnet)"
 echo "27) Synchronize Web-GUI Version to Latest Release (v6.8.90)"
 echo "28) Deploy & Manage Safe APT Guard (Block upgrade & autoremove)"
 echo "29) Exit"
@@ -375,7 +375,7 @@ case "$CHOICE" in
             bash "${SCRIPT_DIR}/pnet-fix-permissions.sh" --check || true
         fi
         echo ""
-        echo "--> [22/22] Resetting Web-GUI & Cluster Database Credentials (admin / azam)..."
+        echo "--> [22/22] Resetting Web-GUI & Cluster Database Credentials (admin / pnet)..."
         if [ -f "${SCRIPT_DIR}/pnet-fix-web-credentials.sh" ]; then
             bash "${SCRIPT_DIR}/pnet-fix-web-credentials.sh" || true
         fi

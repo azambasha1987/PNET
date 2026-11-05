@@ -235,7 +235,7 @@ INSERT INTO users (
     user_status, active_time, expired_time, access_days,
     offline, ext_auth, session, folder, ip
 ) VALUES (
-    0, 'admin', 'root@localhost', 'Administrator', SHA2('azam', 256), '0',
+    0, 'admin', 'root@localhost', 'Administrator', SHA2('pnet', 256), '0',
     1, 0, 0, NULL,
     1, NULL, UNIX_TIMESTAMP() + 315360000, '/', '127.0.0.1'
 );
@@ -253,7 +253,7 @@ rm -f "$ADMIN_SEED_SQL"
 
 # Clear any login brute-force lockouts
 rm -rf /dev/shm/*authfail* /tmp/*authfail* 2>/dev/null || true
-echo "  -> Database authentication verified: admin / azam (Offline Mode Active)"
+echo "  -> Database authentication verified: admin / pnet (Offline Mode Active)"
 
 echo ""
 echo "============================================================"

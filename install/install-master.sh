@@ -125,6 +125,13 @@ elif [ -f "/opt/unetlab/scripts/pnet-fix-apache-web.sh" ]; then
     bash "/opt/unetlab/scripts/pnet-fix-apache-web.sh" || true
 fi
 
+# Authoritatively enforce default Web-UI and database credentials (admin / pnet)
+if [ -f "$REPO_ROOT/Custom-Customization/scripts/pnet-fix-web-credentials.sh" ]; then
+    bash "$REPO_ROOT/Custom-Customization/scripts/pnet-fix-web-credentials.sh" --silent || true
+elif [ -f "/opt/unetlab/scripts/pnet-fix-web-credentials.sh" ]; then
+    bash "/opt/unetlab/scripts/pnet-fix-web-credentials.sh" --silent || true
+fi
+
 if [ -d /opt/unetlab/wrappers ]; then
     chmod -R 755 /opt/unetlab/wrappers || true
 fi

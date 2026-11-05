@@ -498,18 +498,23 @@ EOF_OVERRIDE
     done
     systemctl reload apache2 2>/dev/null || systemctl restart apache2 2>/dev/null || true
 
-    # 4. Synchronize database admin password to azam
+    # 4. Synchronize database admin password to upstream default: pnet
     if command -v mysql >/dev/null 2>&1 || command -v mariadb >/dev/null 2>&1; then
         for cand in \
             "mysql --defaults-file=/etc/mysql/debian.cnf" \
+            "mysql -u root -ppnetlab" \
             "mysql -u root" \
             "mysql -S /var/run/mysqld/mysqld.sock -u root" \
             "mysql -S /run/mysqld/mysqld.sock -u root" \
+            "mysql -u pnetlab -ppnetlab" \
             "mysql -u azamlabs -pazam" \
+            "mysql pnetlab_db" \
             "mysql azamlabs_db" \
             "mariadb -u root"; do
             if $cand -N -e "SELECT 1;" >/dev/null 2>&1; then
-                $cand azamlabs_db -e "UPDATE users SET password = SHA2('azam', 256), user_status = 1, offline = 1, session = UNIX_TIMESTAMP() + 315360000 WHERE username = 'admin';" 2>/dev/null || true
+                for tdb in pnetlab_db azamlabs_db; do
+                    $cand "$tdb" -e "UPDATE users SET password = SHA2('pnet', 256), user_status = 1, offline = 1, session = UNIX_TIMESTAMP() + 315360000 WHERE username = 'admin';" 2>/dev/null || true
+                done
                 break
             fi
         done
@@ -553,13 +558,13 @@ EOF_OVERRIDE
     fi
 
     if [ "$code" != "200" ]; then
-        code=$(curl -sk -c "$cookie_jar" -o /dev/null -w "%{http_code}" -X POST https://127.0.0.1/api/auth -H "Content-Type: application/json" -d '{"username":"admin","password":"azam"}' 2>/dev/null || echo "000")
+        code=$(curl -sk -c "$cookie_jar" -o /dev/null -w "%{http_code}" -X POST https://127.0.0.1/api/auth -H "Content-Type: application/json" -d '{"username":"admin","password":"pnet"}' 2>/dev/null || echo "000")
         if [ "$code" = "200" ]; then
-            log_ok "Web-GUI Admin Authentication: ${BOLD}VERIFIED ACTIVE (admin / azam - HTTP 200)${RESET}"
+            log_ok "Web-GUI Admin Authentication: ${BOLD}VERIFIED ACTIVE (admin / pnet - HTTP 200)${RESET}"
         else
             log_warn "Web-GUI auth probe returned HTTP $code; triggering deep-credentials fix..."
             bash "${SCRIPT_DIR}/pnet-fix-web-credentials.sh" --silent 2>/dev/null || true
-            code=$(curl -sk -c "$cookie_jar" -o /dev/null -w "%{http_code}" -X POST https://127.0.0.1/api/auth -H "Content-Type: application/json" -d '{"username":"admin","password":"azam"}' 2>/dev/null || echo "000")
+            code=$(curl -sk -c "$cookie_jar" -o /dev/null -w "%{http_code}" -X POST https://127.0.0.1/api/auth -H "Content-Type: application/json" -d '{"username":"admin","password":"pnet"}' 2>/dev/null || echo "000")
             if [ "$code" = "200" ]; then
                 log_ok "Web-GUI Admin Authentication: ${BOLD}REMEDIATED & VERIFIED ACTIVE (HTTP 200)${RESET}"
             fi

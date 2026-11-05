@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Azam Basha — Web-GUI & Database Credential Synchronization Engine
-# Authoritative Reset for Admin User (admin / azam) & Cluster DB Access
+# Authoritative Reset for Admin User (admin / pnet) & Cluster DB Access
 #
 # Supports:
 #   1. Master Node: Resets Web-GUI admin credentials, clears rate-limits, grants remote DB access.
@@ -121,9 +121,10 @@ if [ "$IS_SATELLITE" -eq 0 ]; then
     CANDIDATES=(
         "mysql"
         "mysql -u root"
-        "mysql -u root -pazam"
-        "mysql -u root -pazam"
+        "mysql -u root -ppnetlab"
         "mysql -u root -ppnet"
+        "mysql -u pnetlab -ppnetlab"
+        "mysql -u root -pazam"
         "mysql -u root -proot"
         "mysql -u root --password="
         "mysql -u azamlabs -pazam"
@@ -131,6 +132,7 @@ if [ "$IS_SATELLITE" -eq 0 ]; then
         "mysql --defaults-extra-file=/root/.my.cnf"
         "mysql -S /var/run/mysqld/mysqld.sock -u root"
         "mysql -S /run/mysqld/mysqld.sock -u root"
+        "mysql -h 127.0.0.1 -u root -ppnetlab"
         "mysql -h 127.0.0.1 -u root -pazam"
         "mysql -h 127.0.0.1 -u azamlabs -pazam"
         "mariadb -u root"
@@ -165,44 +167,74 @@ if [ "$IS_SATELLITE" -eq 0 ]; then
     log_ok "Database connected successfully using: $MYSQL_CMD"
 
     # Ensure databases exist
+    $MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS pnetlab_db CHARACTER SET utf8 COLLATE utf8_general_ci;" || true
     $MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS azamlabs_db CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" || true
-    $MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS guacdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" || true
+    $MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS guacdb CHARACTER SET utf8 COLLATE utf8_general_ci;" || true
 
-    # Check if azamlabs_db tables exist; import schema if missing
-    TBL_COUNT=$($MYSQL_CMD -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='azamlabs_db';" 2>/dev/null || echo "0")
-    if [ "${TBL_COUNT:-0}" -eq 0 ]; then
-        log_info "azamlabs_db is empty; searching for schema files to import..."
-        SCHEMA_IMPORTED=0
-        for sf in \
-            "${SCRIPT_DIR}/../../Custom-Features/schema/pnet_features_db.sql" \
-            "${SCRIPT_DIR}/../schema/pnet_features_db.sql" \
-            "/opt/pnet/Custom-Features/schema/pnet_features_db.sql" \
-            "${SCRIPT_DIR}/../schema/azamlabs_db.sql" \
-            "${SCRIPT_DIR}/schema/azamlabs_db.sql" \
-            "/opt/azambasha/schema/azamlabs_db.sql" \
-            "/opt/unetlab/schema/azamlabs_db.sql" \
-            "/opt/unetlab/schema/pnet_features_db.sql"; do
-            if [ -f "$sf" ]; then
-                log_info "Importing azamlabs_db schema from: $sf"
-                $MYSQL_CMD azamlabs_db < "$sf" 2>/dev/null && SCHEMA_IMPORTED=1 && break || true
-            fi
-        done
-        if [ "$SCHEMA_IMPORTED" -eq 1 ]; then
-            log_ok "azamlabs_db schema successfully imported."
-        else
-            log_warn "Schema file not found on disk; creating essential core tables dynamically..."
-        fi
+    # Safe user grants for upstream pnetlab and custom tooling
+    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'pnetlab'@'localhost' IDENTIFIED BY 'pnetlab';" 2>/dev/null || true
+    $MYSQL_CMD -e "ALTER USER 'pnetlab'@'localhost' IDENTIFIED BY 'pnetlab';" 2>/dev/null || true
+    $MYSQL_CMD -e "GRANT ALL PRIVILEGES ON pnetlab_db.* TO 'pnetlab'@'localhost';" 2>/dev/null || true
+
+    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'guacuser'@'localhost' IDENTIFIED BY 'pnetlab';" 2>/dev/null || true
+    $MYSQL_CMD -e "ALTER USER 'guacuser'@'localhost' IDENTIFIED BY 'pnetlab';" 2>/dev/null || true
+    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'guacuser'@'127.0.0.1' IDENTIFIED BY 'pnetlab';" 2>/dev/null || true
+    $MYSQL_CMD -e "ALTER USER 'guacuser'@'127.0.0.1' IDENTIFIED BY 'pnetlab';" 2>/dev/null || true
+    $MYSQL_CMD -e "GRANT ALL PRIVILEGES ON guacdb.* TO 'guacuser'@'localhost', 'guacuser'@'127.0.0.1';" 2>/dev/null || true
+
+    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'azamlabs'@'localhost' IDENTIFIED BY 'azam';" 2>/dev/null || true
+    $MYSQL_CMD -e "ALTER USER 'azamlabs'@'localhost' IDENTIFIED BY 'azam';" 2>/dev/null || true
+    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'azamlabs'@'127.0.0.1' IDENTIFIED BY 'azam';" 2>/dev/null || true
+    $MYSQL_CMD -e "ALTER USER 'azamlabs'@'127.0.0.1' IDENTIFIED BY 'azam';" 2>/dev/null || true
+    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'azamlabs'@'%' IDENTIFIED BY 'azam';" 2>/dev/null || true
+    $MYSQL_CMD -e "ALTER USER 'azamlabs'@'%' IDENTIFIED BY 'azam';" 2>/dev/null || true
+    $MYSQL_CMD -e "GRANT ALL PRIVILEGES ON pnetlab_db.* TO 'azamlabs'@'localhost', 'azamlabs'@'127.0.0.1', 'azamlabs'@'%';" 2>/dev/null || true
+    $MYSQL_CMD -e "GRANT ALL PRIVILEGES ON azamlabs_db.* TO 'azamlabs'@'localhost', 'azamlabs'@'127.0.0.1', 'azamlabs'@'%';" 2>/dev/null || true
+    $MYSQL_CMD -e "FLUSH PRIVILEGES;" 2>/dev/null || true
+
+    # Guarantee /root/.my.cnf exists for future CLI operations
+    if ! [ -f /root/.my.cnf ]; then
+        printf '[client]\nuser=root\npassword=pnetlab\n' >/root/.my.cnf 2>/dev/null || true
+        chmod 0600 /root/.my.cnf 2>/dev/null || true
     fi
 
-    # Ensure essential tables always exist with correct column definitions
-    $MYSQL_CMD -e "
-CREATE TABLE IF NOT EXISTS azamlabs_db.control (
+    # Authoritatively Update Admin User Credentials across pnetlab_db and azamlabs_db
+    # Upstream PNetLab default credentials: admin / pnet
+    # SHA-256 for 'pnet': fcfcbba4e322bb69d53fe0f8a2b03d7f3c37ee3fb3d51864785c899aaeaaeb5d
+    for target_db in pnetlab_db azamlabs_db; do
+        TBL_COUNT=$($MYSQL_CMD -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${target_db}';" 2>/dev/null || echo "0")
+        if [ "${TBL_COUNT:-0}" -eq 0 ]; then
+            log_info "${target_db} is empty; searching for schema files to import..."
+            SCHEMA_IMPORTED=0
+            for sf in \
+                "/opt/unetlab/schema/pnetlab_db-schema.sql" \
+                "/opt/unetlab/schema/pnetlab_db.sql" \
+                "${SCRIPT_DIR}/../../Custom-Features/schema/pnet_features_db.sql" \
+                "${SCRIPT_DIR}/../schema/pnet_features_db.sql" \
+                "/opt/pnet/Custom-Features/schema/pnet_features_db.sql" \
+                "${SCRIPT_DIR}/schema/azamlabs_db.sql" \
+                "/opt/unetlab/schema/pnet_features_db.sql"; do
+                if [ -f "$sf" ]; then
+                    log_info "Importing ${target_db} schema from: $sf"
+                    $MYSQL_CMD "${target_db}" < "$sf" 2>/dev/null && SCHEMA_IMPORTED=1 && break || true
+                fi
+            done
+            if [ "$SCHEMA_IMPORTED" -eq 1 ]; then
+                log_ok "${target_db} schema successfully imported."
+            else
+                log_warn "Schema file not found on disk for ${target_db}; creating essential core tables dynamically..."
+            fi
+        fi
+
+        # Ensure essential tables always exist with correct column definitions
+        $MYSQL_CMD -e "
+CREATE TABLE IF NOT EXISTS ${target_db}.control (
   control_name varchar(150) NOT NULL,
   control_value text,
   PRIMARY KEY (control_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS azamlabs_db.users (
+CREATE TABLE IF NOT EXISTS ${target_db}.users (
   pod int NOT NULL AUTO_INCREMENT,
   username text,
   cookie text,
@@ -235,36 +267,11 @@ CREATE TABLE IF NOT EXISTS azamlabs_db.users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 " 2>/dev/null || true
 
-    # Safe user grants
-    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'azamlabs'@'localhost' IDENTIFIED BY 'azam';" 2>/dev/null || true
-    $MYSQL_CMD -e "ALTER USER 'azamlabs'@'localhost' IDENTIFIED BY 'azam';" 2>/dev/null || true
-    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'azamlabs'@'127.0.0.1' IDENTIFIED BY 'azam';" 2>/dev/null || true
-    $MYSQL_CMD -e "ALTER USER 'azamlabs'@'127.0.0.1' IDENTIFIED BY 'azam';" 2>/dev/null || true
-    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'azamlabs'@'%' IDENTIFIED BY 'azam';" 2>/dev/null || true
-    $MYSQL_CMD -e "ALTER USER 'azamlabs'@'%' IDENTIFIED BY 'azam';" 2>/dev/null || true
-
-    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'guacuser'@'localhost' IDENTIFIED BY 'azam';" 2>/dev/null || true
-    $MYSQL_CMD -e "ALTER USER 'guacuser'@'localhost' IDENTIFIED BY 'azam';" 2>/dev/null || true
-    $MYSQL_CMD -e "CREATE USER IF NOT EXISTS 'guacuser'@'127.0.0.1' IDENTIFIED BY 'azam';" 2>/dev/null || true
-    $MYSQL_CMD -e "ALTER USER 'guacuser'@'127.0.0.1' IDENTIFIED BY 'azam';" 2>/dev/null || true
-
-    $MYSQL_CMD -e "GRANT ALL PRIVILEGES ON azamlabs_db.* TO 'azamlabs'@'localhost', 'azamlabs'@'127.0.0.1', 'azamlabs'@'%';" 2>/dev/null || true
-    $MYSQL_CMD -e "GRANT ALL PRIVILEGES ON guacdb.* TO 'guacuser'@'localhost', 'guacuser'@'127.0.0.1';" 2>/dev/null || true
-    $MYSQL_CMD -e "FLUSH PRIVILEGES;" 2>/dev/null || true
-
-    # Guarantee /root/.my.cnf exists with detected credentials for future tools
-    if ! [ -f /root/.my.cnf ]; then
-        printf '[client]\nuser=root\npassword=azamlabs\n' >/root/.my.cnf 2>/dev/null || true
-        chmod 0600 /root/.my.cnf 2>/dev/null || true
-    fi
-
-    # Authoritatively Update Admin User Credentials
-    # SHA-256 for 'azam': b8a4f0b3e54b6732efca2a73373ad1f3493e98ebf95efee7ecaf3cbfebe1d12d
-    $MYSQL_CMD -e "
-USE azamlabs_db;
+        $MYSQL_CMD -e "
+USE ${target_db};
 
 UPDATE users SET 
-  password = SHA2('azam', 256),
+  password = SHA2('pnet', 256),
   role = '0',
   user_status = 1,
   offline = 1,
@@ -277,27 +284,26 @@ UPDATE users SET
 WHERE username = 'admin';
 " 2>/dev/null || true
 
-    # If admin row does not exist, insert it cleanly
-    ADMIN_COUNT=$($MYSQL_CMD -N -e "USE azamlabs_db; SELECT COUNT(*) FROM users WHERE username = 'admin';" 2>/dev/null || echo "0")
-    if [ "${ADMIN_COUNT:-0}" -eq 0 ]; then
-        log_info "Admin record not found, inserting authoritative admin row..."
-        $MYSQL_CMD -e "
-USE azamlabs_db;
+        ADMIN_COUNT=$($MYSQL_CMD -N -e "USE ${target_db}; SELECT COUNT(*) FROM users WHERE username = 'admin';" 2>/dev/null || echo "0")
+        if [ "${ADMIN_COUNT:-0}" -eq 0 ]; then
+            log_info "Admin record not found in ${target_db}, inserting authoritative admin row (admin / pnet)..."
+            $MYSQL_CMD -e "
+USE ${target_db};
 INSERT INTO users (
   pod, username, email, name, password, role,
   user_status, active_time, expired_time, access_days,
   offline, ext_auth, session, folder, ip
 ) VALUES (
-  0, 'admin', 'root@localhost', 'Administrator', SHA2('azam', 256), '0',
+  0, 'admin', 'root@localhost', 'Administrator', SHA2('pnet', 256), '0',
   1, NULL, NULL, NULL,
   1, NULL, UNIX_TIMESTAMP() + 315360000, '/', '127.0.0.1'
 );
 " 2>/dev/null || true
-    fi
+        fi
 
-    # Guarantee offline control mode settings
-    $MYSQL_CMD -e "
-USE azamlabs_db;
+        # Guarantee control settings (captcha=0 is critical to avoid login blockage)
+        $MYSQL_CMD -e "
+USE ${target_db};
 INSERT INTO control (control_name, control_value) VALUES
   ('ctrl_offline_mode', '1'),
   ('ctrl_online_mode', '0'),
@@ -306,6 +312,7 @@ INSERT INTO control (control_name, control_value) VALUES
   ('ctrl_version', '8.2.0')
 ON DUPLICATE KEY UPDATE control_value = VALUES(control_value);
 " 2>/dev/null || true
+    done
 
     # ── PHP-FPM & Apache FastCGI Handler Enforcement ─────────────────────────
     log_info "Verifying PHP-FPM and Apache FastCGI execution pipeline..."
@@ -373,9 +380,10 @@ EOF_OVERRIDE
     systemctl daemon-reload 2>/dev/null || true
     systemctl reset-failed 2>/dev/null || true
 
-    # Ensure root password is set to azam
-    echo "root:azam" | chpasswd 2>/dev/null || true
-    log_ok "Satellite root credentials confirmed: root / azam"
+    # Ensure root and pnet user passwords are set to upstream default: pnet
+    echo "root:pnet" | chpasswd 2>/dev/null || true
+    id -u pnet >/dev/null 2>&1 && echo "pnet:pnet" | chpasswd 2>/dev/null || true
+    log_ok "Satellite root credentials confirmed: root / pnet"
 
     # Verify cluster-db.conf if joined
     if [ -f /etc/azamlabs/cluster-db.conf ]; then
@@ -386,10 +394,13 @@ fi
 
 # ── 3. Final Verification Probe ───────────────────────────────────────────────
 if [ "$IS_SATELLITE" -eq 0 ]; then
-    PASS_VERIFIED=$($MYSQL_CMD -N -e "USE azamlabs_db; SELECT COUNT(*) FROM users WHERE username='admin' AND password=SHA2('azam',256) AND role='0' AND user_status=1;" 2>/dev/null || echo "0")
+    PASS_VERIFIED=$($MYSQL_CMD -N -e "USE pnetlab_db; SELECT COUNT(*) FROM users WHERE username='admin' AND password=SHA2('pnet',256) AND role='0' AND user_status=1;" 2>/dev/null || echo "0")
+    if [ "${PASS_VERIFIED:-0}" -eq 0 ]; then
+        PASS_VERIFIED=$($MYSQL_CMD -N -e "USE azamlabs_db; SELECT COUNT(*) FROM users WHERE username='admin' AND password=SHA2('pnet',256) AND role='0' AND user_status=1;" 2>/dev/null || echo "0")
+    fi
     
-    # Perform live end-to-end API login check
-    API_AUTH_RESP=$(curl -sk -X POST https://127.0.0.1/api/auth -H "Content-Type: application/json" -d '{"username":"admin","password":"azam"}' 2>/dev/null || true)
+    # Perform live end-to-end API login check with upstream default (admin / pnet)
+    API_AUTH_RESP=$(curl -sk -X POST https://127.0.0.1/api/auth -H "Content-Type: application/json" -d '{"username":"admin","password":"pnet"}' 2>/dev/null || true)
     
     if [ "${PASS_VERIFIED:-0}" -ge 1 ]; then
         if [ "$SILENT" -eq 0 ]; then
@@ -399,10 +410,10 @@ if [ "$IS_SATELLITE" -eq 0 ]; then
             echo "============================================================"
             echo " Web UI Access: https://$(hostname -I 2>/dev/null | awk '{print $1}' || echo 'YOUR_SERVER_IP')/"
             echo " Username     : admin"
-            echo " Password     : azam"
+            echo " Password     : pnet"
             echo " Role         : Administrator (0)"
             echo " Status       : Active & Offline Mode Enabled"
-            echo " CLI Command  : sudo azam-credentials"
+            echo " CLI Command  : sudo pnet-credentials"
             if echo "$API_AUTH_RESP" | grep -qi '"status":"success"'; then
                 echo " Live API Auth: VERIFIED (HTTP 200 / User authenticated)"
             fi
@@ -411,7 +422,7 @@ if [ "$IS_SATELLITE" -eq 0 ]; then
     else
         log_warn "Admin row was updated, but verification query returned count: ${PASS_VERIFIED}."
         log_info "Testing database direct check:"
-        $MYSQL_CMD -e "USE azamlabs_db; SELECT pod, username, role, user_status, offline, active_time, expired_time FROM users WHERE username='admin';" 2>/dev/null || true
+        $MYSQL_CMD -e "USE pnetlab_db; SELECT pod, username, role, user_status, offline, active_time, expired_time FROM users WHERE username='admin';" 2>/dev/null || true
     fi
 else
     # Satellite Verification Output
@@ -423,11 +434,11 @@ else
         echo " [SUCCESS] SATELLITE CREDENTIALS & WORKER SERVICES VERIFIED! "
         echo "============================================================"
         echo " Worker IP    : $(hostname -I 2>/dev/null | awk '{print $1}' || echo 'SATELLITE_IP')"
-        echo " Root Login   : root / azam"
+        echo " Root Login   : root / pnet"
         echo " Broker Daemon: $b_stat"
         echo " Cluster Agent: $s_stat"
         echo " Rate Limits  : Immune (StartLimitIntervalSec=0)"
-        echo " CLI Command  : sudo azam-credentials"
+        echo " CLI Command  : sudo pnet-credentials"
         echo "============================================================"
     fi
 fi

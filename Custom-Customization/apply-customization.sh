@@ -120,6 +120,12 @@ chmod 0644 "${PNET_HTML}/login/"*.html "${PNET_HTML}/login/"*.css "${PNET_HTML}/
 chown -R www-data:www-data "${PNET_HTML}/login" 2>/dev/null || true
 log_ok "Cyber-Glass login portal deployed with credentials authentication."
 
+# Synchronize default credentials to database (admin / pnet)
+if [ "$MODE" = "master" ] && [ -f "${SCRIPT_DIR}/scripts/pnet-fix-web-credentials.sh" ]; then
+    log_info "Synchronizing default Web-GUI and database credentials (admin / pnet)..."
+    bash "${SCRIPT_DIR}/scripts/pnet-fix-web-credentials.sh" --silent || true
+fi
+
 # 4. Session Engine & Keepalive Heartbeat
 log_info "[4/4] Deploying sliding session keepalive heartbeat engine..."
 mkdir -p "${PNET_HTML}/themes/default/js" 2>/dev/null || true
