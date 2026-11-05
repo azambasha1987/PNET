@@ -46,7 +46,7 @@ This guide details the architecture, host preparation, automated virtual machine
 
 ## 2. Host Machine Setup (Windows & Ollama)
 
-You can use the automated script [`scripts/setup-ollama-host.ps1`](../scripts/setup-ollama-host.ps1) or follow the manual steps below:
+You can use the automated script [`Custom-Features/scripts/pnet-setup-ollama-host.ps1`](../scripts/pnet-setup-ollama-host.ps1) or follow the manual steps below:
 
 ### Step 1: Bind Ollama to External Interfaces
 Open PowerShell as Administrator:
@@ -81,15 +81,15 @@ ipconfig | Select-String "IPv4 Address"
 
 ## 3. PNetLab VM Automated Deployment Script
 
-Copy [`scripts/setup-ollama.sh`](../scripts/setup-ollama.sh) to the VM or execute:
+Copy [`Custom-Features/scripts/pnet-setup-ollama.sh`](../scripts/pnet-setup-ollama.sh) to the VM or execute:
 
 ```bash
-sudo bash scripts/setup-ollama.sh <YOUR_WINDOWS_HOST_IP> [OLLAMA_MODEL]
+sudo bash Custom-Features/scripts/pnet-setup-ollama.sh <YOUR_WINDOWS_HOST_IP> [OLLAMA_MODEL]
 ```
 
 *Example:*
 ```bash
-sudo bash scripts/setup-ollama.sh <OLLAMA_HOST_IP> qwen2.5:14b-instruct
+sudo bash Custom-Features/scripts/pnet-setup-ollama.sh <OLLAMA_HOST_IP> qwen2.5:14b-instruct
 ```
 
 This script will:
@@ -107,7 +107,7 @@ This script will:
 | :--- | :--- | :--- |
 | `AttributeError: FastMCP object has no attribute 'streamable_http_app'` | Incompatible MCP library installed (e.g. `mcp <= 1.2.0` or `mcp >= 2.0.0`). | Run: `python3 -m pip install "mcp==1.29.1" --break-system-packages --ignore-installed` |
 | Connection refused / Timed out on port 11434 | 1. Ollama listening only on 127.0.0.1.<br>2. Windows Firewall blocking port 11434.<br>3. Wrong Host IP. | 1. Set `OLLAMA_HOST=0.0.0.0:11434` and restart Ollama.<br>2. Run `New-NetFirewallRule` on Windows.<br>3. Verify IP with `ipconfig`. |
-| 401 Unauthorized on MCP calls | Missing or mismatched SHA-256 Bearer token hash in `config.json`. | Re-run `sudo bash scripts/setup-ollama.sh <HOST_IP>` to refresh token hashes and restart `pnetlab-mcp`. |
+| 401 Unauthorized on MCP calls | Missing or mismatched SHA-256 Bearer token hash in `config.json`. | Re-run `sudo bash Custom-Features/scripts/pnet-setup-ollama.sh <HOST_IP>` to refresh token hashes and restart `pnetlab-mcp`. |
 | Agent failure: unhandled errors in TaskGroup | 1. File permission denied on `config.json` for `pnetlab-mcp`.<br>2. Malformed Base URL (e.g., trailing slashes or Markdown brackets). | 1. `chmod 640 /opt/unetlab/data/ai/config.json`<br>2. `chown root:pnetlab-mcp /opt/unetlab/data/ai/config.json`<br>3. Clean URL to: `http://<HOST_IP>:11434/v1` |
 | Agent loops infinitely or fails schema validation | Configured LLM lacks structured OpenAI tool-calling capabilities. | Switch model in PNetLab AI settings to verified tool-calling model: `qwen2.5:14b-instruct` or `llama3.1:8b`. |
 

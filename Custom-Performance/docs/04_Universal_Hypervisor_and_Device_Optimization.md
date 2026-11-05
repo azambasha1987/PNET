@@ -78,8 +78,8 @@ To address these bottlenecks with **zero degradation to routing protocol stabili
 
 ### Layer 2: Hypervisor Execution & Virtual Device Optimization
 
-#### 1. Universal Execution Interceptor ([`device_qemu.php`](file:///opt/unetlab/html/devices/qemu/device_qemu.php))
-To fix subclass method shadowing, a dedicated, non-overridable pipeline [`applyUniversalOptimizations()`](file:///opt/unetlab/html/devices/qemu/device_qemu.php#L1169) was added directly inside `device_qemu::command()`:
+#### 1. Universal Execution Interceptor (`device_qemu.php`)
+To fix subclass method shadowing, a dedicated, non-overridable pipeline `applyUniversalOptimizations()` (in `/opt/unetlab/html/devices/qemu/device_qemu.php`) was added directly inside `device_qemu::command()`:
 ```php
 $flags = $this->customFlag($flags);
 $flags = $this->applyUniversalOptimizations($flags);
@@ -121,16 +121,16 @@ PNetLab strictly adheres to the **Zero Guest Modification Principle**:
 
 In addition to performance optimization, three operational resiliency fixes were applied:
 
-1. **CLI Session Handling in [`unl_wrapper`](file:///opt/unetlab/wrappers/unl_wrapper)**:
+1. **CLI Session Handling in `unl_wrapper`**:
    * When invoked from the CLI without `-S`, session ID previously defaulted to `null`, causing `mkdir(null)` failures (`80037`) and bridge generation errors (`vnet_11`).
    * Defaulted `$session_id = 0` when `-S` is omitted.
-2. **Bridge Regex Harmonization in [`azamlabs-brokerd.py`](file:///opt/unetlab/scripts/azamlabs-brokerd.py)**:
+2. **Bridge Regex Harmonization in [`pnet-brokerd.py`](../../scripts/pnet-brokerd.py)**:
    * Updated `LAB_BRIDGE_RE`, `LAB_BRIDGE_DELETE_RE`, and `ATTACH_BRIDGE_RE` to:
      ```python
      r"vnet[0-9]{0,6}_[0-9]{1,6}|"
      ```
    * Bridges created via CLI without a session number are recognized and handled cleanly without `bad bridge name` rejection.
-3. **Safe State Updater in [`__node.php`](file:///opt/unetlab/html/includes/__node.php)**:
+3. **Safe State Updater in `__node.php`**:
    * Added null guards to `updateRunning_start()` to prevent `ResponseException: User not exist` when nodes are launched or inspected outside an active Web UI browser session.
 
 ---
@@ -175,8 +175,8 @@ Tested live on both Master (`<MASTER_IP>`) and Satellite (`<SATELLITE_IP>`):
 ## 7. Packaging, Git & Release Synchronization
 
 1. **Debian Packages Rebuilt & Indexed**:
-   * [`debian/pool/resolute/main/azamlabs_6.8.93resolute1_amd64.deb`](../../debian/pool/resolute/main/azamlabs_6.8.93resolute1_amd64.deb)
-   * [`debian/pool/resolute/main/azamlabs-satellite_6.8.93resolute1_amd64.deb`](../../debian/pool/resolute/main/azamlabs-satellite_6.8.93resolute1_amd64.deb)
+   * `debian/pool/resolute/main/pnetlab_6.8.93resolute1_amd64.deb` (Rebuilt via [`pnet-repack-deb.py`](../../Custom-Customization/scripts/pnet-repack-deb.py))
+   * `debian/pool/resolute/main/pnetlab-satellite_6.8.93resolute1_amd64.deb` (Rebuilt via [`pnet-repack-deb.py`](../../Custom-Customization/scripts/pnet-repack-deb.py))
    * APT metadata updated in `dists/resolute/` (`Packages`, `Packages.gz`, `Release`).
 2. **Architecture Validation**:
    * All 18 architecture gates passing 100% via [`tests/test_architecture_gates.py`](../../tests/test_architecture_gates.py).

@@ -11,7 +11,7 @@ set -u
 REAL_PATH="$(realpath "$SRC_LOC" 2>/dev/null || readlink -f "$SRC_LOC" 2>/dev/null || echo "$SRC_LOC")"
 SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" 2>/dev/null && pwd || echo "/opt/unetlab/scripts")"
 for cand_dir in "/opt/unetlab/scripts" "/opt/pnet/scripts" "$REPO_ROOT/scripts"; do
-    if [ -f "${cand_dir}/pnet-apply-all-fixes.sh" ] || [ -f "${cand_dir}/azambasha-apply-all-fixes.sh" ]; then
+    if [ -f "${cand_dir}/pnet-apply-all-fixes.sh" ] || [ -f "${cand_dir}/pnet-apply-all-fixes.sh" ]; then
         SCRIPT_DIR="$cand_dir"
         break
     fi
@@ -108,8 +108,8 @@ run_diagnostics() {
     log_ok "Node Role Identified: ${BOLD}${role^^}${RESET}"
     if [ -f "${SCRIPT_DIR}/pnet-health-check.sh" ]; then
         bash "${SCRIPT_DIR}/pnet-health-check.sh"
-    elif [ -f "${SCRIPT_DIR}/azambasha-dry-test.py" ]; then
-        python3 "${SCRIPT_DIR}/azambasha-dry-test.py" || true
+    elif [ -f "${SCRIPT_DIR}/pnet-dry-test.py" ]; then
+        python3 "${SCRIPT_DIR}/pnet-dry-test.py" || true
     fi
 }
 
@@ -276,29 +276,31 @@ sync_from_github() {
     ln -sf /opt/unetlab/scripts/pnet-update.sh              /usr/local/bin/pnet-update 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-quarterly-audit.sh     /usr/local/bin/pnet-audit 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-health-check.sh        /usr/local/bin/pnet-health 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh         /usr/local/bin/pnet-doctor 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-image-doctor.sh         /usr/local/bin/pnet-images 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/pnet-optimizer 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-dry-test.py             /usr/local/bin/pnet-dry-test 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-fix-node-startup.sh    /usr/local/bin/pnet-nodes 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-bootstorm.py          /usr/local/bin/pnet-bootstorm 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh         /usr/local/bin/pnet-doctor 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh         /usr/local/bin/pnet-images 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh /usr/local/bin/pnet-optimizer 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-dry-test.py             /usr/local/bin/pnet-dry-test 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-fix-node-startup.sh    /usr/local/bin/pnet-nodes 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-bootstorm.py          /usr/local/bin/pnet-bootstorm 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-lab-backup.sh               /usr/local/bin/pnet-backup 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-lab-backup.sh               /usr/local/bin/pnet-restore 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-housekeeping.sh             /usr/local/bin/pnet-clean 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-dark-theme.sh          /usr/local/bin/pnet-dark 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-sync-network-config.sh /usr/local/bin/pnet-netcfg 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-dark-theme.sh          /usr/local/bin/pnet-dark 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-sync-network-config.sh /usr/local/bin/pnet-netcfg 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-apt-guard.sh                /usr/local/bin/pnet-apt-guard 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-perf.py                /usr/local/bin/pnet-perf 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-watchdog.py            /usr/local/bin/pnet-watchdog 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-perf.py                /usr/local/bin/pnet-perf 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-watchdog.py            /usr/local/bin/pnet-watchdog 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh          /usr/local/bin/pnet-menu 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh          /usr/local/bin/pnet-fix 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-fix-web-credentials.sh /usr/local/bin/pnet-credentials 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-fleet-status.sh        /usr/local/bin/pnet-fleet 2>/dev/null || true
-    ln -sf /opt/unetlab/scripts/azambasha-cluster-capacity.py    /usr/local/bin/pnet-capacity 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-fix-web-credentials.sh /usr/local/bin/pnet-credentials 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-fleet-status.sh        /usr/local/bin/pnet-fleet 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-cluster-capacity.py    /usr/local/bin/pnet-capacity 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-fix-cluster.sh              /usr/local/bin/pnet-cluster 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-satellite-join.sh           /usr/local/bin/pnet-satellite-join 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-mod.sh                      /usr/local/bin/pnet-mod 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-release-ingestion-engine.py /usr/local/bin/pnet-release-engine 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-ingest-release.sh          /usr/local/bin/pnet-ingest-release 2>/dev/null || true
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /usr/local/bin/pnet-* 2>/dev/null || true
 
     # Automatically install newly downloaded debian packages if present in repo releases
@@ -359,7 +361,7 @@ align_daemon_versions() {
 import re, os
 
 # Patch azamlabs-satd.py (Satellite agent)
-satd_file = "/opt/unetlab/scripts/azamlabs-satd.py"
+satd_file = "/opt/unetlab/scripts/pnet-satd.py"
 if os.path.isfile(satd_file):
     try:
         with open(satd_file, "r", encoding="utf-8") as f:
@@ -390,7 +392,7 @@ if os.path.isfile(satd_file):
         print(f"azamlabs-satd patch note: {e}")
 
 # Patch azamlabs-brokerd.py (Privilege broker on Master & Satellite)
-broker_file = "/opt/unetlab/scripts/azamlabs-brokerd.py"
+broker_file = "/opt/unetlab/scripts/pnet-brokerd.py"
 if os.path.isfile(broker_file):
     try:
         with open(broker_file, "r", encoding="utf-8") as f:
@@ -432,8 +434,8 @@ verify_and_stabilize_auth() {
     align_daemon_versions
 
     # Deploy/ensure azamlabs-brokerd.service unit exists and is active
-    local b_script="/opt/unetlab/scripts/azamlabs-brokerd.py"
-    [ -f "$b_script" ] || b_script="/opt/unetlab/scripts/azamlabs-brokerd.py"
+    local b_script="/opt/unetlab/scripts/pnet-brokerd.py"
+    [ -f "$b_script" ] || b_script="/opt/unetlab/scripts/pnet-brokerd.py"
     if [ -f "$b_script" ]; then
         if [ ! -f /etc/systemd/system/azamlabs-brokerd.service ]; then
             cat << 'EOF_BROKER' > /etc/systemd/system/azamlabs-brokerd.service
@@ -443,7 +445,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/unetlab/scripts/azamlabs-brokerd.py
+ExecStart=/usr/bin/python3 /opt/unetlab/scripts/pnet-brokerd.py
 RuntimeDirectory=azamlabs
 RuntimeDirectoryMode=0755
 User=root
@@ -465,8 +467,8 @@ EOF_BROKER
     fi
 
     # 0. Modernize PHP 8.4/8.5 Runtime Engine & Enforce Safe Lab Loading
-    if [ -f "${SCRIPT_DIR}/azambasha-php-modernizer.sh" ]; then
-        bash "${SCRIPT_DIR}/azambasha-php-modernizer.sh" || true
+    if [ -f "${SCRIPT_DIR}/pnet-php-modernizer.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-php-modernizer.sh" || true
     fi
 
     # 1. Ensure systemd rate-limit immunity for PHP-FPM and Apache2
@@ -512,12 +514,12 @@ EOF_OVERRIDE
     fi
 
     # 4b. Ensure Memory & CPU Resource Optimizers are Active
-    if [ -f /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh ]; then
-        bash /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh --master 2>/dev/null || true
+    if [ -f /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh ]; then
+        bash /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh --master 2>/dev/null || true
     fi
     systemctl enable --now azambasha-heavy-optimizer.service 2>/dev/null || true
     systemctl restart azambasha-heavy-optimizer.service 2>/dev/null || true
-    if [ -f /opt/unetlab/scripts/azambasha-cpu-governor.py ]; then
+    if [ -f /opt/unetlab/scripts/pnet-cpu-governor.py ]; then
         systemctl enable --now azambasha-cpu-governor.service 2>/dev/null || true
         systemctl restart azambasha-cpu-governor.service 2>/dev/null || true
     fi
@@ -554,7 +556,7 @@ EOF_OVERRIDE
             log_ok "Web-GUI Admin Authentication: ${BOLD}VERIFIED ACTIVE (admin / azam - HTTP 200)${RESET}"
         else
             log_warn "Web-GUI auth probe returned HTTP $code; triggering deep-credentials fix..."
-            bash "${SCRIPT_DIR}/azambasha-fix-web-credentials.sh" --silent 2>/dev/null || true
+            bash "${SCRIPT_DIR}/pnet-fix-web-credentials.sh" --silent 2>/dev/null || true
             code=$(curl -sk -c "$cookie_jar" -o /dev/null -w "%{http_code}" -X POST https://127.0.0.1/api/auth -H "Content-Type: application/json" -d '{"username":"admin","password":"azam"}' 2>/dev/null || echo "000")
             if [ "$code" = "200" ]; then
                 log_ok "Web-GUI Admin Authentication: ${BOLD}REMEDIATED & VERIFIED ACTIVE (HTTP 200)${RESET}"
@@ -590,8 +592,8 @@ EOF_OVERRIDE
     elif [[ "$tpl_res" == *"\"status\":\"success\""* ]]; then
         log_ok "Template Schema Engine: ${BOLD}VERIFIED ACTIVE (node templates loaded successfully)${RESET}"
     else
-        log_warn "Template schema probe returned non-success; running azambasha-fix-node-startup.sh..."
-        bash "${SCRIPT_DIR}/azambasha-fix-node-startup.sh" >/dev/null 2>&1 || true
+        log_warn "Template schema probe returned non-success; running pnet-fix-node-startup.sh..."
+        bash "${SCRIPT_DIR}/pnet-fix-node-startup.sh" >/dev/null 2>&1 || true
         # Re-authenticate only if active token is missing/invalid
         if [ -z "$admin_token" ] || ! curl -sk -H "Cookie: token=${admin_token}" -o /dev/null -w "%{http_code}" https://127.0.0.1/api/auth 2>/dev/null | grep -q "200"; then
             curl -sk -c "$cookie_jar" -o /dev/null -X POST https://127.0.0.1/api/auth -H "Content-Type: application/json" -d '{"username":"admin","password":"azam"}' 2>/dev/null || true
@@ -615,20 +617,20 @@ EOF_OVERRIDE
     rm -f "$cookie_jar" 2>/dev/null || true
 
     # Ensure azam-ops-api service and bootstorm symlinks are up-to-date and restarted
-    ln -sf "${SCRIPT_DIR}/azambasha-bootstorm.py" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
+    ln -sf "${SCRIPT_DIR}/pnet-bootstorm.py" /usr/local/bin/pnet-bootstorm 2>/dev/null || true
     systemctl restart azam-ops-api.service 2>/dev/null || true
 
     # Enforce Natural Ascending Sort (0..9, A..Z) for folders and export dialog
-    if [ -f "${SCRIPT_DIR}/azambasha-fix-export-sort.py" ]; then
-        python3 "${SCRIPT_DIR}/azambasha-fix-export-sort.py" >/dev/null 2>&1 || true
+    if [ -f "${SCRIPT_DIR}/pnet-fix-export-sort.py" ]; then
+        python3 "${SCRIPT_DIR}/pnet-fix-export-sort.py" >/dev/null 2>&1 || true
         log_ok "Natural Ascending Sort: ${BOLD}ENFORCED (0..9, A..Z in api_folders.php & labs.js)${RESET}"
     fi
 
     if [ -f "${SCRIPT_DIR}/pnet-apt-guard.sh" ]; then
         bash "${SCRIPT_DIR}/pnet-apt-guard.sh" --enable >/dev/null 2>&1 || true
         log_ok "Master Safe APT Guard: ${BOLD}ENGAGED (/usr/local/bin/apt active)${RESET}"
-    elif [ -f "${SCRIPT_DIR}/azambasha-apt-guard.sh" ]; then
-        bash "${SCRIPT_DIR}/azambasha-apt-guard.sh" --enable >/dev/null 2>&1 || true
+    elif [ -f "${SCRIPT_DIR}/pnet-apt-guard.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-apt-guard.sh" --enable >/dev/null 2>&1 || true
         log_ok "Master Safe APT Guard: ${BOLD}ENGAGED (/usr/local/bin/apt active)${RESET}"
     fi
 }
@@ -679,8 +681,8 @@ EOF_OVERRIDE
     log_ok "Satellite Lab Directory Sync Link (/opt/unetlab/labs <-> /root/labs): VERIFIED"
 
     # 4. Deploy and restart/reload worker daemons cleanly
-    local b_script="/opt/unetlab/scripts/azamlabs-brokerd.py"
-    [ -f "$b_script" ] || b_script="/opt/unetlab/scripts/azamlabs-brokerd.py"
+    local b_script="/opt/unetlab/scripts/pnet-brokerd.py"
+    [ -f "$b_script" ] || b_script="/opt/unetlab/scripts/pnet-brokerd.py"
     if [ -f "$b_script" ]; then
         if [ ! -f /etc/systemd/system/azamlabs-brokerd.service ]; then
             cat << 'EOF_BROKER' > /etc/systemd/system/azamlabs-brokerd.service
@@ -690,7 +692,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/unetlab/scripts/azamlabs-brokerd.py
+ExecStart=/usr/bin/python3 /opt/unetlab/scripts/pnet-brokerd.py
 RuntimeDirectory=azamlabs
 RuntimeDirectoryMode=0755
 User=root
@@ -711,8 +713,8 @@ EOF_BROKER
         systemctl restart azamlabs-brokerd.service 2>/dev/null || true
     fi
 
-    local s_script="/opt/unetlab/scripts/azamlabs-satd.py"
-    [ -f "$s_script" ] || s_script="/opt/unetlab/scripts/azamlabs-satd.py"
+    local s_script="/opt/unetlab/scripts/pnet-satd.py"
+    [ -f "$s_script" ] || s_script="/opt/unetlab/scripts/pnet-satd.py"
     if [ -f "$s_script" ]; then
         if [ ! -f /etc/systemd/system/azamlabs-satd.service ]; then
             cat << 'EOF_SATD' > /etc/systemd/system/azamlabs-satd.service
@@ -722,7 +724,7 @@ After=network.target azamlabs-brokerd.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/unetlab/scripts/azamlabs-satd.py
+ExecStart=/usr/bin/python3 /opt/unetlab/scripts/pnet-satd.py
 Restart=always
 RestartSec=2
 User=root
@@ -744,12 +746,12 @@ EOF_SATD
     systemctl restart azamlabs-docker-image-watcher 2>/dev/null || true
 
     # 4b. Ensure Memory & CPU Resource Optimizers are Active on Satellite
-    if [ -f /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh ]; then
-        bash /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh --satellite 2>/dev/null || true
+    if [ -f /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh ]; then
+        bash /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh --satellite 2>/dev/null || true
     fi
     systemctl enable --now azambasha-heavy-optimizer.service 2>/dev/null || true
     systemctl restart azambasha-heavy-optimizer.service 2>/dev/null || true
-    if [ -f /opt/unetlab/scripts/azambasha-cpu-governor.py ]; then
+    if [ -f /opt/unetlab/scripts/pnet-cpu-governor.py ]; then
         systemctl enable --now azambasha-cpu-governor.service 2>/dev/null || true
         systemctl restart azambasha-cpu-governor.service 2>/dev/null || true
     fi
@@ -759,16 +761,16 @@ EOF_SATD
     echo "satellite" > /etc/pnetlab-role
     if [ -x /usr/local/bin/pnet-update-banner.sh ]; then
         /usr/local/bin/pnet-update-banner.sh >/dev/null 2>&1 || true
-    elif [ -f "${SCRIPT_DIR}/azambasha-update-banner.sh" ]; then
-        bash "${SCRIPT_DIR}/azambasha-update-banner.sh" >/dev/null 2>&1 || true
+    elif [ -f "${SCRIPT_DIR}/pnet-update-banner.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-update-banner.sh" >/dev/null 2>&1 || true
     fi
 
     # 4d. Ensure Safe APT Guard is Engaged on Satellite Node
     if [ -f "${SCRIPT_DIR}/pnet-apt-guard.sh" ]; then
         bash "${SCRIPT_DIR}/pnet-apt-guard.sh" --enable >/dev/null 2>&1 || true
         log_ok "Satellite Safe APT Guard: ${BOLD}ENGAGED (/usr/local/bin/apt active)${RESET}"
-    elif [ -f "${SCRIPT_DIR}/azambasha-apt-guard.sh" ]; then
-        bash "${SCRIPT_DIR}/azambasha-apt-guard.sh" --enable >/dev/null 2>&1 || true
+    elif [ -f "${SCRIPT_DIR}/pnet-apt-guard.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-apt-guard.sh" --enable >/dev/null 2>&1 || true
         log_ok "Satellite Safe APT Guard: ${BOLD}ENGAGED (/usr/local/bin/apt active)${RESET}"
     fi
 
@@ -790,8 +792,8 @@ case "$MODE" in
         show_banner
         log_info "Executing Dry-Run Simulation..."
         create_pre_update_snapshot
-        if [ -f "${SCRIPT_DIR}/azambasha-dry-test.py" ]; then
-            python3 "${SCRIPT_DIR}/azambasha-dry-test.py"
+        if [ -f "${SCRIPT_DIR}/pnet-dry-test.py" ]; then
+            python3 "${SCRIPT_DIR}/pnet-dry-test.py"
         fi
         exit 0
         ;;
@@ -823,11 +825,11 @@ case "$MODE" in
         bash "${SCRIPT_DIR}/pnet-apply-all-fixes.sh" 19
         if [ -f "${SCRIPT_DIR}/pnet-fix-cluster.sh" ]; then
             bash "${SCRIPT_DIR}/pnet-fix-cluster.sh" || true
-        elif [ -f "${SCRIPT_DIR}/azambasha-fix-cluster.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-cluster.sh" || true
+        elif [ -f "${SCRIPT_DIR}/pnet-fix-cluster.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-cluster.sh" || true
         fi
-        if [ -f "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" auto || true
+        if [ -f "${SCRIPT_DIR}/pnet-sync-gui-version.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-sync-gui-version.sh" auto || true
         fi
         verify_and_stabilize_auth
         log_ok "Master node one-step update successfully completed!"
@@ -858,11 +860,11 @@ case "$MODE" in
             bash "${SCRIPT_DIR}/pnet-apply-all-fixes.sh" 19
             if [ -f "${SCRIPT_DIR}/pnet-fix-cluster.sh" ]; then
                 bash "${SCRIPT_DIR}/pnet-fix-cluster.sh" || true
-            elif [ -f "${SCRIPT_DIR}/azambasha-fix-cluster.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-fix-cluster.sh" || true
+            elif [ -f "${SCRIPT_DIR}/pnet-fix-cluster.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-fix-cluster.sh" || true
             fi
-            if [ -f "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" auto || true
+            if [ -f "${SCRIPT_DIR}/pnet-sync-gui-version.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-sync-gui-version.sh" auto || true
             fi
             verify_and_stabilize_auth
             log_ok "Master node one-step update successfully completed!"

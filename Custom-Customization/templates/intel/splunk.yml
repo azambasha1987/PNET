@@ -37,4 +37,5 @@ cpu: 0
 ram: 4096
 mtu: 1500
 docker_options: --privileged --env SPLUNK_START_ARGS=--accept-license --env SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com --env SPLUNK_PASSWORD=Cisc0123#
-docker_shell: echo "Splunk Enterprise 9.4"; echo "Web UI -> click the node's console icon (opens http://<host>:<mapped-port>, admin / Cisc0123#)."; echo "----------"; /opt/splunk/bin/splunk status 2>/dev/null || echo "splunkd is still initialising (first boot takes 1-2 min)."; echo "----------"; exec /bin/bash
+docker_shell: >-
+  echo "Splunk Enterprise 9.4"; echo "Web UI -> click the node's console icon (opens http://<host>:<mapped-port>, admin / Cisc0123#)."; echo "----------"; /opt/splunk/bin/splunk status 2>/dev/null || echo "splunkd is still initialising (first boot takes 1-2 min)."; echo "----------"; exec /bin/bash

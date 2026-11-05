@@ -40,14 +40,14 @@ PNetLab v8 (`6.8.93resolute1`) embeds full recursive subfolder export natively:
    PNetLab enforces natural ascending sort across both layers:
    - **Backend**: `/opt/unetlab/html/includes/api_folders.php` enforces `$a` before `$b`.
    - **Frontend**: `/opt/unetlab/html/main/js/labs.js` (`exportDialog`) enforces client-side alphanumeric sorting via `cmpName(a.name, b.name)`.
-   - **Update Immunity**: Automatically enforced on every install (`install.sh`), update (`pnet-update`), and upstream ingestion (`azamlabs_upstream_sync.py`) via [`scripts/azambasha-fix-export-sort.py`](../../scripts/azambasha-fix-export-sort.py).
+   - **Update Immunity**: Automatically enforced on every install (`install.sh`), update (`pnet-update`), and upstream ingestion (`azamlabs_upstream_sync.py`) via [`Custom-Features/scripts/pnet-fix-export-sort.py`](../scripts/pnet-fix-export-sort.py).
 
 4. **Manual Repair / Validation Script**:  
    If you ever need to verify or restore export permissions, natural sorting, and tools manually:
    ```bash
-   sudo bash scripts/azambasha-fix-export-and-apt.sh
+   sudo bash Custom-Features/scripts/pnet-fix-export-and-apt.sh
    # Or run the dedicated sorter:
-   sudo python3 scripts/azambasha-fix-export-sort.py
+   sudo python3 Custom-Features/scripts/pnet-fix-export-sort.py
    ```
 
 ---
@@ -63,7 +63,7 @@ Running an unvetted `apt upgrade`, `apt dist-upgrade`, or `apt autoremove` on an
 - Upgrade PHP versions abruptly, breaking web console endpoints and database drivers.
 
 ### How Safe APT Guard Protects the System
-PNetLab deploys [`scripts/azambasha-apt-guard.sh`](../scripts/azambasha-apt-guard.sh) (`/etc/apt/apt.conf.d/99azamlabs-apt-guard` and `dpkg-divert` wrapper):
+PNetLab deploys [`scripts/pnet-apt-guard.sh`](../../scripts/pnet-apt-guard.sh) (`/etc/apt/apt.conf.d/99azamlabs-apt-guard` and `dpkg-divert` wrapper):
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐

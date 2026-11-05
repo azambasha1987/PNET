@@ -119,7 +119,7 @@ fi
 run_or_fetch "azambasha-python-environment-setup.sh"
 
 # Phase 8: Database & System Deep Fixes
-run_or_fetch "azambasha-database-and-system-deep-fix.sh"
+run_or_fetch "pnet-database-and-system-deep-fix.sh"
 run_or_fetch "azambasha-fix-export-and-apt.sh"
 run_or_fetch "azambasha-disable-logout.sh"
 run_or_fetch "azambasha-block-updates.sh"

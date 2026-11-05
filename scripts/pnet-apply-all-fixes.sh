@@ -3,7 +3,7 @@
 # Azam Basha Master Administration, Fix & Performance Toolkit
 # Unified launcher for all Azam Basha maintenance, optimization, and AI tools.
 #
-# Supports piped execution: curl -fsSL https://.../azamlabs-apply-all-fixes.sh | sudo bash
+# Supports piped execution: curl -fsSL https://.../pnet-apply-all-fixes.sh | sudo bash
 # ==============================================================================
 set -eo pipefail
 
@@ -12,10 +12,10 @@ SRC_LOC="${BASH_SOURCE[0]:-$0}"
 set -u
 REAL_PATH="$(realpath "$SRC_LOC" 2>/dev/null || readlink -f "$SRC_LOC" 2>/dev/null || echo "$SRC_LOC")"
 SCRIPT_DIR="$(cd "$(dirname "$REAL_PATH")" 2>/dev/null && pwd || echo "")"
-if [ ! -f "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" ]; then
-    if [ -f "/opt/unetlab/scripts/azambasha-speed-optimizer.sh" ]; then
+if [ ! -f "${SCRIPT_DIR}/pnet-speed-optimizer.sh" ]; then
+    if [ -f "/opt/unetlab/scripts/pnet-speed-optimizer.sh" ]; then
         SCRIPT_DIR="/opt/unetlab/scripts"
-    elif [ -f "/opt/unetlab/scripts/azambasha-speed-optimizer.sh" ]; then
+    elif [ -f "${SCRIPT_DIR}/../Custom-Performance/scripts/pnet-speed-optimizer.sh" ]; then
         SCRIPT_DIR="/opt/unetlab/scripts"
     fi
 fi
@@ -61,12 +61,12 @@ if [[ "${1:-}" =~ ^(--satellite)$ ]]; then
 fi
 
 if [[ "${1:-}" =~ ^(--check|--status)$ ]]; then
-    if [ -f "${SCRIPT_DIR}/azambasha-node-test-suite.py" ]; then
-        python3 "${SCRIPT_DIR}/azambasha-node-test-suite.py" --all
+    if [ -f "${SCRIPT_DIR}/pnet-node-test-suite.py" ]; then
+        python3 "${SCRIPT_DIR}/pnet-node-test-suite.py" --all
     elif [ -f "${SCRIPT_DIR}/pnet-health-check.sh" ]; then
         bash "${SCRIPT_DIR}/pnet-health-check.sh"
-    elif [ -f "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" ]; then
-        bash "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" --check || true
+    elif [ -f "${SCRIPT_DIR}/pnet-speed-optimizer.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-speed-optimizer.sh" --check || true
     fi
     exit 0
 fi
@@ -124,37 +124,37 @@ fi
 
 case "$CHOICE" in
     1)
-        bash "${SCRIPT_DIR}/azambasha-disable-logout.sh"
+        bash "${SCRIPT_DIR}/pnet-disable-logout.sh"
         ;;
     2)
-        bash "${SCRIPT_DIR}/azambasha-fix-export-and-apt.sh"
+        bash "${SCRIPT_DIR}/pnet-fix-export-and-apt.sh"
         ;;
     3)
-        bash "${SCRIPT_DIR}/azambasha-upload-and-docker-fix.sh"
+        bash "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh"
         ;;
     4)
-        bash "${SCRIPT_DIR}/azambasha-system-and-console-fix.sh"
+        bash "${SCRIPT_DIR}/pnet-system-and-console-fix.sh"
         ;;
     5)
-        bash "${SCRIPT_DIR}/azambasha-database-and-system-deep-fix.sh"
+        bash "${SCRIPT_DIR}/pnet-database-and-system-deep-fix.sh"
         ;;
     6)
-        bash "${SCRIPT_DIR}/azambasha-speed-optimizer.sh"
+        bash "${SCRIPT_DIR}/pnet-speed-optimizer.sh"
         ;;
     7)
-        bash "${SCRIPT_DIR}/azambasha-dataplane-engine.sh"
+        bash "${SCRIPT_DIR}/pnet-dataplane-engine.sh"
         ;;
     8)
-        bash "${SCRIPT_DIR}/azambasha-image-doctor.sh" --fix
+        bash "${SCRIPT_DIR}/pnet-image-doctor.sh" --fix
         ;;
     9)
-        bash "${SCRIPT_DIR}/azambasha-link-impairment.sh" --help
+        bash "${SCRIPT_DIR}/pnet-link-impairment.sh" --help
         ;;
     10)
-        bash "${SCRIPT_DIR}/azambasha-capture-stream.sh" --help
+        bash "${SCRIPT_DIR}/pnet-capture-stream.sh" --help
         ;;
     11)
-        python3 "${SCRIPT_DIR}/azambasha-dataplane-stats.py"
+        python3 "${SCRIPT_DIR}/pnet-dataplane-stats.py"
         ;;
     12)
         bash "${SCRIPT_DIR}/pnet-fix-permissions.sh"
@@ -173,21 +173,21 @@ case "$CHOICE" in
             read -rp "Enter Ollama Model [default: qwen2.5:14b-instruct]: " USER_MODEL < /dev/tty || true
             MODEL="${USER_MODEL:-$MODEL}"
         fi
-        bash "${SCRIPT_DIR}/setup-ollama.sh" "$HOST_IP" "$MODEL"
+        bash "${SCRIPT_DIR}/pnet-setup-ollama.sh" "$HOST_IP" "$MODEL"
         ;;
     16)
         bash "${SCRIPT_DIR}/pnet-block-updates.sh"
         ;;
     17)
-        if [ -f "${SCRIPT_DIR}/azambasha-dark-theme.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-dark-theme.sh"
+        if [ -f "${SCRIPT_DIR}/pnet-dark-theme.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-dark-theme.sh"
         fi
         ;;
     18)
-        if [ -f "${SCRIPT_DIR}/azambasha-node-test-suite.py" ]; then
-            python3 "${SCRIPT_DIR}/azambasha-node-test-suite.py" --all
+        if [ -f "${SCRIPT_DIR}/pnet-node-test-suite.py" ]; then
+            python3 "${SCRIPT_DIR}/pnet-node-test-suite.py" --all
         else
-            bash "${SCRIPT_DIR}/azambasha-image-doctor.sh" --check
+            bash "${SCRIPT_DIR}/pnet-image-doctor.sh" --check
         fi
         ;;
     19)
@@ -216,51 +216,51 @@ case "$CHOICE" in
             fi
             echo ""
             echo "--> [2/11] Applying Bridge LACP BPDU, Wireshark & Store Fixes..."
-            if [ -f "${SCRIPT_DIR}/azambasha-system-and-console-fix.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-system-and-console-fix.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-system-and-console-fix.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-system-and-console-fix.sh" || true
             fi
             echo ""
             echo "--> [3/11] Activating Silicon Dataplane Fast-Path Accelerator (MTU 9000)..."
-            if [ -f "${SCRIPT_DIR}/azambasha-dataplane-engine.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-dataplane-engine.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-dataplane-engine.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-dataplane-engine.sh" || true
             fi
             echo ""
             echo "--> [4/11] Applying High-Performance Speed Optimizer & Ultra-KSM..."
-            if [ -f "${SCRIPT_DIR}/azambasha-php-modernizer.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-php-modernizer.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-php-modernizer.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-php-modernizer.sh" || true
             fi
-            if [ -f "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-speed-optimizer.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-speed-optimizer.sh" || true
             fi
             echo ""
             echo "--> [5/11] Applying Cgroups v2 & System Limits..."
-            if [ -f "${SCRIPT_DIR}/azambasha-cgroups-v2-engine.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-cgroups-v2-engine.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-cgroups-v2-engine.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-cgroups-v2-engine.sh" || true
             fi
             echo ""
             echo "--> [6/11] Applying Node Startup, Win11 SMM & Cisco IOSv Engine..."
-            if [ -f "${SCRIPT_DIR}/azambasha-fix-node-startup.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-fix-node-startup.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-fix-node-startup.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-fix-node-startup.sh" || true
             fi
             echo ""
             echo "--> [7/11] Configuring Soft-RoCE (RXE) & RDMA Dataplane Drivers..."
-            if [ -f "${SCRIPT_DIR}/azambasha-roce-engine.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-roce-engine.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-roce-engine.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-roce-engine.sh" || true
             fi
             echo ""
             echo "--> [8/12] Applying High-Density Heavy Node Optimizer (Worker Mode)..."
-            if [ -f "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" --satellite || true
+            if [ -f "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" --satellite || true
             fi
             echo ""
             echo "--> [9/12] Ensuring Docker Subsystem, IP Forwarding & Image Watcher..."
-            if [ -f "${SCRIPT_DIR}/azambasha-upload-and-docker-fix.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-upload-and-docker-fix.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh" || true
             fi
             echo ""
             echo "--> [10/12] Auditing Virtual Disks with Image Doctor..."
-            if [ -f "${SCRIPT_DIR}/azambasha-image-doctor.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-image-doctor.sh" --fix || true
+            if [ -f "${SCRIPT_DIR}/pnet-image-doctor.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-image-doctor.sh" --fix || true
             fi
             echo ""
             echo "--> [11/12] Fixing File Permissions, TPM Sockets & Node Locks..."
@@ -270,10 +270,10 @@ case "$CHOICE" in
             echo ""
             echo "--> [12/12] Confirming Authoritative Credentials (azam) & Banner..."
             echo "root:azam" | chpasswd 2>/dev/null || true
-            if [ -f "${SCRIPT_DIR}/azambasha-sync-network-config.sh" ]; then
-                bash "${SCRIPT_DIR}/azambasha-sync-network-config.sh" || true
+            if [ -f "${SCRIPT_DIR}/pnet-sync-network-config.sh" ]; then
+                bash "${SCRIPT_DIR}/pnet-sync-network-config.sh" || true
             fi
-            ln -sf "${SCRIPT_DIR}/azambasha-sync-network-config.sh" /usr/local/bin/pnet-netcfg 2>/dev/null || true
+            ln -sf "${SCRIPT_DIR}/pnet-sync-network-config.sh" /usr/local/bin/pnet-netcfg 2>/dev/null || true
             ln -sf "${SCRIPT_DIR}/pnet-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
         rm -f /usr/local/bin/pnet-update 2>/dev/null || true
             ln -sf "${SCRIPT_DIR}/pnet-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
@@ -283,70 +283,70 @@ case "$CHOICE" in
             echo "============================================================"
         else
             echo "--> [1/15] Applying Permanent Session Fix..."
-            bash "${SCRIPT_DIR}/azambasha-disable-logout.sh"
+            bash "${SCRIPT_DIR}/pnet-disable-logout.sh"
             echo ""
             echo "--> [2/15] Applying Lab Export & APT Fix..."
-            bash "${SCRIPT_DIR}/azambasha-fix-export-and-apt.sh"
+            bash "${SCRIPT_DIR}/pnet-fix-export-and-apt.sh"
         echo ""
         echo "--> [3/15] Applying 512MB Upload Limits & Docker Routing..."
-        bash "${SCRIPT_DIR}/azambasha-upload-and-docker-fix.sh"
+        bash "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh"
         echo ""
         echo "--> [4/15] Applying SSL IP-SAN, Console & Cloud Bridge Fix..."
-        bash "${SCRIPT_DIR}/azambasha-system-and-console-fix.sh"
+        bash "${SCRIPT_DIR}/pnet-system-and-console-fix.sh"
         echo ""
         echo "--> [5/15] Applying Database SQL Mode, 1M Limits & Logrotate..."
-        bash "${SCRIPT_DIR}/azambasha-database-and-system-deep-fix.sh"
+        bash "${SCRIPT_DIR}/pnet-database-and-system-deep-fix.sh"
         echo ""
         echo "--> [6/15] Fixing File Permissions & Sockets..."
         bash "${SCRIPT_DIR}/pnet-fix-permissions.sh"
         echo ""
         echo "--> [6b/15] Modernizing PHP Engine & Hardening Lab XML Node Loader..."
-        if [ -f "${SCRIPT_DIR}/azambasha-php-modernizer.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-php-modernizer.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-php-modernizer.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-php-modernizer.sh" || true
         fi
         echo ""
         echo "--> [7/15] Applying High-Performance Speed Optimizer (1024-Node Scaling)..."
-        bash "${SCRIPT_DIR}/azambasha-speed-optimizer.sh"
+        bash "${SCRIPT_DIR}/pnet-speed-optimizer.sh"
         echo ""
         echo "--> [8/15] Activating Silicon Dataplane Fast-Path Accelerator (MTU 9000)..."
-        bash "${SCRIPT_DIR}/azambasha-dataplane-engine.sh"
+        bash "${SCRIPT_DIR}/pnet-dataplane-engine.sh"
         echo ""
         echo "--> [9/15] Applying Cgroups v2 & System Limits..."
-        if [ -f "${SCRIPT_DIR}/azambasha-cgroups-v2-engine.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-cgroups-v2-engine.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-cgroups-v2-engine.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-cgroups-v2-engine.sh" || true
         fi
         echo ""
         echo "--> [10/15] Freezing Version & Blocking Future Updates..."
         bash "${SCRIPT_DIR}/pnet-block-updates.sh"
         echo ""
         echo "--> [11/15] Applying Azam Basha Enterprise Branding & Logo Assets..."
-        if [ -f "${SCRIPT_DIR}/azambasha-apply-branding.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-apply-branding.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-apply-branding.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-apply-branding.sh" || true
         fi
         echo ""
         echo "--> [12/16] Deploying Home Screen Avatar as Universal Platform Logo..."
-        if [ -f "${SCRIPT_DIR}/azambasha-deploy-homelogo.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-deploy-homelogo.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-deploy-homelogo.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-deploy-homelogo.sh" || true
         fi
         echo ""
         echo "--> [13/16] Applying Node Startup & Cisco IOSv Repair Engine..."
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-node-startup.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-node-startup.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-fix-node-startup.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-node-startup.sh" || true
         fi
         echo ""
         echo "--> [14/16] Auditing Virtual Disks with Image Doctor..."
-        if [ -f "${SCRIPT_DIR}/azambasha-image-doctor.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-image-doctor.sh" --fix || true
+        if [ -f "${SCRIPT_DIR}/pnet-image-doctor.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-image-doctor.sh" --fix || true
         fi
         echo ""
         echo "--> [15/16] Applying Azam Basha Pure Black Dark Mode Theme..."
-        if [ -f "${SCRIPT_DIR}/azambasha-dark-theme.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-dark-theme.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-dark-theme.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-dark-theme.sh" || true
         fi
         echo ""
         echo "--> [16/17] Running Automated Node & Virtualization Validation Suite..."
-        if [ -f "${SCRIPT_DIR}/azambasha-node-test-suite.py" ]; then
-            python3 "${SCRIPT_DIR}/azambasha-node-test-suite.py" --all || true
+        if [ -f "${SCRIPT_DIR}/pnet-node-test-suite.py" ]; then
+            python3 "${SCRIPT_DIR}/pnet-node-test-suite.py" --all || true
         fi
         echo ""
         echo "--> [17/18] Staging Satellite Cluster Deploy Bundle & Master Remote Sync..."
@@ -355,18 +355,18 @@ case "$CHOICE" in
         fi
         echo ""
         echo "--> [18/21] Applying High-Density Heavy Node Optimizer (Cat8000, Cisco 8000, Cat9000)..."
-        if [ -f "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" || true
         fi
         echo ""
         echo "--> [19/21] Verifying Soft-RoCE (RXE) & RDMA Dataplane Drivers..."
-        if [ -f "${SCRIPT_DIR}/azambasha-roce-engine.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-roce-engine.sh" --status || true
+        if [ -f "${SCRIPT_DIR}/pnet-roce-engine.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-roce-engine.sh" --status || true
         fi
         echo ""
         echo "--> [20/21] Applying Web UI Usability, Canvas Settings & Draggable Modals..."
-        if [ -f "${SCRIPT_DIR}/azambasha-gui-enhancements.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-gui-enhancements.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-gui-enhancements.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-gui-enhancements.sh" || true
         fi
         echo ""
         echo "--> [21/22] Running Non-Regression Pre/Post Sanity Health Probe..."
@@ -375,19 +375,19 @@ case "$CHOICE" in
         fi
         echo ""
         echo "--> [22/22] Resetting Web-GUI & Cluster Database Credentials (admin / azam)..."
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-web-credentials.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-web-credentials.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-fix-web-credentials.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-web-credentials.sh" || true
         fi
-        if [ -f "${SCRIPT_DIR}/azambasha-sync-network-config.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-sync-network-config.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-sync-network-config.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-sync-network-config.sh" || true
         fi
-        ln -sf "${SCRIPT_DIR}/azambasha-sync-network-config.sh" /usr/local/bin/pnet-netcfg 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-sync-network-config.sh" /usr/local/bin/pnet-netcfg 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/pnet-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
         rm -f /usr/local/bin/pnet-update 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/pnet-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/pnet-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/pnet-housekeeping.sh" /usr/local/bin/pnet-clean 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/pnet-housekeeping.sh" /usr/local/bin/pnet-clean 2>/dev/null || true
@@ -402,10 +402,10 @@ case "$CHOICE" in
         fi
         ;;
     20)
-        if [ -f "${SCRIPT_DIR}/azambasha-deploy-homelogo.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-deploy-homelogo.sh"
+        if [ -f "${SCRIPT_DIR}/pnet-deploy-homelogo.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-deploy-homelogo.sh"
         else
-            echo "[!] azambasha-deploy-homelogo.sh not found." >&2
+            echo "[!] pnet-deploy-homelogo.sh not found." >&2
         fi
         ;;
     21)
@@ -416,17 +416,17 @@ case "$CHOICE" in
         fi
         ;;
     22)
-        if [ -f "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh"
+        if [ -f "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh"
         else
-            echo "[!] azambasha-heavy-node-optimizer.sh not found." >&2
+            echo "[!] pnet-heavy-node-optimizer.sh not found." >&2
         fi
         ;;
     23)
-        if [ -f "${SCRIPT_DIR}/azambasha-roce-engine.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-roce-engine.sh" --status
+        if [ -f "${SCRIPT_DIR}/pnet-roce-engine.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-roce-engine.sh" --status
         else
-            echo "[!] azambasha-roce-engine.sh not found." >&2
+            echo "[!] pnet-roce-engine.sh not found." >&2
         fi
         ;;
     24)
@@ -446,48 +446,48 @@ case "$CHOICE" in
         fi
         echo ""
         echo "--> [2/11] Applying Bridge LACP BPDU, Wireshark & Store Fixes..."
-        if [ -f "${SCRIPT_DIR}/azambasha-system-and-console-fix.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-system-and-console-fix.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-system-and-console-fix.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-system-and-console-fix.sh" || true
         fi
         echo ""
         echo "--> [3/11] Activating Silicon Dataplane Fast-Path Accelerator (MTU 9000)..."
-        if [ -f "${SCRIPT_DIR}/azambasha-dataplane-engine.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-dataplane-engine.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-dataplane-engine.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-dataplane-engine.sh" || true
         fi
         echo ""
         echo "--> [4/11] Applying High-Performance Speed Optimizer & Ultra-KSM..."
-        if [ -f "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-speed-optimizer.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-speed-optimizer.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-speed-optimizer.sh" || true
         fi
         echo ""
         echo "--> [5/11] Applying Cgroups v2 & System Limits..."
-        if [ -f "${SCRIPT_DIR}/azambasha-cgroups-v2-engine.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-cgroups-v2-engine.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-cgroups-v2-engine.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-cgroups-v2-engine.sh" || true
         fi
         echo ""
         echo "--> [6/11] Applying Node Startup, Win11 SMM & Cisco IOSv Engine..."
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-node-startup.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-node-startup.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-fix-node-startup.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-node-startup.sh" || true
         fi
         echo ""
         echo "--> [7/11] Configuring Soft-RoCE (RXE) & RDMA Dataplane Drivers..."
-        if [ -f "${SCRIPT_DIR}/azambasha-roce-engine.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-roce-engine.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-roce-engine.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-roce-engine.sh" || true
         fi
         echo ""
         echo "--> [8/13] Applying High-Density Heavy Node Optimizer (Worker Mode)..."
-        if [ -f "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" --satellite || true
+        if [ -f "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" --satellite || true
         fi
         echo ""
         echo "--> [9/13] Ensuring Docker Subsystem, IP Forwarding & Image Watcher..."
-        if [ -f "${SCRIPT_DIR}/azambasha-upload-and-docker-fix.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-upload-and-docker-fix.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh" || true
         fi
         echo ""
         echo "--> [10/13] Auditing Virtual Disks with Image Doctor..."
-        if [ -f "${SCRIPT_DIR}/azambasha-image-doctor.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-image-doctor.sh" --fix || true
+        if [ -f "${SCRIPT_DIR}/pnet-image-doctor.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-image-doctor.sh" --fix || true
         fi
         echo ""
         echo "--> [11/13] Fixing File Permissions, TPM Sockets & Node Locks..."
@@ -499,38 +499,38 @@ case "$CHOICE" in
         echo "root:azam" | chpasswd 2>/dev/null || true
         echo "satellite" > /etc/azamlabs-role
         echo "satellite" > /etc/pnetlab-role
-        if [ -f "${SCRIPT_DIR}/azambasha-update-banner.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-update-banner.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-update-banner.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-update-banner.sh" || true
         fi
         echo ""
         echo "--> [12/12] Synchronizing Satellite Root Credentials & Cluster DB Access..."
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-web-credentials.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-web-credentials.sh" || true
+        if [ -f "${SCRIPT_DIR}/pnet-fix-web-credentials.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-web-credentials.sh" || true
         fi
         echo ""
         ln -sf "${SCRIPT_DIR}/pnet-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
         rm -f /usr/local/bin/pnet-update 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/pnet-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
-        ln -sf "${SCRIPT_DIR}/azambasha-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" /usr/local/bin/pnet-optimizer 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-heavy-node-optimizer.sh" /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
+        ln -sf "${SCRIPT_DIR}/pnet-dry-test.py" /usr/local/bin/pnet-dry-test 2>/dev/null || true
         ln -sf "${SCRIPT_DIR}/pnet-health-check.sh" /usr/local/bin/pnet-health 2>/dev/null || true
         echo "============================================================"
         echo " [SUCCESS] SATELLITE WORKER NODE ENHANCEMENTS APPLIED!      "
         echo "============================================================"
         ;;
     26)
-        if [ -f "${SCRIPT_DIR}/azambasha-fix-web-credentials.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-fix-web-credentials.sh"
+        if [ -f "${SCRIPT_DIR}/pnet-fix-web-credentials.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-fix-web-credentials.sh"
         else
-            echo "[!] azambasha-fix-web-credentials.sh not found." >&2
+            echo "[!] pnet-fix-web-credentials.sh not found." >&2
         fi
         ;;
     27)
-        if [ -f "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" ]; then
-            bash "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" "${2:-auto}"
+        if [ -f "${SCRIPT_DIR}/pnet-sync-gui-version.sh" ]; then
+            bash "${SCRIPT_DIR}/pnet-sync-gui-version.sh" "${2:-auto}"
         else
-            echo "[!] azambasha-sync-gui-version.sh not found." >&2
+            echo "[!] pnet-sync-gui-version.sh not found." >&2
         fi
         ;;
     28)

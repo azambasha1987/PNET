@@ -10,7 +10,8 @@ The **`Custom-Features`** pillar contains all advanced functional enhancements, 
 Custom-Features/
 ├── apply-features.sh                 # Standalone idempotent deployment hook (+x)
 ├── README.md                         # This reference manual
-├── scripts/                          # Feature automation and daemon scripts (24 tools)
+├── scripts/                          # Feature automation and daemon scripts (25 tools)
+│   ├── pnet-bootstorm.py             # Anti-Bootstorm Staggered Node Startup Engine
 │   ├── pnet-ai-copilot.py            # Local Ollama AI Lab Assistant & MCP server
 │   ├── pnet-setup-ollama.sh          # Ollama model downloader & runner
 │   ├── pnet-setup-ollama-host.ps1    # Windows host Ollama bridge
@@ -57,6 +58,7 @@ Custom-Features/
 │   ├── frr.yml                       # Routing schema definitions
 │   └── openbmp.yml                   # BGP Monitoring Protocol schema
 ├── docs/                             # Subsystem Documentation
+│   ├── Anti_Bootstorm_Engine_Guide.md # Anti-Bootstorm Staggered Startup Runbook
 │   ├── AI_Lab_Builder_Ollama_Guide.md # Ollama LLM integration runbook
 │   └── 04_Lab_Export_and_APT_Guard_Guide.md # Multi-folder export runbook
 └── tests/                            # Automated verification test harness
@@ -78,6 +80,7 @@ sudo bash /opt/pnet/apply-all-custom.sh
 ---
 
 ## 🛠️ Canonical CLI Commands Mapped
+- `pnet-bootstorm`: Orchestrates anti-bootstorm staggered startup across large multi-vendor labs.
 - `pnet-ai`: Launches the interactive AI copilot connected to local Ollama LLMs.
 - `pnet-cloud-bridge`: Manages WireGuard / NAT / Cloud transit bridges.
 - `pnet-config-diff`: Snapshots, compares, and rolls back multi-vendor device configurations.

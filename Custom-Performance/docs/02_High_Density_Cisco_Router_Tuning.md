@@ -12,7 +12,7 @@ Virtualizing enterprise and service-provider routing and switching platforms—s
 - **Multiplying Physical RAM**: Each node requests 4 GB to 18 GB RAM. Running 10 to 100 nodes would conventionally demand 400 GB to 1.8 TB of host memory.
 - **100% CPU Pegging**: DPDK Poll-Mode Drivers (PMD) inside each router run an infinite busy-poll loop (`while (1) { poll_nic(); }`), permanently pegging 100% of all assigned host vCPU cores even with 0 bps of lab traffic.
 
-The **PNetLab High-Density Heavy Node Optimization Suite** ([`scripts/azambasha-heavy-node-optimizer.sh`](../scripts/azambasha-heavy-node-optimizer.sh)) solves both issues across **both Master and Satellite worker nodes**:
+The **PNetLab High-Density Heavy Node Optimization Suite** ([`Custom-Performance/scripts/pnet-heavy-node-optimizer.sh`](../scripts/pnet-heavy-node-optimizer.sh)) solves both issues across **both Master and Satellite worker nodes**:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -57,7 +57,7 @@ A vital design requirement is that **device throughput, forwarding latency, and 
    - Read operations have **zero overhead** (direct hardware cache line/RAM hit, no context switch, no hypervisor trap).
    - Write operations on modified pages trigger standard hardware Copy-on-Write (CoW), taking under 1 microsecond, after which the page is private and incurs 0ns overhead.
 2. **Lossless CPU Priority & Fast-Path Traffic Wakeup**:
-   - Rather than crude CPU hard limits (`cpu.max`) that drop packets under load, the governor ([`scripts/azambasha-cpu-governor.py`](../scripts/azambasha-cpu-governor.py)) uses **CFS dynamic priority weights (`cpu.weight` & `cpu.idle`)**.
+   - Rather than crude CPU hard limits (`cpu.max`) that drop packets under load, the governor ([`Custom-Performance/scripts/pnet-cpu-governor.py`](../scripts/pnet-cpu-governor.py)) uses **CFS dynamic priority weights (`cpu.weight` & `cpu.idle`)**.
    - When network packets or routing updates arrive on node TAP interfaces (`vnetX_Y_Z`), CPU bandwidth instantly bursts to 100% priority with **zero packet drop**.
    - A **5-second hysteresis window** holds high priority after traffic bursts, ensuring multi-packet TCP streams and BGP/OSPF keepalive exchanges complete without jitter.
 3. **Control-Plane Protection**:
@@ -81,7 +81,7 @@ sudo pnet-optimizer --satellite
 sudo pnet-optimizer --cluster
 ```
 
-*(Alternatively, run `sudo bash scripts/azambasha-heavy-node-optimizer.sh [--master|--satellite|--cluster]`)*
+*(Alternatively, run `sudo bash Custom-Performance/scripts/pnet-heavy-node-optimizer.sh [--master|--satellite|--cluster]`)*
 
 ---
 
@@ -104,7 +104,7 @@ sudo pnet-optimizer --cluster
   - `/sys/kernel/mm/transparent_hugepage/defrag = defer+madvise`
 
 ### 3. Dynamic Lossless CPU Governor
-- **Mechanism**: Background daemon ([`scripts/azambasha-cpu-governor.py`](../scripts/azambasha-cpu-governor.py)) monitors TAP interfaces for active packets.
+- **Mechanism**: Background daemon ([`Custom-Performance/scripts/pnet-cpu-governor.py`](../scripts/pnet-cpu-governor.py)) monitors TAP interfaces for active packets.
   - When traffic is 0: Adjusts QEMU cgroups v2 `cpu.weight = 10` and `cpu.idle = 1`.
   - When packets arrive: Instantly scales `cpu.weight = 1000` and `cpu.idle = 0`.
 - **Service**: `/etc/systemd/system/azambasha-cpu-governor.service`.
@@ -160,7 +160,7 @@ Run `sudo pnet-images --compress` (or `sudo pnet-doctor --compress`) to safely c
 | **Comprehensive Audit** | `sudo pnet-optimizer --check` | `ACTIVE (Saved: ~X GB RAM across identical node pages)` |
 | **Deduplicated Memory Saved** | `cat /sys/kernel/mm/ksm/pages_sharing` | Non-zero number (multiply by 4KB to get saved bytes) |
 | **THP Status** | `cat /sys/kernel/mm/transparent_hugepage/enabled` | `always [madvise] never` |
-| **Lossless Governor Status** | `python3 scripts/azambasha-cpu-governor.py --status` | Lists active nodes, PIDs, and states (`ACTIVE` or `IDLE`) |
+| **Lossless Governor Status** | `python3 Custom-Performance/scripts/pnet-cpu-governor.py --status` | Lists active nodes, PIDs, and states (`ACTIVE` or `IDLE`) |
 | **QEMU Machine Flags** | `ps aux \| grep qemu-system-x86_64 \| grep mem-merge` | Contains `mem-merge=on` |
 | **KVM Halt Polling** | `cat /sys/module/kvm/parameters/halt_poll_ns` | `0` |
 

@@ -9,7 +9,7 @@
 
 As lab complexity grows to dozens of virtual nodes (Cisco IOL, Dynamips, QEMU, Docker), system resources—specifically **RAM allocation**, **PHP processing latency**, **network socket queues**, and **web UI asset delivery**—become primary bottlenecks.
 
-The **PNetLab Speed Optimizer Suite** ([`scripts/azambasha-speed-optimizer.sh`](../scripts/azambasha-speed-optimizer.sh)) applies four layers of low-overhead system tuning:
+The **PNetLab Speed Optimizer Suite** ([`Custom-Performance/scripts/pnet-speed-optimizer.sh`](../scripts/pnet-speed-optimizer.sh)) applies four layers of low-overhead system tuning:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -38,7 +38,7 @@ The **PNetLab Speed Optimizer Suite** ([`scripts/azambasha-speed-optimizer.sh`](
 sudo pnet-optimizer
 ```
 
-*(Alternatively, run `sudo bash scripts/azambasha-speed-optimizer.sh`)*
+*(Alternatively, run `sudo bash Custom-Performance/scripts/pnet-speed-optimizer.sh`)*
 
 ### Non-Destructive Diagnostic Audit (Can run as any user)
 ```bash

@@ -41,9 +41,6 @@ eth_format: "Gi0/0/0/{0}"
 console: telnet
 pci_mode: multifunction
 qemu_arch: x86_64
-qemu_options: -machine mem-merge=on -enable-kvm -smbios type=1,manufacturer="cisco",product="Cisco IOS
-  XRv 9000" -machine type=pc,accel=kvm,usb=off
-  -serial mon:stdio -nographic -no-user-config -nodefaults -rtc base=utc,driftfix=slew
-  -global kvm-pit.lost_tick_policy=discard -no-hpet -realtime mlock=off -no-shutdown
+qemu_options: -machine mem-merge=on -enable-kvm -smbios "type=1,manufacturer=cisco,product=Cisco IOS XRv 9000" -machine type=pc,accel=kvm,usb=off -serial mon:stdio -nographic -no-user-config -nodefaults -rtc base=utc,driftfix=slew -global kvm-pit.lost_tick_policy=discard -no-hpet -realtime mlock=off -no-shutdown
   -boot order=c  -serial null  -serial null   -serial null -cpu host
 ...

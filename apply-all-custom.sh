@@ -66,6 +66,8 @@ ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh     /usr/local/bin/pnet-fix
 ln -sf /opt/unetlab/scripts/pnet-fix-cluster.sh         /usr/local/bin/pnet-cluster
 ln -sf /opt/unetlab/scripts/pnet-satellite-join.sh      /usr/local/bin/pnet-satellite-join
 ln -sf /opt/unetlab/scripts/pnet-mod.sh                 /usr/local/bin/pnet-mod
+ln -sf /opt/unetlab/scripts/pnet-release-ingestion-engine.py /usr/local/bin/pnet-release-engine
+ln -sf /opt/unetlab/scripts/pnet-ingest-release.sh     /usr/local/bin/pnet-ingest-release
 ln -sf "${SCRIPT_DIR}/apply-all-custom.sh"              /usr/local/bin/pnet-apply-all
 chmod +x /usr/local/bin/pnet-* /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 
@@ -111,7 +113,9 @@ else
 fi
 
 # ── 4. Final System Permissions & Daemon Reload ──────────────────────────────
-if [ -f "/opt/unetlab/scripts/azambasha-fix-permissions.sh" ]; then
+if [ -f "/opt/unetlab/scripts/pnet-fix-permissions.sh" ]; then
+    bash /opt/unetlab/scripts/pnet-fix-permissions.sh 2>/dev/null || true
+elif [ -f "/opt/unetlab/scripts/azambasha-fix-permissions.sh" ]; then
     bash /opt/unetlab/scripts/azambasha-fix-permissions.sh 2>/dev/null || true
 fi
 

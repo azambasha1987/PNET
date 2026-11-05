@@ -8,9 +8,9 @@
 # database and image synchronization configuration.
 #
 # Usage:
-#   sudo bash azambasha-satellite-join.sh --master <MASTER_IP> --id <1|2> \
+#   sudo bash pnet-satellite-join.sh --master <MASTER_IP> --id <1|2> \
 #                                       --name "Satellite-01" --psk <64_HEX_KEY>
-#   sudo bash azambasha-satellite-join.sh --status
+#   sudo bash pnet-satellite-join.sh --status
 # ==============================================================================
 set -eo pipefail
 
@@ -470,7 +470,7 @@ ConditionPathExists=/etc/azamlabs-satellite/satd.conf
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/unetlab/scripts/azamlabs-satd.py
+ExecStart=/usr/bin/python3 /opt/unetlab/scripts/pnet-satd.py
 Restart=on-failure
 RestartSec=2
 
@@ -500,19 +500,19 @@ fi
 # Step 8: Apply High-Density Heavy Node Memory & CPU Optimization
 log_info "[8/8] Enforcing High-Density Heavy Node Optimizer on Satellite..."
 # SCRIPT_LOC resolved at script initialization
-if [ -f /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh ]; then
-    bash /opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh --satellite 2>/dev/null || true
-    [ -f /opt/unetlab/scripts/azambasha-fix-node-startup.sh ] && bash /opt/unetlab/scripts/azambasha-fix-node-startup.sh 2>/dev/null || true
+if [ -f /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh ]; then
+    bash /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh --satellite 2>/dev/null || true
+    [ -f /opt/unetlab/scripts/pnet-fix-node-startup.sh ] && bash /opt/unetlab/scripts/pnet-fix-node-startup.sh 2>/dev/null || true
     log_ok "Universal Optimizer: Active on Satellite (KSM Ultra, THP madvise, CPU governor, Universal Templates)"
-elif [ -f "$SCRIPT_LOC/azambasha-heavy-node-optimizer.sh" ]; then
-    bash "$SCRIPT_LOC/azambasha-heavy-node-optimizer.sh" --satellite 2>/dev/null || true
-    [ -f "$SCRIPT_LOC/azambasha-fix-node-startup.sh" ] && bash "$SCRIPT_LOC/azambasha-fix-node-startup.sh" 2>/dev/null || true
+elif [ -f "$SCRIPT_LOC/pnet-heavy-node-optimizer.sh" ]; then
+    bash "$SCRIPT_LOC/pnet-heavy-node-optimizer.sh" --satellite 2>/dev/null || true
+    [ -f "$SCRIPT_LOC/pnet-fix-node-startup.sh" ] && bash "$SCRIPT_LOC/pnet-fix-node-startup.sh" 2>/dev/null || true
     log_ok "Universal Optimizer: Active on Satellite (KSM Ultra, THP madvise, CPU governor, Universal Templates)"
 fi
 
 # Register global administrative CLI commands on Satellite
 for s_dir in "/opt/unetlab/scripts" "$SCRIPT_LOC"; do
-    if [ -f "${s_dir}/pnet-update.sh" ] || [ -f "${s_dir}/azambasha-update.sh" ]; then
+    if [ -f "${s_dir}/pnet-update.sh" ] || [ -f "${s_dir}/pnet-update.sh" ]; then
         ln -sf "${s_dir}/pnet-update.sh" /usr/local/bin/pnet-update 2>/dev/null || true
         ln -sf "${s_dir}/pnet-quarterly-audit.sh" /usr/local/bin/pnet-audit 2>/dev/null || true
         ln -sf "${s_dir}/pnet-apply-all-fixes.sh" /usr/local/bin/pnet-menu 2>/dev/null || true

@@ -34,6 +34,5 @@ ram: 6144
 ethernet: 4
 console: vnc
 qemu_arch: x86_64
-qemu_options: -machine mem-merge=on '-machine type=pc-1.0,accel=kvm -serial mon:stdio -nographic -no-user-config
-  -nodefaults -display none -vga std -rtc base=utc '
+qemu_options: -machine mem-merge=on -machine type=pc-1.0,accel=kvm -serial mon:stdio -nographic -no-user-config -nodefaults -display none -vga std -rtc base=utc
 ...

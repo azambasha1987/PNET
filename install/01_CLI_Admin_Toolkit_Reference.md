@@ -33,6 +33,7 @@ The following canonical CLI tools (`pnet-*`) are available immediately on the co
 | `pnet-apt-guard` | **Safe APT Guard Utility**: Intercepts `apt upgrade` and `autoremove` to protect 32-bit IOL and kernel modules. | `sudo pnet-apt-guard [--status \| --enable \| --disable]` |
 | `pnet-dark` | **Pure Black Dark Theme Engine**: Toggles or restores the PNetLab high-contrast dark theme. | `sudo pnet-dark [--enable \| --disable]` |
 | `pnet-menu` / `pnet-fix` | **Interactive Repair Suite**: TUI menu providing single-click access to all diagnostic and repair scripts. | `sudo pnet-menu` |
+| `pnet-ingest-release` / `pnet-release-engine` | **Release Ingestion Engine**: Stages upstream packages, injects Tri-Pillars, repacks debs, updates manifest and channel pointer. | `sudo pnet-ingest-release [pipeline \| stage \| apply \| manifest \| publish \| push]` |
 
 ---
 

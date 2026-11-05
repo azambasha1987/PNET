@@ -35,6 +35,5 @@ ethernet: 2
 console: telnet
 qemu_arch: x86_64
 qemu_version: 2.12.0
-qemu_options: -machine mem-merge=on -machine type=pc,accel=kvm -smbios type=1,manufacturer="Cisco Systems
-  Inc.",product="KVM"
+qemu_options: -machine mem-merge=on -machine type=pc,accel=kvm -smbios "type=1,manufacturer=Cisco Systems Inc.,product=KVM"
 ...

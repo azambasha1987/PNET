@@ -54,6 +54,7 @@ fi
 chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /opt/unetlab/scripts/mcp/*.py 2>/dev/null || true
 
 ln -sf /opt/unetlab/scripts/pnet-ai-copilot.py          /usr/local/bin/pnet-ai
+ln -sf /opt/unetlab/scripts/pnet-bootstorm.py           /usr/local/bin/pnet-bootstorm
 ln -sf /opt/unetlab/scripts/pnet-config-diff.py         /usr/local/bin/pnet-config-diff
 ln -sf /opt/unetlab/scripts/pnet-ping-mesh.py           /usr/local/bin/pnet-ping-mesh
 ln -sf /opt/unetlab/scripts/pnet-scheduler.py           /usr/local/bin/pnet-scheduler
