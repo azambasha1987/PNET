@@ -59,9 +59,32 @@ if [ ! -f /etc/ssl/certs/pnetlab-selfsigned.crt ] || [ ! -f /etc/ssl/private/pne
     log_ok "Certificate generated."
 fi
 
-# 4. Write PNetLab VirtualHost configurations
-log_info "Writing Apache VirtualHost configurations..."
-mkdir -p /etc/apache2/sites-available /etc/apache2/sites-enabled /opt/unetlab/html
+# 4. Write PNetLab Global & VirtualHost configurations
+log_info "Writing Apache VirtualHost & Global configurations..."
+mkdir -p /etc/apache2/sites-available /etc/apache2/sites-enabled /etc/apache2/conf-available /etc/apache2/conf-enabled /opt/unetlab/html
+
+# Global configuration to guarantee access to /opt/unetlab/html regardless of active vhost
+cat > /etc/apache2/conf-available/pnetlab-global.conf << 'APACHE_GLOBAL'
+<Directory /opt/unetlab/>
+    Options FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>
+
+<Directory /opt/unetlab/html/>
+    Options FollowSymLinks Indexes
+    AllowOverride All
+    Require all granted
+    DirectoryIndex index.php index.html
+</Directory>
+
+<Directory /opt/unetlab/html/login/>
+    Options FollowSymLinks Indexes
+    AllowOverride All
+    Require all granted
+    DirectoryIndex index.html index.php
+</Directory>
+APACHE_GLOBAL
 
 cat > /etc/apache2/sites-available/pnetlab.conf << 'APACHE_HTTP'
 <VirtualHost *:80>
@@ -71,7 +94,7 @@ cat > /etc/apache2/sites-available/pnetlab.conf << 'APACHE_HTTP'
     RewriteCond %{REMOTE_ADDR} !^::1$
     RewriteRule ^/?(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
     <Directory /opt/unetlab/html/>
-        Options FollowSymLinks
+        Options FollowSymLinks Indexes
         AllowOverride All
         Require all granted
         DirectoryIndex index.php index.html
@@ -89,7 +112,7 @@ cat > /etc/apache2/sites-available/pnetlab-ssl.conf << 'APACHE_SSL'
 <VirtualHost *:443>
     DocumentRoot /opt/unetlab/html
     <Directory /opt/unetlab/html/>
-        Options FollowSymLinks
+        Options FollowSymLinks Indexes
         AllowOverride All
         Require all granted
         DirectoryIndex index.php index.html
@@ -118,15 +141,18 @@ cat > /etc/apache2/sites-available/pnetlab-ssl.conf << 'APACHE_SSL'
 </IfModule>
 APACHE_SSL
 
-# 5. Enable PNetLab sites and disable default sites
-log_info "Enabling pnetlab sites in Apache..."
-a2dissite 000-default default-ssl 2>/dev/null || true
+# 5. Enable PNetLab sites/confs and disable conflicting default sites
+log_info "Enabling pnetlab sites and global conf in Apache..."
+a2enconf pnetlab-global 2>/dev/null || true
+a2dissite 000-default default-ssl pnetlabs 2>/dev/null || true
 a2ensite pnetlab pnetlab-ssl 2>/dev/null || true
 
-# 6. Ensure permissions on /opt/unetlab/html
-log_info "Setting web permissions..."
-chown -R www-data:www-data /opt/unetlab/html 2>/dev/null || true
-chmod -R 755 /opt/unetlab/html 2>/dev/null || true
+# 6. Ensure permissions on /opt/unetlab/html and traverse rights
+log_info "Setting web directory permissions and traverse permissions..."
+chmod 755 /opt /opt/unetlab 2>/dev/null || true
+chown -R www-data:www-data /opt/unetlab/html /opt/unetlab/data /opt/unetlab/labs 2>/dev/null || true
+find /opt/unetlab/html -type d -exec chmod 755 {} + 2>/dev/null || chmod -R 755 /opt/unetlab/html 2>/dev/null || true
+find /opt/unetlab/html -type f -exec chmod 644 {} + 2>/dev/null || true
 
 # 7. Start / reload services
 log_info "Restarting Apache2 and PHP engines..."

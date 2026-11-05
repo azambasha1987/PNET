@@ -71,9 +71,11 @@ if [ -d /opt/unetlab ]; then
     chmod -R 755 /opt/unetlab/addons 2>/dev/null || true
 
     # Labs & data directories
-    mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/tmp
+    chmod 755 /opt /opt/unetlab 2>/dev/null || true
+    mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/tmp /opt/unetlab/html
     chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/data /opt/unetlab/tmp /opt/unetlab/html 2>/dev/null || true
     chmod -R 775 /opt/unetlab/labs /opt/unetlab/data /opt/unetlab/tmp 2>/dev/null || true
+    chmod -R 755 /opt/unetlab/html 2>/dev/null || true
 
     # Scripts & wrappers
     chown -R root:root /opt/unetlab/wrappers /opt/unetlab/scripts 2>/dev/null || true
