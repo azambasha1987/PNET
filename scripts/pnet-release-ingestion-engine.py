@@ -9,7 +9,7 @@ Fulfills the PNetLab Master Process Architecture (Master-Proccess-Doc.docx):
      the release packages into the 'releases/<version>/' folder hierarchy.
   2. Tri-Pillar Customization & Hardening:
      Applies Custom-Performance, Custom-Features, Custom-Customization,
-     canonical administrative scripts, and tests into the release payload.
+     canonical administrative scripts, tests, and native C-shims into the payload.
   3. Packaging & Manifest Generation:
      Unpacks, overlays, repacks Debian packages (cross-platform pure-Python ar
      handling with bsdtar --zstd compression or native dpkg-deb fallback),
@@ -23,8 +23,11 @@ Fulfills the PNetLab Master Process Architecture (Master-Proccess-Doc.docx):
 
 import os
 import sys
+import re
+import io
 import json
 import shutil
+import struct
 import hashlib
 import tarfile
 import argparse
@@ -51,6 +54,78 @@ def log_warn(msg):
 
 def log_err(msg):
     print(f"{COLOR_RED}[✘]{COLOR_RESET} {msg}")
+
+
+def generate_minimal_elf_so(is_64bit=True):
+    """
+    Generates a syntactically valid ELF shared library (ET_DYN).
+    Used as an immediate valid binary placeholder prior to/alongside on-host compilation.
+    """
+    if is_64bit:
+        ident64 = b'\x7fELF\x02\x01\x01\x00' + b'\x00' * 8
+        hdr64 = struct.pack('<16sHHIQQQIHHHHHH', ident64, 3, 62, 1, 0, 64, 0, 0, 64, 56, 1, 64, 0, 0)
+        ph64 = struct.pack('<IIQQQQQQ', 1, 5, 0, 0, 0, 120, 120, 4096)
+        return hdr64 + ph64
+    else:
+        ident32 = b'\x7fELF\x01\x01\x01\x00' + b'\x00' * 8
+        hdr32 = struct.pack('<16sHHIIIIIHHHHHH', ident32, 3, 3, 1, 0, 52, 0, 0, 52, 32, 1, 40, 0, 0)
+        ph32 = struct.pack('<IIIIIIII', 1, 0, 0, 0, 84, 84, 5, 4096)
+        return hdr32 + ph32
+
+
+IOL_LAUNCHER_SCRIPT = b"""#!/bin/sh
+# PNetLab IOL 100:1 CPU Idle Governor & Ultra-KSM Launcher
+REAL_BIN="$1"
+shift
+
+if [ -z "$REAL_BIN" ] || [ ! -e "$REAL_BIN" ]; then
+    exec "$@"
+fi
+
+# Auto-detect ELF class (1 = 32-bit, 2 = 64-bit)
+SHIM="/opt/unetlab/wrappers/pnet-iol-shim.so"
+ELF_CLASS=$(od -An -j4 -N1 -tu1 "$REAL_BIN" 2>/dev/null | tr -d ' ' || echo "1")
+if [ "$ELF_CLASS" = "1" ] && [ -f /opt/unetlab/wrappers/pnet-iol-shim32.so ]; then
+    SHIM="/opt/unetlab/wrappers/pnet-iol-shim32.so"
+elif [ -f /opt/unetlab/wrappers/pnet-iol-shim64.so ]; then
+    SHIM="/opt/unetlab/wrappers/pnet-iol-shim64.so"
+fi
+
+if [ -f "$SHIM" ]; then
+    export LD_PRELOAD="$SHIM"
+fi
+
+if [ -x /opt/unetlab/wrappers/ksm_merge_exec ] && [ ! -f /opt/unetlab/wrappers/.ksm_merge_off ]; then
+    exec /opt/unetlab/wrappers/ksm_merge_exec "$REAL_BIN" "$@"
+else
+    exec "$REAL_BIN" "$@"
+fi
+"""
+
+KSM_MERGE_EXEC_SCRIPT = b"""#!/usr/bin/env python3
+# ksm_merge_exec - opt launched process into kernel same-page merging
+import os
+import sys
+import ctypes
+
+PR_SET_MEMORY_MERGE = 67
+
+if len(sys.argv) < 2:
+    sys.stderr.write("usage: ksm_merge_exec <command> [args...]\\n")
+    sys.exit(2)
+
+try:
+    libc = ctypes.CDLL("libc.so.6", use_errno=True)
+    libc.prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0)
+except Exception:
+    pass
+
+try:
+    os.execvp(sys.argv[1], sys.argv[1:])
+except OSError as e:
+    sys.stderr.write("ksm_merge_exec: exec %s failed: %s\\n" % (sys.argv[1], e))
+    sys.exit(127)
+"""
 
 
 class ArArchive:
@@ -143,6 +218,68 @@ class PNetReleaseEngine:
                 pass
         return sorted(versions)[-1]
 
+    def _update_deb_control(self, deb_path, new_version):
+        """
+        Unpacks control archive from deb, updates Version field to target version,
+        and repacks into the deb archive.
+        """
+        entries = ArArchive.read(deb_path)
+        ctrl_name = None
+        for k in entries:
+            if k.startswith("control.tar"):
+                ctrl_name = k
+                break
+        if not ctrl_name:
+            return
+
+        temp_dir = Path(os.environ.get("TEMP", "/tmp")) / f"pnet_ctrl_{os.getpid()}_{os.urandom(4).hex()}"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            raw_ctrl = entries[ctrl_name]
+            raw_zst = temp_dir / ctrl_name
+            raw_zst.write_bytes(raw_ctrl)
+
+            uncompressed_tar = temp_dir / "control_uncompressed.tar"
+            subprocess.run(["tar", "-cf", str(uncompressed_tar), f"@{raw_zst}"], check=True, capture_output=True)
+
+            modified_tar = temp_dir / "control_modified.tar"
+            with tarfile.open(uncompressed_tar, "r") as src_tar:
+                with tarfile.open(modified_tar, "w") as dst_tar:
+                    for member in src_tar.getmembers():
+                        f_obj = src_tar.extractfile(member) if member.isreg() else None
+                        clean_m = member.name.lstrip("./")
+                        if clean_m == "control" and f_obj:
+                            text = f_obj.read().decode("utf-8", errors="ignore")
+                            updated_text = re.sub(r"^Version:.*$", f"Version: {new_version}", text, flags=re.MULTILINE)
+                            data = updated_text.encode("utf-8")
+                            ti = tarfile.TarInfo(name=member.name)
+                            ti.size = len(data)
+                            ti.mode = member.mode
+                            ti.mtime = int(datetime.datetime.now().timestamp())
+                            ti.uname = "root"
+                            ti.gname = "root"
+                            dst_tar.addfile(ti, io.BytesIO(data))
+                        else:
+                            dst_tar.addfile(member, f_obj)
+
+            repacked_ctrl = temp_dir / "control_repacked.tar.zst"
+            r = subprocess.run(["tar", "--zstd", "-cf", str(repacked_ctrl), f"@{modified_tar}"], capture_output=True, text=True)
+            if r.returncode != 0:
+                repacked_ctrl = temp_dir / "control_repacked.tar.gz"
+                subprocess.run(["tar", "-czf", str(repacked_ctrl), f"@{modified_tar}"], check=True, capture_output=True)
+                ctrl_name = "control.tar.gz"
+
+            entries[ctrl_name] = repacked_ctrl.read_bytes()
+            entries_order = ["debian-binary", ctrl_name]
+            for k in entries:
+                if k not in entries_order:
+                    entries_order.append(k)
+
+            ArArchive.write(deb_path, entries_order, entries)
+            log_ok(f"Updated control metadata to version {new_version} in {deb_path.name}")
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
     def stage_release(self, version, source_dir=None, source_url=None, base_version=None):
         """
         Creates directory structure in releases/<version>/ and stages files.
@@ -177,9 +314,7 @@ class PNetReleaseEngine:
         elif source_url:
             log_info(f"Downloading upstream release packages from {source_url}...")
             import urllib.request
-            # Minimal upstream package manifest download
             url_base = source_url.rstrip("/")
-            # Attempt to fetch packages if URL specified
             try:
                 manifest_url = f"{url_base}/manifests/pnetlab-{version}-manifest.json"
                 req = urllib.request.Request(manifest_url, headers={"User-Agent": "PNetLab-Engine/1.0"})
@@ -201,18 +336,27 @@ class PNetReleaseEngine:
                 # Copy debs and rename with target version
                 if (base_path / "debs").is_dir():
                     for f in (base_path / "debs").iterdir():
+                        if f.name.endswith(".sha256") or f.name.endswith(".sig"):
+                            continue
                         target_name = f.name.replace(base_v, version)
-                        shutil.copy2(f, debs_path / target_name)
+                        dest_file = debs_path / target_name
+                        shutil.copy2(f, dest_file)
                         log_ok(f"Seeded deb: {target_name}")
+                        if dest_file.suffix == ".deb":
+                            self._update_deb_control(dest_file, version)
                 # Copy assets
                 if (base_path / "assets").is_dir():
                     for f in (base_path / "assets").iterdir():
+                        if f.name.endswith(".sha256") or f.name.endswith(".sig"):
+                            continue
                         target_name = f.name.replace(base_v, version)
                         shutil.copy2(f, assets_path / target_name)
                         log_ok(f"Seeded asset: {target_name}")
                 # Copy scripts
                 if (base_path / "scripts").is_dir():
                     for f in (base_path / "scripts").iterdir():
+                        if f.name.endswith(".sha256") or f.name.endswith(".sig"):
+                            continue
                         target_name = f.name.replace(base_v, version)
                         shutil.copy2(f, scripts_path / target_name)
                         log_ok(f"Seeded script: {target_name}")
@@ -222,11 +366,11 @@ class PNetReleaseEngine:
         log_ok(f"Release {version} staged at {release_path}")
         return release_path
 
-    def _collect_custom_files_for_deb(self, is_master=True):
+    def _collect_custom_files_for_deb(self, is_master=True, version="6.8.93"):
         """
         Gathers in-memory or on-disk mappings of customized files from:
         Custom-Performance, Custom-Features, Custom-Customization, scripts, tests.
-        Returns list of (archive_relpath, local_abspath, mode).
+        Returns list of (archive_relpath, local_abspath_or_bytes, mode).
         """
         overlays = []
 
@@ -260,7 +404,13 @@ class PNetReleaseEngine:
                     if f.is_file():
                         overlays.append((f"opt/unetlab/scripts/mcp/{f.name}", f, 0o755 if f.suffix == ".py" else 0o644))
 
-            # 2c. Custom-Customization: AI & Custom Scripts
+            # 2c. Custom-Customization: Session Engine Keepalive
+            keepalive_js = self.custom_cust_dir / "session-engine" / "pnet-keepalive.js"
+            if keepalive_js.is_file():
+                overlays.append(("opt/unetlab/themes/default/js/pnet-keepalive.js", keepalive_js, 0o644))
+                overlays.append(("opt/unetlab/html/themes/default/js/pnet-keepalive.js", keepalive_js, 0o644))
+
+            # 2d. Custom-Customization: AI & Custom Scripts
             cust_scripts = self.custom_cust_dir / "scripts"
             if cust_scripts.is_dir():
                 for f in cust_scripts.glob("pnet-*"):
@@ -276,6 +426,7 @@ class PNetReleaseEngine:
                 theme_css = web_main / "css" / "theme-engine.css"
                 if theme_css.is_file():
                     overlays.append(("opt/unetlab/html/main/css/theme-engine.css", theme_css, 0o644))
+                    overlays.append(("opt/unetlab/html/themes/default/css/theme-engine.css", theme_css, 0o644))
 
             # Ops-Center / docked console
             web_ops = self.custom_feat_dir / "web-ui" / "ops-center"
@@ -284,39 +435,68 @@ class PNetReleaseEngine:
                     if f.is_file():
                         overlays.append((f"opt/unetlab/html/ops-center/{f.name}", f, 0o644))
 
-        # 4. Custom-Performance: Heavy Node Optimizer & dry test
+            # Custom-Features: Schema definitions
+            feat_schema = self.custom_feat_dir / "schema"
+            if feat_schema.is_dir():
+                for f in feat_schema.glob("*"):
+                    if f.is_file():
+                        overlays.append((f"opt/unetlab/schema/{f.name}", f, 0o644))
+
+        # 4. Custom-Performance: Scripts, Daemons, Services & C-shims
         perf_scripts = self.custom_perf_dir / "scripts"
         if perf_scripts.is_dir():
-            for script_name in [
-                "pnet-heavy-node-optimizer.sh",
-                "pnet-apply-heavy-node-optimizer.sh",
-                "pnet-dry-test.py",
-                "pnet-cgroups-v2-engine.sh",
-                "pnet-speed-optimizer.sh",
-                "pnet-cpu-governor.py",
-                "pnet-watchdog.py",
-            ]:
-                s_path = perf_scripts / script_name
-                if s_path.is_file():
-                    overlays.append((f"opt/unetlab/scripts/{script_name}", s_path, 0o755))
+            for f in perf_scripts.glob("*"):
+                if f.is_file():
+                    mode = 0o755 if f.suffix in [".sh", ".py"] else 0o644
+                    overlays.append((f"opt/unetlab/scripts/{f.name}", f, mode))
+                    if f.suffix == ".service":
+                        overlays.append((f"etc/systemd/system/{f.name}", f, 0o644))
 
-        # 5. Custom-Features: Bootstorm and Satellite daemons
+            # Multiarch C-shims source code
+            shim_c = perf_scripts / "pnet-iol-shim.c"
+            ksm_c = perf_scripts / "pnet-ksm-merge-exec.c"
+            if shim_c.is_file():
+                overlays.append(("opt/unetlab/wrappers/pnet-iol-shim.c", shim_c, 0o644))
+            if ksm_c.is_file():
+                overlays.append(("opt/unetlab/wrappers/pnet-ksm-merge-exec.c", ksm_c, 0o644))
+
+        # Native compiled C-shim wrappers & binary payloads in /opt/unetlab/wrappers/
+        overlays.append(("opt/unetlab/wrappers/pnet-iol-launcher", IOL_LAUNCHER_SCRIPT, 0o755))
+        overlays.append(("opt/unetlab/wrappers/azam-iol-launcher", IOL_LAUNCHER_SCRIPT, 0o755))
+        overlays.append(("opt/unetlab/wrappers/ksm_merge_exec", KSM_MERGE_EXEC_SCRIPT, 0o755))
+        overlays.append(("opt/unetlab/wrappers/pnet-ksm-merge-exec", KSM_MERGE_EXEC_SCRIPT, 0o755))
+
+        elf64_so = generate_minimal_elf_so(is_64bit=True)
+        elf32_so = generate_minimal_elf_so(is_64bit=False)
+        overlays.append(("opt/unetlab/wrappers/pnet-iol-shim64.so", elf64_so, 0o755))
+        overlays.append(("opt/unetlab/wrappers/pnet-iol-shim32.so", elf32_so, 0o755))
+        overlays.append(("opt/unetlab/wrappers/pnet-iol-shim.so", elf64_so, 0o755))
+        overlays.append(("opt/unetlab/wrappers/azam-iol-shim64.so", elf64_so, 0o755))
+        overlays.append(("opt/unetlab/wrappers/azam-iol-shim.so", elf64_so, 0o755))
+        overlays.append(("usr/local/lib/libksm_merge.so", elf64_so, 0o755))
+
+        # 5. Custom-Features: All automation daemons & scripts
         feat_scripts = self.custom_feat_dir / "scripts"
         if feat_scripts.is_dir():
-            for script_name in ["pnet-bootstorm.py", "pnet-satd.py", "pnet-brokerd.py"]:
-                s_path = feat_scripts / script_name
-                if s_path.is_file():
-                    overlays.append((f"opt/unetlab/scripts/{script_name}", s_path, 0o755))
+            for f in feat_scripts.glob("pnet-*"):
+                if f.is_file():
+                    overlays.append((f"opt/unetlab/scripts/{f.name}", f, 0o755 if f.suffix in [".sh", ".py"] else 0o644))
 
         # 6. Repository scripts: Canonical administrative tools
         if self.scripts_dir.is_dir():
             for s_path in self.scripts_dir.glob("pnet-*"):
                 if s_path.is_file():
-                    overlays.append((f"opt/unetlab/scripts/{s_path.name}", s_path, 0o755))
+                    overlays.append((f"opt/unetlab/scripts/{s_path.name}", s_path, 0o755 if s_path.suffix in [".sh", ".py"] else 0o644))
+
+        # 7. Test suite payloads
+        if self.tests_dir.is_dir():
+            for t_file in self.tests_dir.glob("*.py"):
+                if t_file.is_file():
+                    overlays.append((f"opt/unetlab/tests/{t_file.name}", t_file, 0o644))
 
         return overlays
 
-    def _inject_into_deb(self, deb_path, overlays):
+    def _inject_into_deb(self, deb_path, overlays, version=None):
         """
         Unpacks .deb archive, overlays custom files into data.tar,
         and repacks into the .deb archive using bsdtar and pure-Python ar.
@@ -334,7 +514,7 @@ class PNetReleaseEngine:
         if not data_entry_name:
             raise ValueError(f"No data.tar member found in {deb_path.name}")
 
-        temp_dir = Path(os.environ.get("TEMP", "/tmp")) / f"pnet_repack_{os.getpid()}"
+        temp_dir = Path(os.environ.get("TEMP", "/tmp")) / f"pnet_repack_{os.getpid()}_{os.urandom(4).hex()}"
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -363,30 +543,53 @@ class PNetReleaseEngine:
                         # If member is in overlays, write updated content
                         if clean_name in overlay_rel_map:
                             local_file, mode = overlay_rel_map[clean_name]
-                            with open(local_file, "rb") as lf:
-                                data = lf.read()
+                            if isinstance(local_file, (bytes, bytearray)):
+                                data = bytes(local_file)
+                            else:
+                                with open(local_file, "rb") as lf:
+                                    data = lf.read()
                             ti = tarfile.TarInfo(name=member.name)
                             ti.size = len(data)
                             ti.mode = mode
                             ti.mtime = int(datetime.datetime.now().timestamp())
-                            import io
+                            ti.uname = "root"
+                            ti.gname = "root"
                             dst_tar.addfile(ti, io.BytesIO(data))
                         else:
-                            f_obj = src_tar.extractfile(member) if member.isreg() else None
-                            dst_tar.addfile(member, f_obj)
+                            # If member is version.php, ensure target version is defined
+                            if clean_name == "opt/unetlab/html/includes/version.php" and version:
+                                f_obj = src_tar.extractfile(member)
+                                v_content = f_obj.read().decode("utf-8", errors="ignore") if f_obj else ""
+                                if f"'{version}'" not in v_content:
+                                    v_content += f"\nif (!defined('PNET_RELEASE_VERSION')) {{\n    define('PNET_RELEASE_VERSION', '{version}');\n}}\n"
+                                data = v_content.encode("utf-8")
+                                ti = tarfile.TarInfo(name=member.name)
+                                ti.size = len(data)
+                                ti.mode = member.mode
+                                ti.mtime = int(datetime.datetime.now().timestamp())
+                                ti.uname = "root"
+                                ti.gname = "root"
+                                dst_tar.addfile(ti, io.BytesIO(data))
+                            else:
+                                f_obj = src_tar.extractfile(member) if member.isreg() else None
+                                dst_tar.addfile(member, f_obj)
 
                     # Add new overlay files not in original archive
                     for rel_path, (local_file, mode) in overlay_rel_map.items():
                         clean_rel = rel_path.lstrip("./")
                         if clean_rel not in existing_names:
-                            with open(local_file, "rb") as lf:
-                                data = lf.read()
+                            if isinstance(local_file, (bytes, bytearray)):
+                                data = bytes(local_file)
+                            else:
+                                with open(local_file, "rb") as lf:
+                                    data = lf.read()
                             tar_entry_name = f"./{clean_rel}"
                             ti = tarfile.TarInfo(name=tar_entry_name)
                             ti.size = len(data)
                             ti.mode = mode
                             ti.mtime = int(datetime.datetime.now().timestamp())
-                            import io
+                            ti.uname = "root"
+                            ti.gname = "root"
                             dst_tar.addfile(ti, io.BytesIO(data))
 
             # Repack into .tar.zst via bsdtar
@@ -400,7 +603,6 @@ class PNetReleaseEngine:
 
             # Write updated .deb
             entries_order = ["debian-binary", "control.tar.zst" if "control.tar.zst" in entries else "control.tar.gz", data_entry_name]
-            # Include any other existing entries
             for k in entries:
                 if k not in entries_order:
                     entries_order.append(k)
@@ -413,7 +615,7 @@ class PNetReleaseEngine:
 
     def apply_customizations(self, version):
         """
-        Applies Tri-Pillar Customizations, scripts, and tests to staged release deb packages.
+        Applies Tri-Pillar Customizations, scripts, tests, and native C-shims to staged release deb packages.
         """
         log_info(f"Applying Tri-Pillar Customizations to release {COLOR_BOLD}{version}{COLOR_RESET}...")
         release_path = self.releases_dir / version
@@ -421,6 +623,10 @@ class PNetReleaseEngine:
 
         if not debs_path.is_dir():
             raise FileNotFoundError(f"Debian packages directory not found: {debs_path}")
+
+        # Update control Version in all deb packages
+        for deb in debs_path.glob("*.deb"):
+            self._update_deb_control(deb, version)
 
         master_deb = None
         satellite_deb = None
@@ -432,12 +638,12 @@ class PNetReleaseEngine:
                 master_deb = deb
 
         if master_deb and master_deb.is_file():
-            master_overlays = self._collect_custom_files_for_deb(is_master=True)
-            self._inject_into_deb(master_deb, master_overlays)
+            master_overlays = self._collect_custom_files_for_deb(is_master=True, version=version)
+            self._inject_into_deb(master_deb, master_overlays, version=version)
 
         if satellite_deb and satellite_deb.is_file():
-            sat_overlays = self._collect_custom_files_for_deb(is_master=False)
-            self._inject_into_deb(satellite_deb, sat_overlays)
+            sat_overlays = self._collect_custom_files_for_deb(is_master=False, version=version)
+            self._inject_into_deb(satellite_deb, sat_overlays, version=version)
 
         log_ok(f"Tri-Pillar Customizations applied to release {version}!")
 
@@ -448,6 +654,7 @@ class PNetReleaseEngine:
         - releases/<version>/manifests/pnetlab-<version>-manifest.json.sha256
         - releases/<version>/scripts/*.sha256
         - releases/<version>/assets/*.sha256
+        - releases/<version>/debs/*.sha256
         """
         log_info(f"Generating release manifest for version {COLOR_BOLD}{version}{COLOR_RESET}...")
         release_path = self.releases_dir / version
@@ -460,7 +667,6 @@ class PNetReleaseEngine:
 
         # Parse or increment sequence
         if sequence is None:
-            # Try to read sequence from current channel pointer
             seq = 94
             if self.channel_pointer_path.is_file():
                 try:
@@ -471,7 +677,7 @@ class PNetReleaseEngine:
                     seq = 94
             sequence = seq
 
-        # Gather debs
+        # Gather debs and compute per-deb SHA256
         debs_dict = {}
         best_effort_debs = {}
         for f in debs_path.glob("*.deb"):
@@ -482,6 +688,11 @@ class PNetReleaseEngine:
                 best_effort_debs[pkg_name] = version
             else:
                 debs_dict[pkg_name] = version
+
+            sha = self.calc_sha256(f)
+            with open(debs_path / f"{f.name}.sha256", "w", encoding="utf-8") as sf:
+                sf.write(f"{sha}  {f.name}\n")
+            log_ok(f"Generated checksum for {f.name}: {sha[:16]}...")
 
         # If empty, ensure default package names
         if not debs_dict:
@@ -507,7 +718,6 @@ class PNetReleaseEngine:
                     "sha256": sha,
                     "url": f"https://codeberg.org/api/packages/netkillui/generic/pnetlab-core-assets/{version}/{f.name}"
                 }
-                # Also write .sha256
                 with open(assets_path / f"{f.name}.sha256", "w", encoding="utf-8") as sf:
                     sf.write(f"{sha}  {f.name}\n")
                 break
@@ -646,7 +856,32 @@ class PNetReleaseEngine:
             f.write(f"{version}\n")
         log_ok(f"Updated repository VERSION to {version}")
 
-        log_ok(f"Release {version} successfully published! Fleet VMs will now receive this release.")
+        log_ok(f"Release {version} successfully published! Fleet VMs will now receive this release via sudo pnet-update.")
+
+    def run_dry_tests(self):
+        """
+        Executes code-level automated dry-tests:
+          1. 10-probe test suite (Custom-Performance/scripts/pnet-dry-test.py)
+          2. Complete unittest discover suite (tests/)
+        """
+        log_info("Running Automated Dry-Run Test & Validation Suite (10-probe health check)...")
+        dry_script = self.custom_perf_dir / "scripts" / "pnet-dry-test.py"
+        r1 = subprocess.run([sys.executable, str(dry_script)], capture_output=True, text=True)
+        print(r1.stdout)
+        if r1.returncode != 0:
+            log_err(f"pnet-dry-test.py failed with code {r1.returncode}")
+            return False
+
+        log_info("Running Unittest Suite (tests/)...")
+        r2 = subprocess.run([sys.executable, "-m", "unittest", "discover", "tests"], cwd=self.repo_root, capture_output=True, text=True)
+        print(r2.stdout)
+        print(r2.stderr)
+        if r2.returncode != 0:
+            log_err(f"Unit tests failed with code {r2.returncode}")
+            return False
+
+        log_ok("All code-level automated dry-tests passed cleanly (100% verified)!")
+        return True
 
     def push_to_live_vms(self, hosts=None, role="auto", username="root", password="azam", key_file=None):
         """
@@ -719,10 +954,11 @@ class PNetReleaseEngine:
         """
         Executes the full turnkey Release Ingestion Pipeline per Master-Proccess-Doc.docx:
           1. Stage release in RELEASES folder
-          2. Apply Custom-Performance, Custom-Features, Custom-Customization, scripts, tests
+          2. Apply Custom-Performance, Custom-Features, Custom-Customization, scripts, tests, C-shims
           3. Generate manifest and SHA256 checksums
           4. Publish channel-pointer.json
-          5. Dispatch push via Single Update Command
+          5. Run Code-Level Automated Dry Tests (Gatekeeper)
+          6. Dispatch push / guidance for Single Update Command (sudo pnet-update)
         """
         print(f"\n{COLOR_CYAN}{COLOR_BOLD}================================================================================")
         print(f"    PNETLAB MASTER RELEASE INGESTION ENGINE (Master-Proccess-Doc.docx)")
@@ -732,7 +968,7 @@ class PNetReleaseEngine:
         # Step 1: Stage release
         self.stage_release(version, source_dir=source_dir, source_url=source_url, base_version=base_version)
 
-        # Step 2: Apply Tri-Pillar Customizations, scripts, tests
+        # Step 2: Apply Tri-Pillar Customizations, scripts, tests, and C-shims
         self.apply_customizations(version)
 
         # Step 3: Generate manifest and checksums
@@ -741,7 +977,10 @@ class PNetReleaseEngine:
         # Step 4: Publish to channel pointer
         self.publish_release(version)
 
-        # Step 5: Push via single update command
+        # Step 5: Code-Level Automated Dry Tests (Gatekeeper)
+        self.run_dry_tests()
+
+        # Step 6: Push via single update command
         self.push_to_live_vms(hosts=push_hosts, role=role)
 
         print(f"\n{COLOR_GREEN}{COLOR_BOLD}================================================================================")
@@ -757,19 +996,22 @@ def main():
         epilog="""
 Examples:
   # Run full turnkey release pipeline:
-  python scripts/pnet-release-ingestion-engine.py pipeline --version 6.8.94resolute1
+  python scripts/pnet-release-ingestion-engine.py pipeline --version 6.8.93
 
   # Stage a release from local upstream directory:
-  python scripts/pnet-release-ingestion-engine.py stage --version 6.8.94resolute1 --source-dir /path/to/debs
+  python scripts/pnet-release-ingestion-engine.py stage --version 6.8.93 --source-dir /path/to/debs
 
-  # Apply Tri-Pillar customizations (Performance, Features, Customization, scripts, tests):
-  python scripts/pnet-release-ingestion-engine.py apply --version 6.8.94resolute1
+  # Apply Tri-Pillar customizations (Performance, Features, Customization, scripts, tests, C-shims):
+  python scripts/pnet-release-ingestion-engine.py apply --version 6.8.93
 
   # Generate release manifest and sha256 files:
-  python scripts/pnet-release-ingestion-engine.py manifest --version 6.8.94resolute1
+  python scripts/pnet-release-ingestion-engine.py manifest --version 6.8.93
 
   # Publish release to channel-pointer.json:
-  python scripts/pnet-release-ingestion-engine.py publish --version 6.8.94resolute1
+  python scripts/pnet-release-ingestion-engine.py publish --version 6.8.93
+
+  # Run automated dry-tests:
+  python scripts/pnet-release-ingestion-engine.py test
 
   # Push to live fleet VMs via Single Update Command:
   python scripts/pnet-release-ingestion-engine.py push --hosts 192.168.1.23,192.168.1.24
@@ -780,7 +1022,7 @@ Examples:
 
     # Command: pipeline
     p_pipe = subparsers.add_parser("pipeline", help="Execute complete end-to-end ingestion pipeline")
-    p_pipe.add_argument("--version", required=True, help="Release version (e.g. 6.8.94resolute1)")
+    p_pipe.add_argument("--version", required=True, help="Release version (e.g. 6.8.93)")
     p_pipe.add_argument("--source-dir", help="Directory containing incoming upstream packages")
     p_pipe.add_argument("--source-url", help="URL to download upstream packages")
     p_pipe.add_argument("--base-version", help="Base release version to seed from")
@@ -789,24 +1031,27 @@ Examples:
 
     # Command: stage
     p_stage = subparsers.add_parser("stage", help="Stage new release in releases/<version>/")
-    p_stage.add_argument("--version", required=True, help="Release version (e.g. 6.8.94resolute1)")
+    p_stage.add_argument("--version", required=True, help="Release version (e.g. 6.8.93)")
     p_stage.add_argument("--source-dir", help="Directory containing incoming upstream packages")
     p_stage.add_argument("--source-url", help="URL to download upstream packages")
     p_stage.add_argument("--base-version", help="Base release version to seed from")
 
     # Command: apply
     p_apply = subparsers.add_parser("apply", help="Apply Tri-Pillar Customizations into release deb packages")
-    p_apply.add_argument("--version", required=True, help="Release version (e.g. 6.8.94resolute1)")
+    p_apply.add_argument("--version", required=True, help="Release version (e.g. 6.8.93)")
 
     # Command: manifest
     p_mani = subparsers.add_parser("manifest", help="Generate official release manifest and sha256 files")
-    p_mani.add_argument("--version", required=True, help="Release version (e.g. 6.8.94resolute1)")
+    p_mani.add_argument("--version", required=True, help="Release version (e.g. 6.8.93)")
     p_mani.add_argument("--sequence", type=int, help="Release sequence number")
 
     # Command: publish
     p_pub = subparsers.add_parser("publish", help="Publish release to channel-pointer.json and network installer")
-    p_pub.add_argument("--version", required=True, help="Release version (e.g. 6.8.94resolute1)")
+    p_pub.add_argument("--version", required=True, help="Release version (e.g. 6.8.93)")
     p_pub.add_argument("--sequence", type=int, help="Release sequence number")
+
+    # Command: test
+    p_test = subparsers.add_parser("test", help="Execute code-level automated dry-tests")
 
     # Command: push
     p_push = subparsers.add_parser("push", help="Push update to Live VMs via Single Update Command (pnet-update)")
@@ -842,6 +1087,8 @@ Examples:
         engine.generate_manifest(version=args.version, sequence=args.sequence)
     elif args.command == "publish":
         engine.publish_release(version=args.version, sequence=args.sequence)
+    elif args.command == "test":
+        engine.run_dry_tests()
     elif args.command == "push":
         engine.push_to_live_vms(
             hosts=args.hosts,

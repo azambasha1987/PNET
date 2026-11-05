@@ -14,8 +14,30 @@ import paramiko
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if not os.path.isdir(os.path.join(REPO_ROOT, "scripts")):
     REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DEB_PATH = os.path.join(REPO_ROOT, "debian", "pool", "resolute", "main", "pnetlab_6.8.93resolute1_amd64.deb")
-BRIDGE_DEB_PATH = os.path.join(REPO_ROOT, "debian", "pool", "resolute", "main", "pnetlab-bridge-dkms_6.8.93resolute1_all.deb")
+
+def _resolve_deb_paths():
+    version_file = os.path.join(REPO_ROOT, "VERSION")
+    v = "6.8.93"
+    if os.path.isfile(version_file):
+        with open(version_file, "r", encoding="utf-8") as f:
+            v = f.read().strip()
+    cands_deb = [
+        os.path.join(REPO_ROOT, "releases", v, "debs", f"pnetlab_{v}_amd64.deb"),
+        os.path.join(REPO_ROOT, "releases", "6.8.93resolute1", "debs", "pnetlab_6.8.93resolute1_amd64.deb"),
+        os.path.join(REPO_ROOT, "debian", "pool", "resolute", "main", f"pnetlab_{v}_amd64.deb"),
+        os.path.join(REPO_ROOT, "debian", "pool", "resolute", "main", "pnetlab_6.8.93resolute1_amd64.deb"),
+    ]
+    cands_bridge = [
+        os.path.join(REPO_ROOT, "releases", v, "debs", f"pnetlab-bridge-dkms_{v}_all.deb"),
+        os.path.join(REPO_ROOT, "releases", "6.8.93resolute1", "debs", "pnetlab-bridge-dkms_6.8.93resolute1_all.deb"),
+        os.path.join(REPO_ROOT, "debian", "pool", "resolute", "main", f"pnetlab-bridge-dkms_{v}_all.deb"),
+        os.path.join(REPO_ROOT, "debian", "pool", "resolute", "main", "pnetlab-bridge-dkms_6.8.93resolute1_all.deb"),
+    ]
+    core = next((p for p in cands_deb if os.path.isfile(p)), cands_deb[0])
+    bridge = next((p for p in cands_bridge if os.path.isfile(p)), cands_bridge[0])
+    return core, bridge
+
+DEB_PATH, BRIDGE_DEB_PATH = _resolve_deb_paths()
 
 def run_parity_check():
     print("=" * 70)

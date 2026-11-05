@@ -1,9 +1,9 @@
 {
-  "generated_utc": "2026-11-05T03:23:35Z",
+  "generated_utc": "2026-11-05T08:10:33Z",
   "min_bootstrap_version": "2026.08.22",
-  "not_valid_after": "2027-02-03T03:23:35Z",
-  "release": "6.8.93resolute1",
+  "not_valid_after": "2027-02-03T08:10:33Z",
+  "release": "6.8.93",
   "schema": 1,
-  "sequence": 93,
+  "sequence": 94,
   "type": "pnetlab-channel-pointer"
 }

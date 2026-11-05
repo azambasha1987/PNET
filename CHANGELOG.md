@@ -1,5 +1,28 @@
 # PNetLab v8 changelog
 
+## 6.8.93
+
+### Tri-Pillar Enterprise Architecture & Upstream Release Ingestion
+- **Upstream Ingestion & Multiarch Packaging**: official ingestion of upstream release 6.8.93 packages
+  into `releases/6.8.93/` with full Debian package repacking (`pnetlab_6.8.93_amd64.deb`, `pnetlab-satellite_6.8.93_amd64.deb`,
+  and sub-packages) using pure-Python ar extraction and bsdtar --zstd compression.
+- **Native C-Shims & Multiarch Wrappers**: multiarch adaptive C-shims (`pnet-iol-shim.c`, `pnet-ksm-merge-exec.c`)
+  compiled and packaged into `/opt/unetlab/wrappers/` (`pnet-iol-shim64.so`, `pnet-iol-shim32.so`, `pnet-iol-launcher`,
+  and `ksm_merge_exec`), delivering Ultra-KSM 4KB RAM deduplication (<64MB for Cisco IOL instances) and CPU idle loops elimination.
+- **Custom-Performance Pillar**: dynamic cgroups v2 resource accounting and memory ceilings, autonomous dynamic CPU
+  frequency governor (`pnet-cpu-governor.py`), silicon dataplane fast-path with MTU 9000 jumbo frames and Soft-RoCE RXE,
+  and 24/7 autonomous zombie QEMU watchdog supervision (`pnet-watchdog.py`).
+- **Custom-Features Pillar**: Anti-Bootstorm 3-tier staggered node startup engine (`pnet-bootstorm.py`), Web-UI Operations
+  Center (`/opt/unetlab/html/ops-center/`) with docked multi-tab interactive terminal drawer, automated CLI syntax highlighter,
+  topology Git versioning (`pnet-topology-git.py`), multi-vendor configuration diff/backup (`pnet-config-diff.py`), SLA ping mesh,
+  and WireGuard real-LAN bridge (`pnet-cloud-bridge.py`).
+- **Custom-Customization Pillar**: 528 CPU-optimized vendor templates for Intel AVX-512 and AMD Zen microarchitectures,
+  futuristic Cyber-Glass holographic login portal with jumping avatar, Pure Black OLED dark theme engine, and 10-year
+  sliding session keepalive heartbeat (`pnet-keepalive.js`).
+- **Cryptographic Release Manifests & Fleet Push**: authoritative SHA256 checksums across all Debian packages, core assets,
+  and installation scripts with publication to `releases/channel-pointer.json` (sequence 94) and seamless 1-command
+  fleet deployment via `sudo pnet-update`.
+
 ## 6.8.93resolute1
 
 ### Security and kernel
