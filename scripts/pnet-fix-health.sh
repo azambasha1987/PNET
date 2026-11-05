@@ -470,7 +470,19 @@ fi
 log_info "[9/9] Sanitizing directory permissions and running Doctor probe..."
 chmod 2777 /opt/unetlab/tmp 2>/dev/null || true
 chmod 775 /opt/unetlab/labs 2>/dev/null || true
-chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html 2>/dev/null || true
+mkdir -p /opt/unetlab/data/branding 2>/dev/null || true
+chmod 775 /opt/unetlab/data/branding 2>/dev/null || true
+chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html /opt/unetlab/data 2>/dev/null || true
+
+# Ensure Theme engine script is in main/index.html
+if [ -f /opt/unetlab/html/main/index.html ]; then
+    if ! grep -q "pnq-theme.js" /opt/unetlab/html/main/index.html; then
+        sed -i 's|<script src="/main/js/dashboard.js|<script src="/assets-common/js/pnq-theme.js"></script>\n\t<script src="/main/js/dashboard.js|' /opt/unetlab/html/main/index.html 2>/dev/null || true
+    fi
+    if ! grep -q "labs-workspace" /opt/unetlab/html/main/index.html; then
+        sed -i 's|<script src="/main/js/labs.js|<script type="module" src="/themes/default/islands/js/labs-workspace.js"></script>\n\t<script type="module" src="/themes/default/islands/js/icons-manager.js"></script>\n\t<script src="/main/js/labs.js|' /opt/unetlab/html/main/index.html 2>/dev/null || true
+    fi
+fi
 rm -f /etc/sudoers.d/unetlab 2>/dev/null || true
 echo 1 > /sys/kernel/mm/ksm/run 2>/dev/null || true
 

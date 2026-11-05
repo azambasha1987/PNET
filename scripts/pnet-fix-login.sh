@@ -272,27 +272,33 @@ if [ -d "$ISLANDS_DIR" ]; then
     chown www-data:www-data "$ISLANDS_DIR"/*.js 2>/dev/null || true
 fi
 
-# Ensure main/index.html includes islands module scripts
+# Ensure main/index.html includes islands module scripts and Theme Engine
 MAIN_INDEX="/opt/unetlab/html/main/index.html"
-if [ -f "$MAIN_INDEX" ] && ! grep -q "labs-workspace" "$MAIN_INDEX"; then
-    sed -i 's|<script src="/main/js/labs.js|<script type="module" src="/themes/default/islands/js/labs-workspace.js"></script>\n\t<script type="module" src="/themes/default/islands/js/icons-manager.js"></script>\n\t<script src="/main/js/labs.js|' "$MAIN_INDEX" 2>/dev/null || true
+if [ -f "$MAIN_INDEX" ]; then
+    if ! grep -q "pnq-theme.js" "$MAIN_INDEX"; then
+        sed -i 's|<script src="/main/js/dashboard.js|<script src="/assets-common/js/pnq-theme.js"></script>\n\t<script src="/main/js/dashboard.js|' "$MAIN_INDEX" 2>/dev/null || true
+    fi
+    if ! grep -q "labs-workspace" "$MAIN_INDEX"; then
+        sed -i 's|<script src="/main/js/labs.js|<script type="module" src="/themes/default/islands/js/labs-workspace.js"></script>\n\t<script type="module" src="/themes/default/islands/js/icons-manager.js"></script>\n\t<script src="/main/js/labs.js|' "$MAIN_INDEX" 2>/dev/null || true
+    fi
 fi
 
-# Deploy resilient labs.js and icons.js
-for js_src in \
-    "$SCRIPT_DIR/../Custom-Features/web-ui/main/js" \
-    "/opt/PNET/Custom-Features/web-ui/main/js" \
-    "/opt/pnet/Custom-Features/web-ui/main/js"; do
-    if [ -d "$js_src" ]; then
-        cp -f "$js_src/"*.js /opt/unetlab/html/main/js/ 2>/dev/null || true
+# Deploy resilient labs.js, icons.js and updated index.html
+for feat_src in \
+    "$SCRIPT_DIR/../Custom-Features/web-ui/main" \
+    "/opt/PNET/Custom-Features/web-ui/main" \
+    "/opt/pnet/Custom-Features/web-ui/main"; do
+    if [ -d "$feat_src" ]; then
+        [ -f "$feat_src/index.html" ] && cp -f "$feat_src/index.html" "$MAIN_INDEX" 2>/dev/null || true
+        [ -d "$feat_src/js" ] && cp -f "$feat_src/js/"*.js /opt/unetlab/html/main/js/ 2>/dev/null || true
         break
     fi
 done
 
-# Ensure labs directory permissions
-mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs 2>/dev/null || true
-chmod 775 /opt/unetlab/labs 2>/dev/null || true
-chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html 2>/dev/null || true
+# Ensure labs and branding directory permissions
+mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs /opt/unetlab/data/branding 2>/dev/null || true
+chmod 775 /opt/unetlab/labs /opt/unetlab/data/branding 2>/dev/null || true
+chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html /opt/unetlab/data 2>/dev/null || true
 
 # Run GUI version sync engine if present
 for sync_sh in \

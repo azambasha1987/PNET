@@ -101,10 +101,10 @@ if [ -d "$ISLANDS_DIR" ]; then
     chown www-data:www-data "$ISLANDS_DIR"/*.js 2>/dev/null || true
 fi
 
-# Ensure labs storage directory exists and has correct permissions
-mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs 2>/dev/null || true
-chmod 775 /opt/unetlab/labs 2>/dev/null || true
-chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html 2>/dev/null || true
+# Ensure labs and branding storage directories exist and have correct permissions
+mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs /opt/unetlab/data/branding 2>/dev/null || true
+chmod 775 /opt/unetlab/labs /opt/unetlab/data/branding 2>/dev/null || true
+chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html /opt/unetlab/data 2>/dev/null || true
 
 THEME_INDEX="${PNET_HTML}/themes/default/index.html"
 if [ -f "${THEME_INDEX}" ]; then
@@ -128,7 +128,10 @@ if [ -f "${SCRIPT_DIR}/web-ui/main/index.html" ]; then
     cp -f "${SCRIPT_DIR}/web-ui/main/index.html" "${MAIN_INDEX}" 2>/dev/null || true
 fi
 if [ -f "${MAIN_INDEX}" ]; then
-    # Ensure Svelte Island module tags exist in main/index.html
+    # Ensure Svelte Island module tags and Theme Engine exist in main/index.html
+    if ! grep -q "pnq-theme.js" "${MAIN_INDEX}"; then
+        sed -i 's|<script src="/main/js/dashboard.js|<script src="/assets-common/js/pnq-theme.js"></script>\n\t<script src="/main/js/dashboard.js|' "${MAIN_INDEX}" 2>/dev/null || true
+    fi
     if ! grep -q "labs-workspace" "${MAIN_INDEX}"; then
         sed -i 's|<script src="/main/js/labs.js|<script type="module" src="/themes/default/islands/js/labs-workspace.js"></script>\n\t<script type="module" src="/themes/default/islands/js/icons-manager.js"></script>\n\t<script src="/main/js/labs.js|' "${MAIN_INDEX}" 2>/dev/null || true
     fi
