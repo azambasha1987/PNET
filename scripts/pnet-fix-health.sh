@@ -361,11 +361,64 @@ WantedBy=multi-user.target
 EOF_HTTP
 fi
 
+# Ensure /opt/ovf/pnet-bridges.sh and pnetlab-pnet-bridges.service exist
+mkdir -p /opt/ovf 2>/dev/null || true
+if [ ! -f /opt/ovf/pnet-bridges.sh ] && [ -f "$SCRIPT_DIR/pnet-bridges.sh" ]; then
+    cp -f "$SCRIPT_DIR/pnet-bridges.sh" /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+elif [ ! -f /opt/ovf/pnet-bridges.sh ]; then
+    cat > /opt/ovf/pnet-bridges.sh << 'EOF_BRIDGES'
+#!/bin/bash
+IP=/bin/ip
+command -v "$IP" >/dev/null 2>&1 || IP=ip
+modprobe bridge 2>/dev/null || true
+modprobe 8021q 2>/dev/null || true
+for i in 0 1 2 3 4 5 6 7 8 9; do
+    if ! "$IP" link show "pnet$i" >/dev/null 2>&1; then
+        "$IP" link add name "pnet$i" type bridge forward_delay 0 stp_state 0 2>/dev/null || \
+        "$IP" link add name "pnet$i" type bridge 2>/dev/null || true
+    fi
+    "$IP" link set "pnet$i" up 2>/dev/null || true
+done
+if ! "$IP" link show nat0 >/dev/null 2>&1; then
+    "$IP" link add name nat0 type bridge forward_delay 0 stp_state 0 2>/dev/null || \
+    "$IP" link add name nat0 type bridge 2>/dev/null || true
+fi
+"$IP" link set nat0 up 2>/dev/null || true
+exit 0
+EOF_BRIDGES
+fi
+chmod 755 /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+
+# Provision pnetlab-pnet-bridges.service unit if missing
+if [ ! -f /etc/systemd/system/pnetlab-pnet-bridges.service ] && [ ! -f /lib/systemd/system/pnetlab-pnet-bridges.service ]; then
+    cat > /etc/systemd/system/pnetlab-pnet-bridges.service << 'EOF_BRUNIT'
+[Unit]
+Description=PNetLab cloud bridge devices (pnet0-9 + nat0) — exist regardless of ifupdown
+DefaultDependencies=no
+After=systemd-udev-settle.service
+Before=networking.service network-pre.target
+Wants=network-pre.target
+ConditionPathExists=/opt/ovf/pnet-bridges.sh
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash /opt/ovf/pnet-bridges.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF_BRUNIT
+fi
+
 systemctl daemon-reload
 
 # Unmask and start services in strict dependency sequence
 systemctl unmask docker.socket docker.service containerd.service guacd.service 2>/dev/null || true
-systemctl unmask pnet-console-mux.service pnet-guac-lite.service pnet-shell-bridge.service pnet-http-bridge.service pnetlab-brokerd.service pnetlab-labstated.service 2>/dev/null || true
+systemctl unmask pnetlab-pnet-bridges.service pnet-console-mux.service pnet-guac-lite.service pnet-shell-bridge.service pnet-http-bridge.service pnetlab-brokerd.service pnetlab-labstated.service 2>/dev/null || true
+
+# Pre-execute bridge script to guarantee live kernel bridge devices exist immediately
+/bin/bash /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+systemctl enable --now pnetlab-pnet-bridges.service 2>/dev/null || true
 
 # 1. Containerd & Docker Runtime
 systemctl enable --now containerd 2>/dev/null || true

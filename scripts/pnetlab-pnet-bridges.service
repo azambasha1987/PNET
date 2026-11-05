@@ -1,0 +1,15 @@
+[Unit]
+Description=PNetLab cloud bridge devices (pnet0-9 + nat0) — exist regardless of ifupdown
+DefaultDependencies=no
+After=systemd-udev-settle.service
+Before=networking.service network-pre.target
+Wants=network-pre.target
+ConditionPathExists=/opt/ovf/pnet-bridges.sh
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash /opt/ovf/pnet-bridges.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -488,6 +488,15 @@ class PNetReleaseEngine:
                 if s_path.is_file():
                     overlays.append((f"opt/unetlab/scripts/{s_path.name}", s_path, 0o755 if s_path.suffix in [".sh", ".py"] else 0o644))
 
+        # Cloud bridge runner and systemd unit overlay
+        br_sh = self.scripts_dir / "pnet-bridges.sh"
+        if br_sh.is_file():
+            overlays.append(("opt/ovf/pnet-bridges.sh", br_sh, 0o755))
+        br_svc = self.scripts_dir / "pnetlab-pnet-bridges.service"
+        if br_svc.is_file():
+            overlays.append(("lib/systemd/system/pnetlab-pnet-bridges.service", br_svc, 0o644))
+            overlays.append(("etc/systemd/system/pnetlab-pnet-bridges.service", br_svc, 0o644))
+
         # 7. Test suite payloads
         if self.tests_dir.is_dir():
             for t_file in self.tests_dir.glob("*.py"):

@@ -102,9 +102,20 @@ if [ -d "$ISLANDS_DIR" ]; then
 fi
 
 # Ensure labs and branding storage directories exist and have correct permissions
-mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs /opt/unetlab/data/branding 2>/dev/null || true
+mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs /opt/unetlab/data/branding /opt/ovf 2>/dev/null || true
 chmod 775 /opt/unetlab/labs /opt/unetlab/data/branding 2>/dev/null || true
 chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html /opt/unetlab/data 2>/dev/null || true
+
+# Ensure cloud bridges helper script and systemd service exist and are active
+if [ -f "${SCRIPT_DIR}/scripts/pnet-bridges.sh" ]; then
+    cp -f "${SCRIPT_DIR}/scripts/pnet-bridges.sh" /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+elif [ -f "/opt/PNET/scripts/pnet-bridges.sh" ]; then
+    cp -f "/opt/PNET/scripts/pnet-bridges.sh" /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+fi
+chmod 755 /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+[ -x /opt/ovf/pnet-bridges.sh ] && /bin/bash /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+systemctl unmask pnetlab-pnet-bridges.service 2>/dev/null || true
+systemctl enable --now pnetlab-pnet-bridges.service 2>/dev/null || true
 
 THEME_INDEX="${PNET_HTML}/themes/default/index.html"
 if [ -f "${THEME_INDEX}" ]; then

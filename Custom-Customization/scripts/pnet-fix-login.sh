@@ -295,10 +295,19 @@ for feat_src in \
     fi
 done
 
-# Ensure labs and branding directory permissions
-mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs /opt/unetlab/data/branding 2>/dev/null || true
+# Ensure labs and branding directory permissions and cloud bridges
+mkdir -p /opt/unetlab/labs /opt/unetlab/data/Exports /opt/unetlab/data/Logs /opt/unetlab/data/branding /opt/ovf 2>/dev/null || true
 chmod 775 /opt/unetlab/labs /opt/unetlab/data/branding 2>/dev/null || true
 chown -R www-data:www-data /opt/unetlab/labs /opt/unetlab/html /opt/unetlab/data 2>/dev/null || true
+
+# Ensure cloud bridges exist and service is active
+if [ -f "$SCRIPT_DIR/pnet-bridges.sh" ]; then
+    cp -f "$SCRIPT_DIR/pnet-bridges.sh" /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+fi
+chmod 755 /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+[ -x /opt/ovf/pnet-bridges.sh ] && /bin/bash /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+systemctl unmask pnetlab-pnet-bridges.service 2>/dev/null || true
+systemctl enable --now pnetlab-pnet-bridges.service 2>/dev/null || true
 
 # Run GUI version sync engine if present
 for sync_sh in \

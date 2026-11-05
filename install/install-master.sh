@@ -126,6 +126,17 @@ if [ -d "$REPO_ROOT/scripts" ]; then
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 fi
 
+# Deploy and initialize cloud bridges (pnet0-9 + nat0)
+mkdir -p /opt/ovf 2>/dev/null || true
+if [ -f "$REPO_ROOT/scripts/pnet-bridges.sh" ]; then
+    cp -f "$REPO_ROOT/scripts/pnet-bridges.sh" /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+fi
+if [ -f "$REPO_ROOT/scripts/pnetlab-pnet-bridges.service" ]; then
+    cp -f "$REPO_ROOT/scripts/pnetlab-pnet-bridges.service" /etc/systemd/system/pnetlab-pnet-bridges.service 2>/dev/null || true
+fi
+chmod 755 /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+[ -x /opt/ovf/pnet-bridges.sh ] && /bin/bash /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+
 # Apply all Tri-Pillar Custom Subsystems (Performance, Customization, Features)
 if [ -f "$REPO_ROOT/apply-all-custom.sh" ]; then
     bash "$REPO_ROOT/apply-all-custom.sh" --master || true
