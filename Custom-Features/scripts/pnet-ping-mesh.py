@@ -44,15 +44,25 @@ def ping_host(target_ip, count=3, timeout=1):
 
 
 def discover_lab_targets():
-    """Discover active target IPs from cluster satellites and virtual bridges."""
+    """Discover active target IPs dynamically from cluster satellites, gateway, and DNS."""
     targets = [
         {"name": "Master-Cluster", "ip": "192.168.1.23"},
-        {"name": "Satellite-1",    "ip": "192.168.1.22"},
-        {"name": "Satellite-2",    "ip": "192.168.1.24"},
         {"name": "PNet-Gateway",   "ip": "192.168.1.1"},
         {"name": "Cloud-DNS-1",    "ip": "1.1.1.1"},
         {"name": "Cloud-DNS-2",    "ip": "8.8.8.8"}
     ]
+    try:
+        import subprocess
+        out = subprocess.check_output(
+            ["mysql", "-u", "root", "-ppnet", "-e", "SELECT host_id, host_name, host_ip FROM pnetlab_db.cluster_hosts;", "-B", "-N"],
+            text=True, stderr=subprocess.DEVNULL
+        )
+        for line in out.strip().splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 3:
+                targets.append({"name": f"SAT-{parts[0]} ({parts[1]})", "ip": parts[2]})
+    except Exception:
+        pass
     return targets
 
 
