@@ -73,12 +73,11 @@ Write-Host " 1) Open AzamLabs Web UI (Direct HTTP - Zero Warnings / Instant)"
 Write-Host " 2) Open AzamLabs Web UI (Secure HTTPS)"
 Write-Host " 3) Scan Active Lab Node Console Ports (Ports 30001-30050)"
 Write-Host " 4) Launch SSH Session (ssh root@$VmIp)"
-Write-Host " 5) Setup 1-Click Wireshark Protocol Handler (azamlabs://)"
-Write-Host " 6) Trust AzamLabs Root CA Certificate on Windows & Firefox"
-Write-Host " 7) Exit"
+Write-Host " 5) Trust Root CA Certificate on Windows & Firefox"
+Write-Host " 6) Exit"
 Write-Host "============================================================" -ForegroundColor Cyan
 
-$action = Read-Host "Select option [1-7, Default: 1]"
+$action = Read-Host "Select option [1-6, Default: 1]"
 if (-not $action) { $action = "1" }
 
 switch ($action) {
@@ -131,22 +130,17 @@ switch ($action) {
         Start-Process "ssh" -ArgumentList "root@$VmIp"
     }
     "5" {
-        $wiresharkScript = "$PSScriptRoot\setup-windows-wireshark.ps1"
-        if (Test-Path $wiresharkScript) {
-            & $wiresharkScript
-        } else {
-            Write-Warning "setup-windows-wireshark.ps1 not found in scripts directory."
+        $sslTrustScript = "$PSScriptRoot\pnet-setup-windows-ssl-trust.ps1"
+        if (-not (Test-Path $sslTrustScript)) {
+            $sslTrustScript = "$PSScriptRoot\setup-windows-ssl-trust.ps1"
         }
-    }
-    "6" {
-        $sslTrustScript = "$PSScriptRoot\setup-windows-ssl-trust.ps1"
         if (Test-Path $sslTrustScript) {
             & $sslTrustScript -VmIp $VmIp
         } else {
-            Write-Warning "setup-windows-ssl-trust.ps1 not found in scripts directory."
+            Write-Warning "pnet-setup-windows-ssl-trust.ps1 not found in scripts directory."
         }
     }
-    "7" {
+    "6" {
         Write-Host "Exiting."
     }
 }

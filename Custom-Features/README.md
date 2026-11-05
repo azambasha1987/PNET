@@ -10,19 +10,14 @@ The **`Custom-Features`** pillar contains all advanced functional enhancements, 
 Custom-Features/
 ├── apply-features.sh                 # Standalone idempotent deployment hook (+x)
 ├── README.md                         # This reference manual
-├── scripts/                          # Feature automation and daemon scripts (21 tools)
+├── scripts/                          # Feature automation and daemon scripts (16 tools)
 │   ├── pnet-bootstorm.py             # Anti-Bootstorm Staggered Node Startup Engine
-│   ├── pnet-topology-doc.py          # Automated topology documentation generator
 │   ├── pnet-topology-git.py          # Topology Git versioning & snapshot engine
 │   ├── pnet-config-diff.py           # Device configuration backup, diff & rollback
 │   ├── pnet-ping-mesh.py             # Automated SLA ping mesh & synthetic traffic generator
 │   ├── pnet-cloud-bridge.py          # Real-LAN transit, NAT & WireGuard cloud bridge
-│   ├── pnet-capture-stream.sh        # Live Wireshark streaming & packet capture
-│   ├── pnet-sniffer.py               # TAP interface packet sniffer
-│   ├── pnet-setup-windows-wireshark.ps1 # Wireshark live remote stream pipe
 │   ├── pnet-scheduler.py             # Lab auto-shutdown & student quota engine
 │   ├── pnet-setup-scheduler.sh       # Systemd timer installer for scheduler
-│   ├── pnet-lab-grader.py            # Automated lab assessment & exam grading
 │   ├── pnet-fix-export-and-apt.sh    # Multi-folder ZIP export engine
 │   ├── pnet-fix-export-sort.py       # Lab export alphabetical sorting
 │   ├── pnet-upload-and-docker-fix.sh # 512MB uploads & Docker CE engine
@@ -73,5 +68,4 @@ sudo bash /opt/pnet/apply-all-custom.sh
 - `pnet-config-diff`: Snapshots, compares, and rolls back multi-vendor device configurations.
 - `pnet-ping-mesh`: Executes automated full-mesh latency and packet loss matrices.
 - `pnet-scheduler`: Configures automated lab sleep schedules and student resource quotas.
-- `pnet-topology-doc`: Auto-generates Markdown / HTML network topology documentation.
 - `pnet-topology-git`: Takes Git snapshots of active topologies with visual diffing.

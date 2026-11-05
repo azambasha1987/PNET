@@ -78,7 +78,6 @@ Located in [`scripts/`](../scripts/):
 | :--- | :--- | :--- |
 | [`Custom-Performance/scripts/pnet-dataplane-engine.sh`](../scripts/pnet-dataplane-engine.sh) | **Dataplane Accelerator**: Enables kernel netfilter bridge bypass, TAP ring buffer scaling, MTU 9000, and fast queueing. | `sudo bash Custom-Performance/scripts/pnet-dataplane-engine.sh` |
 | [`Custom-Performance/scripts/pnet-link-impairment.sh`](../scripts/pnet-link-impairment.sh) | **Link Quality & Impairment**: Injects latency, jitter, packet loss, bandwidth throttling, and corruption. | `sudo bash Custom-Performance/scripts/pnet-link-impairment.sh` |
-| [`Custom-Features/scripts/pnet-capture-stream.sh`](../../Custom-Features/scripts/pnet-capture-stream.sh) | **Zero-Copy Capture**: Streams live PCAP directly to Wireshark or saves to file without CPU overhead. | `sudo bash Custom-Features/scripts/pnet-capture-stream.sh` |
 | [`Custom-Performance/scripts/pnet-dataplane-stats.py`](../scripts/pnet-dataplane-stats.py) | **Real-Time Telemetry**: Live terminal monitor, JSON export, and Prometheus metrics server. | `python3 Custom-Performance/scripts/pnet-dataplane-stats.py` |
 
 ---
@@ -116,21 +115,17 @@ sudo bash Custom-Performance/scripts/pnet-link-impairment.sh clear all
 
 ---
 
-## 5. Live Traffic Capture & Wireshark Streaming
+## 5. Live Traffic Capture & Wireshark Integration
 
-### Method A: Stream Live Packets Directly to Windows Wireshark
-1. On the PNetLab VM, start streaming interface `vnet0_1_0` on TCP port `19001`:
-   ```bash
-   sudo bash Custom-Features/scripts/pnet-capture-stream.sh stream vnet0_1_0 19001
-   ```
-2. On your Windows machine, run Wireshark connected to the stream:
-   ```cmd
-   ncat <AZAMLABS_VM_IP> 19001 | "C:\Program Files\Wireshark\Wireshark.exe" -k -i -
-   ```
+PNetLab provides built-in native packet capture capabilities:
 
-### Method B: Capture to File with BPF Filter
+### Method A: Web-UI Native Link Capture
+1. Right-click any running node interface or link on the lab canvas.
+2. Select **Capture** to launch live packet capture via PNetLab's integrated HTML5 capture container (`azam-capture-web:1.0`) or desktop Wireshark wrapper.
+
+### Method B: Standard Dataplane tcpdump Capture
 ```bash
-sudo bash Custom-Features/scripts/pnet-capture-stream.sh capture vnet0_1_0 bgp_session.pcap --filter "tcp port 179 or ip proto 89"
+sudo tcpdump -i vnet0_1_0 -w bgp_session.pcap "tcp port 179 or ip proto 89"
 ```
 
 ---

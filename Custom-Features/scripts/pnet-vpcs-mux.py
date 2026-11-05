@@ -46,6 +46,10 @@ def main():
     if port is None:
         # Pass through directly if not a console server invocation
         real_bin = VPCS_REAL if os.path.exists(VPCS_REAL) else "/opt/vpcsu/bin/vpcs"
+        if not os.path.exists(real_bin):
+            print("PNetLab VPCS Console Multiplexer")
+            print("Usage: pnet-vpcs-mux.py -p <listen_port> [vpcs_options...]")
+            sys.exit(0)
         os.execv(real_bin, [real_bin] + argv)
 
     # Internal port for the underlying VPCS process

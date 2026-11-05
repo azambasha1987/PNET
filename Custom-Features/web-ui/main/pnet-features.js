@@ -973,7 +973,6 @@
               '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
                 '<a href="/pnet-ops/api/client/toolkit/pnetlab-urischeme-installer.bat" download class="btn btn-primary btn-sm" style="background:#0284c7;border:none;color:#fff;font-size:12px;display:inline-flex;align-items:center;gap:6px;"><i class="fa fa-download"></i> Download URI Scheme Installer (.bat)</a>' +
                 '<a href="/pnet-ops/api/client/toolkit/setup-windows-ssl-trust.ps1" download class="btn btn-ghost btn-sm" style="font-size:12px;display:inline-flex;align-items:center;gap:6px;"><i class="fa fa-lock"></i> SSL CA Trust (.ps1)</a>' +
-                '<a href="/pnet-ops/api/client/toolkit/setup-windows-wireshark.ps1" download class="btn btn-ghost btn-sm" style="font-size:12px;display:inline-flex;align-items:center;gap:6px;"><i class="fa fa-rss"></i> Wireshark Pipe (.ps1)</a>' +
               '</div>' +
             '</div>' +
             '<div class="card" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:14px;">' +

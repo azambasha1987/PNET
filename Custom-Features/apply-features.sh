@@ -54,7 +54,6 @@ ln -sf /opt/unetlab/scripts/pnet-config-diff.py         /usr/local/bin/pnet-conf
 ln -sf /opt/unetlab/scripts/pnet-ping-mesh.py           /usr/local/bin/pnet-ping-mesh
 ln -sf /opt/unetlab/scripts/pnet-scheduler.py           /usr/local/bin/pnet-scheduler
 ln -sf /opt/unetlab/scripts/pnet-cloud-bridge.py        /usr/local/bin/pnet-cloud-bridge
-ln -sf /opt/unetlab/scripts/pnet-topology-doc.py        /usr/local/bin/pnet-topology-doc
 ln -sf /opt/unetlab/scripts/pnet-topology-git.py        /usr/local/bin/pnet-topology-git
 ln -sf "${SCRIPT_DIR}/apply-features.sh"                 /usr/local/bin/pnet-apply-features
 chmod +x /usr/local/bin/pnet-* 2>/dev/null || true

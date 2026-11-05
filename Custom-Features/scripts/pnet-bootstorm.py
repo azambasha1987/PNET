@@ -927,7 +927,7 @@ def main():
 
     if not args.lab:
         print("[!] Error: --lab <path> is required. Example: --lab /Admin/big-topology.unl")
-        print("         Run: azam-bootstorm --host 192.168.1.23 --lab /Admin/topology.unl")
+        print("         Run: pnet-bootstorm --host 192.168.1.23 --lab /Admin/topology.unl")
         sys.exit(1)
 
     run_bootstorm(

@@ -82,9 +82,6 @@ COMMANDS = {
     "bridge-wireguard-up":["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--wireguard-up"],
     "bridge-wireguard-down":["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--wireguard-down"],
 
-    # Automatic Topology Documentation
-    "topology-doc":       None,
-
     # Anti-Bootstorm Engine
     "bootstorm-start":    None,
 
@@ -460,14 +457,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
                 self.reply_json({"error": str(e)})
 
         elif norm_path == "/azam-ops/api/doc/export":
-            lab = params.get("lab", ["default_lab"])[0]
-            fmt = params.get("format", ["all"])[0]
-            try:
-                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-topology-doc.py", "--lab", lab, "--format", fmt, "--json"],
-                                   capture_output=True, text=True, timeout=10)
-                self.reply_json(json.loads(r.stdout))
-            except Exception as e:
-                self.reply_json({"error": str(e)})
+            self.reply_json({"status": "disabled", "message": "Topology documentation engine has been retired."})
 
         elif norm_path == "/azam-ops/api/perf/top":
             try:
@@ -806,11 +796,6 @@ print("[*] AzamLabs Python SDK Loaded.")
                     rate = str(params.get("rate", "5"))
                     dur = str(params.get("duration", "5"))
                     cmd = ["python3", "/opt/unetlab/scripts/azambasha-ping-mesh.py", "--traffic-gen", "--target", target, "--rate", rate, "--duration", dur]
-
-                elif tool == "topology-doc":
-                    lab = params.get("lab", "default_lab")
-                    fmt = params.get("format", "all")
-                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-topology-doc.py", "--lab", lab, "--format", fmt]
                 elif tool == "bootstorm-start":
                     lab = params.get("lab", "").strip()
                     heavy_delay = str(params.get("heavy_delay", "18"))

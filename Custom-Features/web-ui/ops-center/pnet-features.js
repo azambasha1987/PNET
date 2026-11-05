@@ -533,8 +533,7 @@
         [['overview','🏠 Overview'],['health','📊 Health'],
          ['network','🌐 Network'],['security','🔒 SSL & Security'],
          ['vcs','🕰️ Topology VCS'],
-         ['configs','📸 Config Diff & Rollback'],
-         ['exporter','📖 Diagram & Doc Exporter']
+         ['configs','📸 Config Diff & Rollback']
         ].map(function (t) {
           return '<button data-az-tab="' + t[0] + '" style="' +
             'display:flex;align-items:center;gap:6px;padding:12px 16px;border:none;background:none;' +
@@ -659,26 +658,6 @@
             '<div style="font-size:12px;color:#64748b;margin-bottom:12px">View tracked revision history and diff running-config changes before and after configurations.</div>' +
             '<button style="'+BTN_PRI+'" data-az-tool="config-nodes" data-az-term="az-term-cfg-diff">🔍 View Config Timeline</button>' +
             '<div id="az-term-cfg-diff" style="'+TERM_STYLE+'"></div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
-      /* ─ EXPORTER (Diagram & Doc Exporter) ─ */
-      '<div data-az-section="exporter" style="display:none">' +
-        '<div style="font-size:16px;font-weight:700;margin-bottom:16px">📖 Topology Diagram & Workbook Exporter</div>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">' +
-          '<div style="'+CARD_STYLE+'">' +
-            '<div style="font-size:14px;font-weight:600;margin-bottom:4px">📐 Export Topology Diagram (Mermaid / Draw.io)</div>' +
-            '<div style="font-family:monospace;font-size:10px;color:#8b5cf6;background:rgba(139,92,246,.1);padding:1px 6px;border-radius:4px;display:inline-block;margin-bottom:8px">pnet-topology-doc --format mermaid</div>' +
-            '<div style="font-size:12px;color:#64748b;margin-bottom:12px">Renders the active topology layout, interface wiring, and IP map into exportable diagrams.</div>' +
-            '<button style="'+BTN_PRI+'" data-az-tool="topology-snapshot" data-az-term="az-term-exp-diag">📐 Generate Diagram</button>' +
-            '<div id="az-term-exp-diag" style="'+TERM_STYLE+'"></div>' +
-          '</div>' +
-          '<div style="'+CARD_STYLE+'">' +
-            '<div style="font-size:14px;font-weight:600;margin-bottom:4px">📚 Compile Student Lab Workbook</div>' +
-            '<div style="font-family:monospace;font-size:10px;color:#10b981;background:rgba(16,185,129,.1);padding:1px 6px;border-radius:4px;display:inline-block;margin-bottom:8px">pnet-topology-doc --format all</div>' +
-            '<div style="font-size:12px;color:#64748b;margin-bottom:12px">Builds a complete PDF/HTML workbook containing IP table, device credentials, and topology diagrams.</div>' +
-            '<a href="/docs/manual.pdf" target="_blank" style="'+BTN_PRI+';display:inline-flex;align-items:center;gap:6px;text-decoration:none;"><i class="fa fa-book"></i> Open Operations Manual</a>' +
           '</div>' +
         '</div>' +
       '</div>' +

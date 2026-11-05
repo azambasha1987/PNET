@@ -88,7 +88,7 @@ echo "6) High-Performance Speed Optimizer (KSM, OPcache, Gzip, Sysctl)"
 echo "7) Silicon Dataplane Fast-Path Accelerator (~2x Throughput, MTU 9000)"
 echo "8) Image Doctor & QCOW2 Disk Integrity Audit"
 echo "9) Link Impairment Controller (Latency, Jitter, Packet Loss)"
-echo "10) Packet Capture & Live Wireshark Streamer (TAP/Hub/Cloud)"
+echo "10) Built-in Packet Capture & Wireshark Status"
 echo "11) Real-Time Per-Link Telemetry Monitor"
 echo "12) Fix File Permissions, /dev/kvm & Node Recovery"
 echo "13) System Health & Diagnostic Dashboard"
@@ -151,7 +151,8 @@ case "$CHOICE" in
         bash "${SCRIPT_DIR}/pnet-link-impairment.sh" --help
         ;;
     10)
-        bash "${SCRIPT_DIR}/pnet-capture-stream.sh" --help
+        echo "[*] Packet capture is natively handled via PNetLab Web-UI right-click context menu."
+        echo "[*] Direct CLI capture: sudo tcpdump -i <interface> -w <file.pcap>"
         ;;
     11)
         python3 "${SCRIPT_DIR}/pnet-dataplane-stats.py"

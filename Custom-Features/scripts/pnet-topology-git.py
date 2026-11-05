@@ -137,7 +137,7 @@ def show_log(lab_name: str, limit: int = 20):
         cwd=GIT_WORK
     )
     if not out.strip():
-        print(f"{YELLOW}[!]{RESET} No commits yet for {rel}. Run: azam-topology-git --snapshot")
+        print(f"{YELLOW}[!]{RESET} No commits yet for {rel}. Run: pnet-topology-git --snapshot")
         return
     print(f"{CYAN}{'='*64}{RESET}")
     print(f"  {BOLD}Topology History: {os.path.basename(matches[0])}{RESET}")
@@ -148,7 +148,7 @@ def show_log(lab_name: str, limit: int = 20):
         msg = parts[1] if len(parts) > 1 else ""
         print(f"  {DIM}{i:>3}.{RESET}  {CYAN}{sha}{RESET}  {msg}")
     print(f"{CYAN}{'='*64}{RESET}")
-    print(f"  Restore: {BOLD}azam-topology-git --restore {lab_name} --commit <SHA>{RESET}")
+    print(f"  Restore: {BOLD}pnet-topology-git --restore {lab_name} --commit <SHA>{RESET}")
 
 
 def show_diff(lab_name: str, commit1: str = "HEAD~1", commit2: str = "HEAD"):
@@ -323,7 +323,7 @@ def main():
     if args.restore:
         if not args.commit:
             print(f"{RED}[!]{RESET} --commit <SHA> is required for --restore.")
-            print(f"     Run: azam-topology-git --log {args.restore}  to see commit SHAs")
+            print(f"     Run: pnet-topology-git --log {args.restore}  to see commit SHAs")
             sys.exit(1)
         restore_lab(args.restore, args.commit)
         return
