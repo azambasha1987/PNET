@@ -158,6 +158,13 @@ elif [ -f "/opt/unetlab/scripts/pnet-fix-web-credentials.sh" ]; then
     bash "/opt/unetlab/scripts/pnet-fix-web-credentials.sh" --silent || true
 fi
 
+# Provision and stage cluster satellite deployment bundle (/opt/unetlab/cluster-bundle)
+if [ -f "$REPO_ROOT/scripts/pnet-fix-cluster.sh" ]; then
+    bash "$REPO_ROOT/scripts/pnet-fix-cluster.sh" || true
+elif [ -f "/opt/unetlab/scripts/pnet-fix-cluster.sh" ]; then
+    bash "/opt/unetlab/scripts/pnet-fix-cluster.sh" || true
+fi
+
 if [ -d /opt/unetlab/wrappers ]; then
     chmod -R 755 /opt/unetlab/wrappers || true
 fi

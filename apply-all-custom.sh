@@ -186,6 +186,15 @@ EOF_BROKER
         log_info "Ensuring all PNetLab platform services and health checks pass..."
         bash "$HEALTH_FIX" || true
     fi
+
+    # Authoritatively stage cluster bundle and satellite deployment engine
+    CLUSTER_FIX="${SCRIPT_DIR}/scripts/pnet-fix-cluster.sh"
+    [ -f "$CLUSTER_FIX" ] || CLUSTER_FIX="/opt/unetlab/scripts/pnet-fix-cluster.sh"
+    [ -f "$CLUSTER_FIX" ] || CLUSTER_FIX="/opt/pnet/scripts/pnet-fix-cluster.sh"
+    if [ -f "$CLUSTER_FIX" ]; then
+        log_info "Staging satellite cluster deployment bundle and hardening satdeploy..."
+        bash "$CLUSTER_FIX" || true
+    fi
 fi
 
 systemctl daemon-reload 2>/dev/null || true
