@@ -1,0 +1,13 @@
+[Unit]
+Description=OS configuration for PNETLAB
+After=network.target netfilter-persistent.service
+Wants=netfilter-persistent.service
+
+[Service]
+ExecStart=/opt/ovf/ovfstartup.sh
+TimeoutSec=0
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+

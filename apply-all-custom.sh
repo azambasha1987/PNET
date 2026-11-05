@@ -77,6 +77,7 @@ ln -sf /opt/unetlab/scripts/pnet-ai-copilot.py          /usr/local/bin/pnet-ai
 ln -sf /opt/unetlab/scripts/pnet-setup-ollama.sh        /usr/local/bin/pnet-ollama
 ln -sf /opt/unetlab/scripts/pnet-release-ingestion-engine.py /usr/local/bin/pnet-release-engine
 ln -sf /opt/unetlab/scripts/pnet-ingest-release.sh     /usr/local/bin/pnet-ingest-release
+ln -sf /opt/unetlab/scripts/pnet-fix-health.sh         /usr/local/bin/pnet-fix-health
 ln -sf "${SCRIPT_DIR}/apply-all-custom.sh"              /usr/local/bin/pnet-apply-all
 chmod +x /usr/local/bin/pnet-* /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 
@@ -175,6 +176,15 @@ EOF_BROKER
     if [ -f "$FIX_LOGIN" ]; then
         log_info "Finalizing authoritative admin credentials (admin / pnet) and Web-UI integrity..."
         bash "$FIX_LOGIN" || true
+    fi
+
+    # Ensure all platform services and doctor checks pass
+    HEALTH_FIX="${SCRIPT_DIR}/scripts/pnet-fix-health.sh"
+    [ -f "$HEALTH_FIX" ] || HEALTH_FIX="/opt/unetlab/scripts/pnet-fix-health.sh"
+    [ -f "$HEALTH_FIX" ] || HEALTH_FIX="/opt/pnet/scripts/pnet-fix-health.sh"
+    if [ -f "$HEALTH_FIX" ]; then
+        log_info "Ensuring all PNetLab platform services and health checks pass..."
+        bash "$HEALTH_FIX" || true
     fi
 fi
 

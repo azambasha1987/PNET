@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=PNETLab Theme
+Description=PNETLab
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/pnetlab
+ScriptFile=/usr/share/plymouth/themes/pnetlab/pnetlab.script

@@ -1,0 +1,8 @@
+# PNetLab cron jobs.
+#
+# The two jobs formerly here (relicense, keepalive) called into the Laravel
+# store's artisan CLI and were license phone-home — dropped with the store
+# decommission (item C6). Left as a comment-only placeholder rather than
+# removing the file from the payload: /etc/cron.d/pnetlab is an established
+# conffile on upgraded boxes, and dpkg's conffile handling for a vanished
+# payload file is heavier than just shipping an inert file.
