@@ -30,14 +30,14 @@ fi
 
 # ── Self-Register CLI Commands & APT Post-Invoke Anti-Regression Hook ────────
 ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/pnet-credentials 2>/dev/null || true
-ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/pnet-credentials 2>/dev/null || true
-ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/pnet-credentials 2>/dev/null || true
+ln -sfn "${BASH_SOURCE[0]}" /usr/local/bin/azam-credentials 2>/dev/null || true
 
-# Register APT Post-Invoke hook so any future package upgrade/installation automatically preserves credentials
+# Register APT Post-Invoke hook so ANY future package upgrade/installation automatically preserves credentials & badge
 if [ -d /etc/apt/apt.conf.d ]; then
-    cat << 'APTEOF' > /etc/apt/apt.conf.d/99azamlabs-credentials 2>/dev/null || true
+    cat << 'APTEOF' > /etc/apt/apt.conf.d/99pnetlab-credentials 2>/dev/null || true
 DPkg::Post-Invoke {"if [ -x /usr/local/bin/pnet-credentials ]; then /usr/local/bin/pnet-credentials --silent >/dev/null 2>&1 || true; fi";};
 APTEOF
+    cp -f /etc/apt/apt.conf.d/99pnetlab-credentials /etc/apt/apt.conf.d/99azamlabs-credentials 2>/dev/null || true
 fi
 
 # Detect Node Role (Master vs Satellite)
@@ -313,6 +313,13 @@ INSERT INTO control (control_name, control_value) VALUES
 ON DUPLICATE KEY UPDATE control_value = VALUES(control_value);
 " 2>/dev/null || true
     done
+
+    # ── Re-assert Cyber-Glass Badge Anti-Regression in Web-UI ─────────────────
+    if [ -f /opt/unetlab/html/login/index.html ]; then
+        sed -i -E 's/admin<\/strong> \/ <strong>[a-zA-Z0-9]+/admin<\/strong> \/ <strong>pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
+        sed -i -E 's/admin<\/strong> \/ <strong class="glow-text">[a-zA-Z0-9_-]+/admin<\/strong> \/ <strong class="glow-text">pnet/g' /opt/unetlab/html/login/index.html 2>/dev/null || true
+        sed -i '/Offline appliance access/d' /opt/unetlab/html/login/index.html 2>/dev/null || true
+    fi
 
     # ── PHP-FPM & Apache FastCGI Handler Enforcement ─────────────────────────
     log_info "Verifying PHP-FPM and Apache FastCGI execution pipeline..."
