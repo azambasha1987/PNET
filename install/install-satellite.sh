@@ -45,7 +45,7 @@ bash "$SCRIPT_DIR/verify-packages.sh" "$VERSION"
 
 echo "[2/5] Installing hypervisor and bridge dependencies..."
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y
+apt-get update -y 2>/dev/null || true
 apt-get install -y --no-install-recommends \
     bridge-utils \
     cpu-checker \
@@ -55,7 +55,7 @@ apt-get install -y --no-install-recommends \
     git \
     libvirt-daemon-system \
     qemu-kvm \
-    docker.io || true
+    docker.io 2>/dev/null || true
 
 echo "[3/5] Installing PNetLab Satellite packages for $VERSION..."
 SATELLITE_DEBS=(
@@ -77,7 +77,7 @@ for deb_name in "${SATELLITE_DEBS[@]}"; do
     fi
 done
 
-dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y
+dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y 2>/dev/null || true
 
 echo "[4/5] Applying satellite optimization scripts and Custom Features for $VERSION..."
 if [ -d "$REPO_ROOT/scripts" ]; then

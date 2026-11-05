@@ -53,7 +53,7 @@ fi
 
 echo "[3/7] Updating apt cache and installing base dependencies..."
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y
+apt-get update -y 2>/dev/null || true
 apt-get install -y --no-install-recommends \
     apache2 \
     mysql-server \
@@ -67,7 +67,7 @@ apt-get install -y --no-install-recommends \
     curl \
     git \
     libvirt-daemon-system \
-    qemu-kvm || true
+    qemu-kvm 2>/dev/null || true
 
 echo "[4/7] Unpacking core application assets..."
 mkdir -p /opt/unetlab
@@ -102,7 +102,7 @@ for deb_name in "${MASTER_DEBS[@]}"; do
     fi
 done
 
-dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y
+dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y 2>/dev/null || true
 
 echo "[6/7] Applying PNetLab enterprise optimization scripts and Custom Features for $VERSION..."
 if [ -d "$REPO_ROOT/scripts" ]; then
