@@ -103,10 +103,31 @@ fi
 
 if 'define(\'PNET_PACKAGE_VERSION\'' not in content:
     content = re.sub(old_detection, new_detection, content, count=1)
-    script_path.write_text(content, encoding='utf-8')
+
+# 2. Update stage_bundle fallback to invoke pnet-fix-cluster.sh
+old_stage = 'stage_bundle() {\n    local src="" d tgz tmp=""\n    if repair_bundle_from_signed_release; then'
+new_stage = '''stage_bundle() {
+    local src="" d tgz tmp=""
+    if [ -x /opt/unetlab/scripts/pnet-fix-cluster.sh ]; then
+        /opt/unetlab/scripts/pnet-fix-cluster.sh >> "$LOG" 2>&1 || true
+        if bundle_is_complete "$BUNDLE" "$MASTER_RELEASE"; then
+            return 0
+        fi
+    elif [ -x /opt/PNET/scripts/pnet-fix-cluster.sh ]; then
+        /opt/PNET/scripts/pnet-fix-cluster.sh >> "$LOG" 2>&1 || true
+        if bundle_is_complete "$BUNDLE" "$MASTER_RELEASE"; then
+            return 0
+        fi
+    fi
+    if repair_bundle_from_signed_release; then'''
+
+if 'pnet-fix-cluster.sh' not in content:
+    content = content.replace(old_stage, new_stage, 1)
+
+script_path.write_text(content, encoding='utf-8')
 PY
     chmod 0755 /opt/unetlab/scripts/pnet-satdeploy.sh
-    log_ok "pnet-satdeploy.sh release detection hardened with fallback cascade."
+    log_ok "pnet-satdeploy.sh release detection & auto-stage fallback hardened."
 fi
 
 # Step 3: Authoritatively Stage /opt/unetlab/cluster-bundle
@@ -138,6 +159,9 @@ pnet_debs = rel_dir / "pnetlab-debs"
 deps_dir = rel_dir / "deps"
 zoo_dir = rel_dir / "qemu-zoo"
 
+# Wipe deb dir to prevent stale/duplicate packages
+if pnet_debs.exists():
+    shutil.rmtree(pnet_debs)
 pnet_debs.mkdir(parents=True, exist_ok=True)
 deps_dir.mkdir(parents=True, exist_ok=True)
 zoo_dir.mkdir(parents=True, exist_ok=True)
@@ -161,21 +185,29 @@ for cand in installer_candidates:
 deb_pools = [
     repo_root / f"releases/{release}/debs",
     repo_root / "releases/6.8.93resolute1/debs",
-    repo_root / "releases/6.8.93/debs",
     pathlib.Path(f"/opt/PNET/releases/{release}/debs"),
     pathlib.Path("/opt/PNET/releases/6.8.93resolute1/debs"),
+    repo_root / "releases/6.8.93/debs",
+    pathlib.Path("/opt/PNET/releases/6.8.93/debs"),
 ]
 hard_names = ['pnetlab-docker', 'pnetlab-qemu', 'pnetlab-satellite', 'pnetlab-vpcs']
+all_pkgs = hard_names + ['pnetlab-bridge-dkms']
+staged_pkgs = set()
+
 for pool in deb_pools:
     if not pool.is_dir():
         continue
     for deb in pool.glob("*.deb"):
-        for h in hard_names + ['pnetlab-bridge-dkms']:
-            if deb.name.startswith(h + "_"):
+        try:
+            pkg = subprocess.check_output(['dpkg-deb', '-f', str(deb), 'Package'], text=True).strip()
+            ver = subprocess.check_output(['dpkg-deb', '-f', str(deb), 'Version'], text=True).strip()
+            if pkg in all_pkgs and ver == release and pkg not in staged_pkgs:
                 target = pnet_debs / deb.name
-                if not target.exists() or target.stat().st_size != deb.stat().st_size:
-                    shutil.copy2(deb, target)
+                shutil.copy2(deb, target)
                 os.chmod(target, 0o644)
+                staged_pkgs.add(pkg)
+        except Exception:
+            continue
 
 # Assets (qemu-compat-libs and qemu-zoo)
 compat_sources = [
