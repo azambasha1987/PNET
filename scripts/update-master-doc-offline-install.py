@@ -82,10 +82,9 @@ def update_master_doc():
 
     # Section: Prerequisites
     add_p("Prerequisites & System Requirements", style='Normal', bold=True, size_pt=11.0, space_after=2)
-    add_p("• Supported Operating Systems: 64-bit Ubuntu Server or Desktop (Ubuntu 20.04 LTS, Ubuntu 22.04 LTS, Ubuntu 24.04 LTS).", style='List Paragraph', size_pt=10.0)
-    add_p("• Virtualization Support: Bare-metal hardware or Virtual Machine with Nested Virtualization enabled (Intel VT-x / AMD-V / SVM). Verify via kvm-ok.", style='List Paragraph', size_pt=10.0)
-    add_p("• Hardware Minimums (Lightweight Labs): 4 vCPUs, 8 GB RAM, 40 GB storage.", style='List Paragraph', size_pt=10.0)
-    add_p("• Hardware Recommended (Enterprise Cluster): 16+ vCPUs, 64+ GB RAM, NVMe SSD storage for heavy multi-vendor simulations (Cisco Cat8000v, XRv9k, Arista vEOS).", style='List Paragraph', size_pt=10.0)
+    add_p("• Operating System: Ubuntu 26.04 LTS for the network install method (also supports Ubuntu 24.04 LTS for offline/hybrid deployments).", style='List Paragraph', size_pt=10.0)
+    add_p("• Architecture & Virtualization: 64-bit host with hardware virtualization (Intel VT-x or AMD-V). Verify via kvm-ok.", style='List Paragraph', size_pt=10.0)
+    add_p("• Hardware Sizing: Light use: 4 vCPU, 8 GB RAM, 40 GB disk. Scale up for larger labs (e.g., 16+ vCPUs, 64+ GB RAM, NVMe SSD storage for heavy Cisco Cat8000v, XRv9k, Arista vEOS multi-vendor clusters).", style='List Paragraph', size_pt=10.0)
     add_p("• Privileges: Root superuser access (sudo).", style='List Paragraph', size_pt=10.0, space_after=4)
 
     # Subsection 1

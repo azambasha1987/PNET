@@ -3,7 +3,7 @@
 > **Document Status**: Draft / In-Progress / Verified / Released  
 > **Release Version**: `v<VERSION>`  
 > **Live VM Target**: `<IP or Hostname>` (Master Controller / Satellite)  
-> **OS & Kernel**: Ubuntu 20.04 / 22.04 LTS (`uname -r`)  
+> **OS & Kernel**: Ubuntu 26.04 LTS (Resolute) / Ubuntu 24.04 LTS (`uname -r`)  
 > **Test Date**: `YYYY-MM-DD`  
 > **Lead Engineer / Tester**: `<Engineer Name>`  
 > **Master Reference**: [`Master-Proccess-Doc.docx`](../Master-Proccess-Doc.docx)
