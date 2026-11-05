@@ -107,25 +107,31 @@ log_info "[3/9] Sanitizing Docker daemon.json and systemd drop-ins..."
 mkdir -p /etc/docker /etc/systemd/system/docker.service.d
 
 # Eliminate the fatal "hosts" directive conflict with systemd -H fd://
-if [ -f /etc/docker/daemon.json ]; then
-    python3 -c "
+# Configure authoritative /etc/docker/daemon.json (iptables:false native, eliminate hosts conflict)
+python3 -c "
 import json
+p = '/etc/docker/daemon.json'
+defaults = {
+    'iptables': False,
+    'live-restore': True,
+    'log-driver': 'json-file',
+    'log-opts': {'max-size': '10m', 'max-file': '2'},
+    'default-address-pools': [{'base': '10.177.0.0/16', 'size': 24}]
+}
 try:
-    with open('/etc/docker/daemon.json', 'r') as f:
+    with open(p, 'r') as f:
         d = json.load(f)
-    if 'hosts' in d:
-        d.pop('hosts', None)
-        with open('/etc/docker/daemon.json', 'w') as f:
-            json.dump(d, f, indent=2)
 except Exception:
-    pass
-" 2>/dev/null || true
-    sed -i '/"hosts"/d' /etc/docker/daemon.json 2>/dev/null || true
-else
-    cat << 'EOF_DAEMON' > /etc/docker/daemon.json
+    d = {}
+d.update(defaults)
+d.pop('hosts', None)
+d.pop('storage-driver', None)
+with open(p, 'w') as f:
+    json.dump(d, f, indent=2)
+" 2>/dev/null || cat << 'EOF_DAEMON' > /etc/docker/daemon.json
 {
+  "iptables": false,
   "live-restore": true,
-  "storage-driver": "overlay2",
   "log-driver": "json-file",
   "log-opts": {
     "max-size": "10m",
@@ -139,15 +145,10 @@ else
   ]
 }
 EOF_DAEMON
-fi
 chmod 0644 /etc/docker/daemon.json 2>/dev/null || true
 
-# Authoritative PNetLab iptables=false service drop-in (supports socket activation and direct launch)
-cat << 'EOF_SVC' > /etc/systemd/system/docker.service.d/service.conf
-[Service]
-ExecStart=
-ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock --iptables=false
-EOF_SVC
+# Remove conflicting service.conf drop-in so native Ubuntu dockerd unit runs without ExecStart collisions
+rm -f /etc/systemd/system/docker.service.d/service.conf 2>/dev/null || true
 
 # Authoritative pnetlab-fwd reconciliation hook (with - prefix so error never halts docker)
 cat << 'EOF_FWD' > /etc/systemd/system/docker.service.d/10-pnetlab-fwd.conf
@@ -390,12 +391,26 @@ for i in {1..30}; do
 done
 
 if [ "$DOCKER_READY" = false ]; then
-    log_warn "Docker state is '$D_STATE'. Attempting recovery restart..."
-    # If socket activation conflict, try starting without socket override
-    systemctl reset-failed docker 2>/dev/null || true
+    log_warn "Docker is '$D_STATE'. Outputting systemd journal logs:"
+    journalctl -u docker -n 20 --no-pager 2>/dev/null || true
+    log_info "Testing dockerd config validation:"
+    /usr/bin/dockerd --validate 2>&1 || true
+
+    log_info "Attempting clean recovery (clearing dead socket and resetting units)..."
+    systemctl stop docker.service docker.socket 2>/dev/null || true
+    rm -f /var/run/docker.sock /var/run/docker.pid
+    systemctl reset-failed docker.service docker.socket 2>/dev/null || true
     systemctl restart containerd 2>/dev/null || true
-    systemctl restart docker 2>/dev/null || true
-    sleep 3
+    systemctl restart docker.socket 2>/dev/null || true
+    systemctl start docker.service 2>/dev/null || true
+    for j in {1..15}; do
+        if [ "$(systemctl is-active docker 2>/dev/null)" = "active" ]; then
+            DOCKER_READY=true
+            log_ok "Docker daemon recovered and active."
+            break
+        fi
+        sleep 1
+    done
 fi
 
 # 2. Guacd
