@@ -89,8 +89,16 @@ ISLANDS_DIR="${PNET_HTML}/themes/default/islands/js"
 if [ -d "$ISLANDS_DIR" ]; then
     LABS_WS="$(ls -1 "$ISLANDS_DIR"/labs-workspace.*.js 2>/dev/null | grep -v 'labs-workspace\.js$' | head -n1)"
     ICONS_MGR="$(ls -1 "$ISLANDS_DIR"/icons-manager.*.js 2>/dev/null | grep -v 'icons-manager\.js$' | head -n1)"
-    [ -n "$LABS_WS" ] && ln -sf "$(basename "$LABS_WS")" "$ISLANDS_DIR/labs-workspace.js" 2>/dev/null || true
-    [ -n "$ICONS_MGR" ] && ln -sf "$(basename "$ICONS_MGR")" "$ISLANDS_DIR/icons-manager.js" 2>/dev/null || true
+    if [ -n "$LABS_WS" ] && [ -f "$LABS_WS" ]; then
+        ln -sf "$(basename "$LABS_WS")" "$ISLANDS_DIR/labs-workspace.js" 2>/dev/null || true
+        cp -f "$LABS_WS" "$ISLANDS_DIR/labs-workspace.js" 2>/dev/null || true
+    fi
+    if [ -n "$ICONS_MGR" ] && [ -f "$ICONS_MGR" ]; then
+        ln -sf "$(basename "$ICONS_MGR")" "$ISLANDS_DIR/icons-manager.js" 2>/dev/null || true
+        cp -f "$ICONS_MGR" "$ISLANDS_DIR/icons-manager.js" 2>/dev/null || true
+    fi
+    chmod 644 "$ISLANDS_DIR"/*.js 2>/dev/null || true
+    chown www-data:www-data "$ISLANDS_DIR"/*.js 2>/dev/null || true
 fi
 
 # Ensure labs storage directory exists and has correct permissions
