@@ -328,9 +328,19 @@ apt-get clean 2>/dev/null || true
 # Pre-configure Apache for Event MPM and PHP-FPM
 PHP_VER="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "8.5")"
 a2dismod "php${PHP_VER}" php mpm_prefork 2>/dev/null || true
-a2enmod mpm_event proxy_fcgi setenvif rewrite ssl headers 2>/dev/null || true
+a2enmod mpm_event proxy_fcgi setenvif rewrite ssl headers proxy proxy_http proxy_wstunnel http2 2>/dev/null || true
 a2enconf "php${PHP_VER}-fpm" 2>/dev/null || true
 systemctl enable --now "php${PHP_VER}-fpm" 2>/dev/null || true
+
+# Provision PNetLab Apache vhosts & SSL certificates
+PREREQ_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "/opt/pnet/scripts")"
+if [ -f "${PREREQ_DIR}/pnet-fix-apache-web.sh" ]; then
+    bash "${PREREQ_DIR}/pnet-fix-apache-web.sh" 2>/dev/null || true
+elif [ -f "/opt/pnet/scripts/pnet-fix-apache-web.sh" ]; then
+    bash "/opt/pnet/scripts/pnet-fix-apache-web.sh" 2>/dev/null || true
+elif [ -f "/opt/unetlab/scripts/pnet-fix-apache-web.sh" ]; then
+    bash "/opt/unetlab/scripts/pnet-fix-apache-web.sh" 2>/dev/null || true
+fi
 
 # --- Phase 4: Python 3.14+ Isolated Runtime Environment ---
 echo "[4/6] Provisioning Python virtual environment & Telnet/WebSocket bridges..."

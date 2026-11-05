@@ -121,6 +121,17 @@ elif [ -f "/opt/unetlab/scripts/azambasha-fix-permissions.sh" ]; then
     bash /opt/unetlab/scripts/azambasha-fix-permissions.sh 2>/dev/null || true
 fi
 
+# Ensure Apache2 and Web-UI HTTPS stack are fully active and configured on Master
+if [ "$MODE" = "master" ]; then
+    APACHE_FIX="${SCRIPT_DIR}/scripts/pnet-fix-apache-web.sh"
+    [ -f "$APACHE_FIX" ] || APACHE_FIX="/opt/unetlab/scripts/pnet-fix-apache-web.sh"
+    [ -f "$APACHE_FIX" ] || APACHE_FIX="/opt/pnet/scripts/pnet-fix-apache-web.sh"
+    if [ -f "$APACHE_FIX" ]; then
+        log_info "Ensuring Apache2 HTTP/HTTPS VirtualHost and SSL stack are configured..."
+        bash "$APACHE_FIX" || true
+    fi
+fi
+
 systemctl daemon-reload 2>/dev/null || true
 if [ "$MODE" = "master" ] && systemctl is-active --quiet apache2 2>/dev/null; then
     apache2ctl configtest 2>&1 | grep -v "^Syntax OK" || true
