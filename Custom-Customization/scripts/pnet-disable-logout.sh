@@ -33,7 +33,7 @@ if [[ "${1:-}" =~ ^(--check|--status)$ ]]; then
     fi
 
     echo -n "[*] Frontend Keepalive Heartbeat: "
-    if grep -q "azamlabs-keepalive.js" /opt/unetlab/html/main/index.html 2>/dev/null; then
+    if grep -q -E "pnet-keepalive.js|azamlabs-keepalive.js" /opt/unetlab/html/main/index.html 2>/dev/null; then
         echo "INSTALLED"
     else
         echo "MISSING"
@@ -139,12 +139,12 @@ done
 
 # 6. Inject background keepalive heartbeat
 echo "[6/7] Installing keepalive heartbeat script..."
-KEEPALIVE_JS="/opt/unetlab/html/themes/default/js/azamlabs-keepalive.js"
+KEEPALIVE_JS="/opt/unetlab/html/themes/default/js/pnet-keepalive.js"
 mkdir -p "$(dirname "$KEEPALIVE_JS")"
 cat << 'EOF' > "$KEEPALIVE_JS"
 (function() {
-    if (window.__azamKeepaliveActive) return;
-    window.__azamKeepaliveActive = true;
+    if (window.__pnetKeepaliveActive) return;
+    window.__pnetKeepaliveActive = true;
     setInterval(function() {
         fetch('/api/auth', { credentials: 'same-origin' }).catch(function() {});
     }, 180000);
@@ -152,13 +152,14 @@ cat << 'EOF' > "$KEEPALIVE_JS"
 EOF
 chown www-data:www-data "$KEEPALIVE_JS" || true
 chmod 644 "$KEEPALIVE_JS"
+ln -sf pnet-keepalive.js /opt/unetlab/html/themes/default/js/azamlabs-keepalive.js 2>/dev/null || true
 
 MAIN_HTML="/opt/unetlab/html/main/index.html"
-if [ -f "$MAIN_HTML" ] && ! grep -q "azamlabs-keepalive.js" "$MAIN_HTML"; then
+if [ -f "$MAIN_HTML" ] && ! grep -q "pnet-keepalive.js" "$MAIN_HTML"; then
     if grep -iq "</body>" "$MAIN_HTML"; then
-        sed -i -E 's|</body>|<script src="/themes/default/js/azamlabs-keepalive.js"></script></body>|I' "$MAIN_HTML"
+        sed -i -E 's|</body>|<script src="/themes/default/js/pnet-keepalive.js"></script></body>|I' "$MAIN_HTML"
     else
-        echo '<script src="/themes/default/js/azamlabs-keepalive.js"></script>' >> "$MAIN_HTML"
+        echo '<script src="/themes/default/js/pnet-keepalive.js"></script>' >> "$MAIN_HTML"
     fi
 fi
 

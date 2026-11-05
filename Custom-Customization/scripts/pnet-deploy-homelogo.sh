@@ -32,21 +32,23 @@ echo "   Azam Basha — Home Screen Logo Universal Deployer        "
 echo "============================================================"
 
 # --- Resolve the avatar source ---
-# Primary: already deployed on the live VM by the login page installer
-AVATAR_VM="/opt/unetlab/html/login/img/azam_home_avatar.png"
-# Fallback: source from the repository bundle on this machine
-AVATAR_REPO="${PARENT_DIR}/login/img/azam_home_avatar.png"
+AVATAR_SRC=""
+for cand in \
+    "/opt/unetlab/html/login/img/pnet_home_avatar.png" \
+    "/opt/unetlab/html/login/img/azam_home_avatar.png" \
+    "${PARENT_DIR}/login-portal/img/pnet_home_avatar.png" \
+    "${PARENT_DIR}/login/img/pnet_home_avatar.png" \
+    "${PARENT_DIR}/login/img/azam_home_avatar.png" \
+    "${PARENT_DIR}/assets/logo.png"; do
+    if [ -f "$cand" ]; then
+        AVATAR_SRC="$cand"
+        echo "  [*] Source: $AVATAR_SRC"
+        break
+    fi
+done
 
-if [ -f "$AVATAR_VM" ]; then
-    AVATAR_SRC="$AVATAR_VM"
-    echo "  [*] Source: $AVATAR_VM (live VM copy)"
-elif [ -f "$AVATAR_REPO" ]; then
-    AVATAR_SRC="$AVATAR_REPO"
-    echo "  [*] Source: $AVATAR_REPO (repo bundle)"
-else
-    echo "  [ERROR] Cannot find azam_home_avatar.png in either:" >&2
-    echo "          $AVATAR_VM" >&2
-    echo "          $AVATAR_REPO" >&2
+if [ -z "$AVATAR_SRC" ]; then
+    echo "  [ERROR] Cannot find avatar image in search candidates." >&2
     exit 1
 fi
 

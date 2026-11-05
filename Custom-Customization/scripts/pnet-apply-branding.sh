@@ -22,14 +22,17 @@ echo "    Azam Basha UI Branding, Version & Credentials Engine    "
 echo "============================================================"
 
 # 1. Update Platform Version via Authoritative Version Engine
-if [ -f "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" ]; then
+if [ -f "${SCRIPT_DIR}/pnet-sync-gui-version.sh" ]; then
+    bash "${SCRIPT_DIR}/pnet-sync-gui-version.sh" auto || true
+elif [ -f "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" ]; then
     bash "${SCRIPT_DIR}/azambasha-sync-gui-version.sh" auto || true
-elif [ -f "/opt/unetlab/scripts/azambasha-sync-gui-version.sh" ]; then
-    bash "/opt/unetlab/scripts/azambasha-sync-gui-version.sh" auto || true
+elif [ -f "/opt/unetlab/scripts/pnet-sync-gui-version.sh" ]; then
+    bash "/opt/unetlab/scripts/pnet-sync-gui-version.sh" auto || true
 fi
 
 # 2. Deploy Modernized Login Page & Default Credentials Notice (admin / azam)
-LOGIN_SRC="${PARENT_DIR}/login"
+LOGIN_SRC="${PARENT_DIR}/login-portal"
+[ ! -d "$LOGIN_SRC" ] && LOGIN_SRC="${PARENT_DIR}/login"
 if [ -d "$LOGIN_SRC" ]; then
     mkdir -p /opt/unetlab/html/login/img
     [ -f "${LOGIN_SRC}/index.html" ] && cp -f "${LOGIN_SRC}/index.html" /opt/unetlab/html/login/index.html
@@ -40,11 +43,12 @@ if [ -d "$LOGIN_SRC" ]; then
     chmod 0644 /opt/unetlab/html/login/*.html /opt/unetlab/html/login/*.css /opt/unetlab/html/login/*.js 2>/dev/null || true
     chmod 0644 /opt/unetlab/html/login/img/* 2>/dev/null || true
     chown -R www-data:www-data /opt/unetlab/html/login 2>/dev/null || true
-    echo "  [✔] Modernized Azam Basha Login UI deployed to /opt/unetlab/html/login/"
+    echo "  [✔] Modernized Login UI deployed to /opt/unetlab/html/login/"
     echo "  [✔] Avatar logo image deployed to /opt/unetlab/html/login/img/"
 
     # === Deploy Home Screen Avatar as Universal Platform Logo ===
-    AVATAR_SRC="/opt/unetlab/html/login/img/azam_home_avatar.png"
+    AVATAR_SRC="/opt/unetlab/html/login/img/pnet_home_avatar.png"
+    [ ! -f "$AVATAR_SRC" ] && AVATAR_SRC="/opt/unetlab/html/login/img/azam_home_avatar.png"
     if [ -f "$AVATAR_SRC" ]; then
         echo "  [*] Propagating home screen avatar to all platform logo paths..."
         mkdir -p /opt/unetlab/data/branding \
@@ -52,6 +56,9 @@ if [ -d "$LOGIN_SRC" ]; then
                  /opt/unetlab/html/themes/default/images \
                  /opt/unetlab/html/assets-common/img \
                  /opt/unetlab/html/favicon 2>/dev/null || true
+
+        # Ensure symlinks between pnet and azam avatar filenames
+        ln -sf pnet_home_avatar.png /opt/unetlab/html/login/img/azam_home_avatar.png 2>/dev/null || true
 
         # Core logo paths (used by sidebar, topbar, branding API)
         cp -f "$AVATAR_SRC" /opt/unetlab/data/branding/logo.png 2>/dev/null || true

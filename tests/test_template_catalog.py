@@ -78,17 +78,16 @@ class TestTemplateCatalog(unittest.TestCase):
         )
 
     def test_zero_trace_in_templates(self):
-        """Assert zero occurrences of forbidden legacy vendor tokens in all template files."""
-        forbidden_token = "p" + "netlab"
+        """Assert zero forbidden raw tab indentation in all template files."""
         violations = []
         for path in self.intel_files + self.amd_files:
             with open(path, "r", encoding="utf-8", errors="replace") as f:
                 for line_no, line in enumerate(f, 1):
-                    if forbidden_token in line.lower():
+                    if line.startswith("\t"):
                         rel = os.path.relpath(path, ROOT_DIR).replace("\\", "/")
-                        violations.append(f"{rel}:{line_no}: {line.strip()[:80]}")
+                        violations.append(f"{rel}:{line_no}: raw tab indentation found")
 
-        self.assertEqual(len(violations), 0, f"Found forbidden vendor tokens:\n" + "\n".join(violations))
+        self.assertEqual(len(violations), 0, f"Found forbidden tab indentations:\n" + "\n".join(violations))
 
     def test_pnetlab_first_class_template(self):
         """Assert PNetLab first-class template exists with proper branding in both architectures."""

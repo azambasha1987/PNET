@@ -164,10 +164,9 @@ if [ "$IS_SATELLITE" -eq 0 ]; then
 
     log_ok "Database connected successfully using: $MYSQL_CMD"
 
-    # Ensure databases exist (Single Database: azamlabs_db)
+    # Ensure databases exist
     $MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS azamlabs_db CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" || true
     $MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS guacdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" || true
-    $MYSQL_CMD -e "DROP DATABASE IF EXISTS pnetlab_db;" 2>/dev/null || true
 
     # Check if azamlabs_db tables exist; import schema if missing
     TBL_COUNT=$($MYSQL_CMD -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='azamlabs_db';" 2>/dev/null || echo "0")
@@ -175,11 +174,14 @@ if [ "$IS_SATELLITE" -eq 0 ]; then
         log_info "azamlabs_db is empty; searching for schema files to import..."
         SCHEMA_IMPORTED=0
         for sf in \
+            "${SCRIPT_DIR}/../../Custom-Features/schema/pnet_features_db.sql" \
+            "${SCRIPT_DIR}/../schema/pnet_features_db.sql" \
+            "/opt/pnet/Custom-Features/schema/pnet_features_db.sql" \
             "${SCRIPT_DIR}/../schema/azamlabs_db.sql" \
             "${SCRIPT_DIR}/schema/azamlabs_db.sql" \
             "/opt/azambasha/schema/azamlabs_db.sql" \
             "/opt/unetlab/schema/azamlabs_db.sql" \
-            "/opt/unetlab/schema/azamlabs_db-schema.sql"; do
+            "/opt/unetlab/schema/pnet_features_db.sql"; do
             if [ -f "$sf" ]; then
                 log_info "Importing azamlabs_db schema from: $sf"
                 $MYSQL_CMD azamlabs_db < "$sf" 2>/dev/null && SCHEMA_IMPORTED=1 && break || true
@@ -304,9 +306,6 @@ INSERT INTO control (control_name, control_value) VALUES
   ('ctrl_version', '8.2.0')
 ON DUPLICATE KEY UPDATE control_value = VALUES(control_value);
 " 2>/dev/null || true
-
-    # Ensure legacy database is completely eliminated
-    $MYSQL_CMD -e "DROP DATABASE IF EXISTS pnetlab_db;" 2>/dev/null || true
 
     # ── PHP-FPM & Apache FastCGI Handler Enforcement ─────────────────────────
     log_info "Verifying PHP-FPM and Apache FastCGI execution pipeline..."
