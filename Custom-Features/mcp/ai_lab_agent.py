@@ -36,7 +36,16 @@ from ai_plans import READ_RESULT_SCHEMA, executable_plan_schema, inline_schema, 
 
 CONFIG_PATH = "/opt/unetlab/data/ai/config.json"
 LEDGER_PATH = "/opt/unetlab/data/ai/usage.json"
-MCP_PY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "azamlabs-mcp.py")
+_MCP_DIR = os.path.dirname(os.path.abspath(__file__))
+MCP_PY = os.path.join(_MCP_DIR, "pnet-mcp.py")
+if not os.path.isfile(MCP_PY):
+    for _cand in ["pnetlab-mcp.py", "azamlabs-mcp.py"]:
+        _cp = os.path.join(_MCP_DIR, _cand)
+        if os.path.isfile(_cp):
+            MCP_PY = _cp
+            break
+if not os.path.isfile(MCP_PY):
+    MCP_PY = "/opt/unetlab/scripts/mcp/pnet-mcp.py"
 
 # The broker reserves a per-user allowance and passes the exact ceiling. Count
 # every processed token (including cache reads/writes); currency is separate.

@@ -299,6 +299,8 @@ sync_from_github() {
     ln -sf /opt/unetlab/scripts/pnet-fix-cluster.sh              /usr/local/bin/pnet-cluster 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-satellite-join.sh           /usr/local/bin/pnet-satellite-join 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-mod.sh                      /usr/local/bin/pnet-mod 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-ai-copilot.py               /usr/local/bin/pnet-ai 2>/dev/null || true
+    ln -sf /opt/unetlab/scripts/pnet-setup-ollama.sh             /usr/local/bin/pnet-ollama 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-release-ingestion-engine.py /usr/local/bin/pnet-release-engine 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-ingest-release.sh          /usr/local/bin/pnet-ingest-release 2>/dev/null || true
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /usr/local/bin/pnet-* 2>/dev/null || true

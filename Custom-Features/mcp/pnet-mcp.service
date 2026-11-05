@@ -4,7 +4,7 @@
 # dh_installsystemd never auto-enables it. The broker (mcp_service verb) copies
 # this into /etc/systemd/system on the first dashboard "enable", so the service
 # is genuinely disabled by default and only runs once an admin turns it on.
-Description=AzamLabs MCP server (AI Lab Builder tool surface)
+Description=PNetLab MCP Server (AI Lab Builder tool surface)
 After=network.target apache2.service
 Wants=apache2.service
 
@@ -16,9 +16,9 @@ Type=simple
 # 0640 root:azamlabs-mcp so this user can read them while they stay unreadable to
 # www-data and the world. It binds the unprivileged port from config.json
 # (default 127.0.0.1:5701), so neither root nor any capability is required.
-User=azamlabs-mcp
-Group=azamlabs-mcp
-ExecStart=/usr/bin/python3 /opt/unetlab/scripts/mcp/azamlabs-mcp.py --http
+User=pnetlab-mcp
+Group=pnetlab-mcp
+ExecStart=/usr/bin/python3 /opt/unetlab/scripts/mcp/pnet-mcp.py --http
 Restart=on-failure
 RestartSec=3
 

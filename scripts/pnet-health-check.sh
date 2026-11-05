@@ -82,7 +82,16 @@ echo -e "\n${BOLD}[4] Core Services Status${NC}"
 check_service() {
     local name="$1"
     local desc="$2"
-    if systemctl is-active "$name" 2>/dev/null | grep -q "active"; then
+    local alt1="${name/azamlabs-/pnetlab-}"
+    local alt2="${name/azamlabs-/pnet-}"
+    local active=false
+    for s in "$name" "$alt1" "$alt2"; do
+        if systemctl is-active "$s" 2>/dev/null | grep -q "active"; then
+            active=true
+            break
+        fi
+    done
+    if [ "$active" = true ]; then
         echo -e "  * ${desc}: ${GREEN}✔ RUNNING${NC}"
     else
         echo -e "  * ${desc}: ${RED}✘ STOPPED / INACTIVE${NC}"
@@ -139,8 +148,8 @@ else
 fi
 
 # AI MCP Daemon
-if systemctl is-active azamlabs-mcp 2>/dev/null | grep -q "active"; then
-    echo -e "  * AI MCP Daemon:     ${GREEN}✔ ACTIVE (azamlabs-mcp.service running on port 5701)${NC}"
+if systemctl is-active pnetlab-mcp 2>/dev/null | grep -q "active" || systemctl is-active pnet-mcp 2>/dev/null | grep -q "active" || systemctl is-active azamlabs-mcp 2>/dev/null | grep -q "active"; then
+    echo -e "  * AI MCP Daemon:     ${GREEN}✔ ACTIVE (pnetlab-mcp.service running on port 5701)${NC}"
 else
     echo -e "  * AI MCP Daemon:     ${YELLOW}✘ INACTIVE / NOT CONFIGURED (Optional Integration)${NC}"
 fi
@@ -148,10 +157,10 @@ fi
 # 6. Web UI & Authentication Status
 echo -e "\n${BOLD}[6] Web Dashboard & Authentication Status${NC}"
 if [ "$IS_SATELLITE" = true ]; then
-    if systemctl is-active azamlabs-satd 2>/dev/null | grep -q "active"; then
+    if systemctl is-active pnetlab-satd 2>/dev/null | grep -q "active" || systemctl is-active pnet-satd 2>/dev/null | grep -q "active" || systemctl is-active azamlabs-satd 2>/dev/null | grep -q "active"; then
         echo -e "  * Cluster Orchestration: ${GREEN}✔ READY (Accepting commands from Master on Port 9050)${NC}"
     else
-        echo -e "  * Cluster Orchestration: ${RED}✘ azamlabs-satd NOT ACTIVE${NC}"
+        echo -e "  * Cluster Orchestration: ${RED}✘ Satellite Cluster Daemon (satd) NOT ACTIVE${NC}"
     fi
     if curl -s -m 3 http://127.0.0.1/ >/dev/null 2>&1 || curl -k -s -m 3 https://127.0.0.1/ >/dev/null 2>&1; then
         echo -e "  * Satellite HTTP Node:   ${GREEN}✔ ACTIVE (Port 80/443 responding)${NC}"

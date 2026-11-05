@@ -125,9 +125,14 @@ AI_BRIDGE_SECRET = AI_DIR + "/bridge.secret"
 AI_USAGE = AI_DIR + "/usage.json"               # per-day, per-pod token ledger (P3)
 AI_PROGRESS_DIR = AI_DIR + "/progress"          # per-pod live build event stream (P7)
 AI_AGENT = BASE + "/scripts/mcp/ai_lab_agent.py"
-MCP_UNIT = "azamlabs-mcp.service"
-MCP_UNIT_SRC = BASE + "/scripts/mcp/azamlabs-mcp.service"
-MCP_UNIT_DST = "/etc/systemd/system/azamlabs-mcp.service"
+MCP_UNIT = "pnetlab-mcp.service"
+for _cand in [BASE + "/scripts/mcp/pnet-mcp.service", BASE + "/scripts/mcp/pnetlab-mcp.service", BASE + "/scripts/mcp/azamlabs-mcp.service"]:
+    if os.path.isfile(_cand):
+        MCP_UNIT_SRC = _cand
+        break
+else:
+    MCP_UNIT_SRC = BASE + "/scripts/mcp/pnet-mcp.service"
+MCP_UNIT_DST = "/etc/systemd/system/pnetlab-mcp.service"
 MCP_SERVICE_OPS = {"start", "stop", "restart", "enable", "disable", "status"}
 RE_TOKEN_NAME = re.compile(r"^[A-Za-z0-9 _.-]{1,48}$")
 RE_LAB_PATH = re.compile(r"^(?!.*(?:^|/)\.\.(?:/|$))/[^\x00]*\.unl$")
@@ -5241,19 +5246,18 @@ def _ai_load_config():
 
 
 def _ai_apply_owner(path, group, mode):
-    """chmod + chown root:<group>, tolerating a not-yet-created group. If a config
-    write ever races ahead of the postinst that creates the azamlabs-mcp user (or on
-    an old box mid-upgrade), this degrades to root:root instead of crashing the
-    broker — the MCP service just can't read until the user exists, and the next
-    save (post-upgrade) fixes the owner."""
+    """chmod + chown root:<group>, tolerating a not-yet-created group."""
     os.chmod(path, mode)
-    try:
-        shutil.chown(path, "root", group)
-    except (LookupError, PermissionError, OSError):
+    for g in ["pnetlab-mcp", "azamlabs-mcp", group]:
         try:
-            shutil.chown(path, "root", "root")
-        except OSError:
+            shutil.chown(path, "root", g)
+            return
+        except (LookupError, PermissionError, OSError):
             pass
+    try:
+        shutil.chown(path, "root", "root")
+    except OSError:
+        pass
 
 
 def _ai_save_config(cfg):
@@ -5327,8 +5331,14 @@ def _mcp_ensure_unit():
     """Install / refresh the unit into /etc/systemd/system on demand (it ships as
     a data file so it is NOT auto-enabled at deb install). daemon-reload only when
     the file actually changed. Returns True if a reload happened."""
+    src = MCP_UNIT_SRC
+    if not os.path.isfile(src):
+        for _c in [BASE + "/scripts/mcp/pnet-mcp.service", BASE + "/scripts/mcp/pnetlab-mcp.service", BASE + "/scripts/mcp/azamlabs-mcp.service"]:
+            if os.path.isfile(_c):
+                src = _c
+                break
     try:
-        want = open(MCP_UNIT_SRC).read()
+        want = open(src).read()
     except OSError:
         raise Reject("mcp unit source missing")
     have = ""
@@ -5343,6 +5353,12 @@ def _mcp_ensure_unit():
         fh.write(want)
     os.chmod(tmp, 0o644)
     os.replace(tmp, MCP_UNIT_DST)
+    for alt in ["/etc/systemd/system/pnet-mcp.service", "/etc/systemd/system/azamlabs-mcp.service"]:
+        try:
+            if not os.path.exists(alt):
+                os.symlink(MCP_UNIT_DST, alt)
+        except OSError:
+            pass
     run_quiet(["systemctl", "daemon-reload"])
     return True
 

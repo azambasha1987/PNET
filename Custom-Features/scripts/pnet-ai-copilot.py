@@ -192,15 +192,35 @@ def load_config():
         "gemini_api_key": "",
         "claude_api_key": ""
     }
-    if os.path.isfile(CONFIG_FILE):
+    # Check JSON config from pnet-setup-ollama first
+    pnet_json = "/opt/unetlab/data/ai/config.json"
+    if os.path.isfile(pnet_json):
         try:
-            with open(CONFIG_FILE) as f:
-                for line in f:
-                    if "=" in line and not line.strip().startswith("#"):
-                        k, v = line.strip().split("=", 1)
-                        cfg[k.strip().lower()] = v.strip().strip('"').strip("'")
+            with open(pnet_json, "r", encoding="utf-8") as f:
+                j = json.load(f)
+                prov = j.get("provider", {})
+                if prov.get("base_url"):
+                    base = prov["base_url"].replace("/v1", "").rstrip("/")
+                    cfg["ollama_url"] = base
+                if prov.get("model"):
+                    cfg["model"] = prov["model"]
+                if prov.get("api_key"):
+                    cfg["openai_api_key"] = prov["api_key"]
         except Exception:
             pass
+
+    # Also check INI-style config files
+    for conf_cand in ["/etc/pnet/pnet-ai.conf", CONFIG_FILE]:
+        if os.path.isfile(conf_cand):
+            try:
+                with open(conf_cand, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if "=" in line and not line.strip().startswith("#"):
+                            k, v = line.strip().split("=", 1)
+                            cfg[k.strip().lower()] = v.strip().strip('"').strip("'")
+                break
+            except Exception:
+                pass
     return cfg
 
 

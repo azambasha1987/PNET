@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    AzamLabs Host Machine Setup for Local Ollama Integration.
+    PNetLab Host Machine Setup for Local Ollama Integration.
 .DESCRIPTION
     Binds Ollama to 0.0.0.0, adds Windows Defender Firewall rule for port 11434,
     restarts Ollama, pulls the recommended qwen2.5:14b-instruct model, and outputs
@@ -16,7 +16,7 @@ if (-not $isAdmin) {
 }
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " AzamLabs AI Lab Builder: Windows Host Setup for Ollama     " -ForegroundColor Cyan
+Write-Host " PNetLab AI Lab Builder: Windows Host Setup for Ollama     " -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 
 # 1. Configure OLLAMA_HOST environment variable
@@ -29,7 +29,7 @@ $env:OLLAMA_HOST = '0.0.0.0:11434'
 Write-Host "[2/4] Configuring Windows Defender Firewall rule for TCP 11434..." -ForegroundColor Yellow
 $firewallRule = Get-NetFirewallRule -DisplayName "Ollama Port 11434" -ErrorAction SilentlyContinue
 if (-not $firewallRule) {
-    New-NetFirewallRule -DisplayName "Ollama Port 11434" -Direction Inbound -LocalPort 11434 -Protocol TCP -Action Allow -Profile Any -Description "Allows AzamLabs VM to access local Ollama LLM endpoint" | Out-Null
+    New-NetFirewallRule -DisplayName "Ollama Port 11434" -Direction Inbound -LocalPort 11434 -Protocol TCP -Action Allow -Profile Any -Description "Allows PNetLab VM to access local Ollama LLM endpoint" | Out-Null
     Write-Host "  -> Firewall rule created successfully." -ForegroundColor Green
 } else {
     Write-Host "  -> Firewall rule already exists." -ForegroundColor Green

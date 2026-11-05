@@ -66,6 +66,8 @@ ln -sf /opt/unetlab/scripts/pnet-apply-all-fixes.sh     /usr/local/bin/pnet-fix
 ln -sf /opt/unetlab/scripts/pnet-fix-cluster.sh         /usr/local/bin/pnet-cluster
 ln -sf /opt/unetlab/scripts/pnet-satellite-join.sh      /usr/local/bin/pnet-satellite-join
 ln -sf /opt/unetlab/scripts/pnet-mod.sh                 /usr/local/bin/pnet-mod
+ln -sf /opt/unetlab/scripts/pnet-ai-copilot.py          /usr/local/bin/pnet-ai
+ln -sf /opt/unetlab/scripts/pnet-setup-ollama.sh        /usr/local/bin/pnet-ollama
 ln -sf /opt/unetlab/scripts/pnet-release-ingestion-engine.py /usr/local/bin/pnet-release-engine
 ln -sf /opt/unetlab/scripts/pnet-ingest-release.sh     /usr/local/bin/pnet-ingest-release
 ln -sf "${SCRIPT_DIR}/apply-all-custom.sh"              /usr/local/bin/pnet-apply-all
