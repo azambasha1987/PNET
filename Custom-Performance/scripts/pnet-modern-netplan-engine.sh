@@ -6,6 +6,18 @@
 # ==============================================================================
 set -euo pipefail
 
+# Help & CLI handlers
+if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
+    echo "Usage: sudo bash $0 [--check | --status | --dry-run]"
+    echo ""
+    echo "Options:"
+    echo "  (no args)    Generate and apply modern Netplan v2 and bridge configurations"
+    echo "  --check      Diagnostic check of physical uplinks, Netplan, and pnet0 bridge"
+    echo "  --status     Same as --check"
+    echo "  --dry-run    Simulate Netplan v2 configuration without applying changes"
+    exit 0
+fi
+
 echo "============================================================"
 echo "    [1/4] Configuring Modern Netplan & Bridge Datapath...   "
 echo "============================================================"
@@ -58,6 +70,38 @@ fi
 REAL_MAC="$(cat "/sys/class/net/${REAL_IFACE}/address" 2>/dev/null || ip link show "$REAL_IFACE" 2>/dev/null | awk '/ether/{print $2}' | head -n1 || true)"
 echo "      -> Detected primary physical uplink: ${REAL_IFACE}"
 [ -n "$REAL_MAC" ] && echo "      -> Physical Hardware MAC Address: ${REAL_MAC}"
+
+if [[ "${1:-}" =~ ^(--check|--status)$ ]]; then
+    echo "============================================================"
+    echo "    PNetLab Modern Netplan & Bridge Datapath Diagnostic     "
+    echo "============================================================"
+    echo -n "[*] Physical Uplink: "
+    echo "${REAL_IFACE}"
+    echo -n "[*] Netplan Config: "
+    if [ -f /etc/netplan/01-netcfg.yaml ] || [ -f /etc/netplan/00-installer-config.yaml ]; then
+        echo "PRESENT"
+    else
+        echo "NOT FOUND"
+    fi
+    echo -n "[*] Bridge pnet0: "
+    if [ -d /sys/class/net/pnet0 ]; then
+        echo "ACTIVE"
+    else
+        echo "INACTIVE"
+    fi
+    exit 0
+fi
+
+if [[ "${1:-}" =~ ^(--dry-run)$ ]]; then
+    echo "============================================================"
+    echo "  [DRY-RUN] Simulating Modern Netplan & Bridge Engine       "
+    echo "============================================================"
+    echo "  [+] Would bind primary uplink ${REAL_IFACE} into bridge pnet0"
+    echo "  [+] Would generate /etc/netplan/01-netcfg.yaml with MTU 9000 & stp=false"
+    echo "  [+] Would set sysfs group_fwd_mask=65535 on pnet0"
+    echo "  [✔] Dry-run completed successfully."
+    exit 0
+fi
 
 # 2. Ensure Required Directories Exist & Purge Conflicting Netplans
 mkdir -p /etc/network/interfaces.d

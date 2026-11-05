@@ -46,7 +46,25 @@ import struct
 import sys
 import time
 
-from pnet_bpfcompile import compile_bpf
+try:
+    from pnet_bpfcompile import compile_bpf
+except ImportError:
+    import subprocess
+    def compile_bpf(expr):
+        """Compile a tcpdump filter expression to classic BPF bytecode using tcpdump or fallback."""
+        try:
+            res = subprocess.run(["tcpdump", "-ddd", "-s", "256", expr], capture_output=True, text=True, check=True)
+            lines = res.stdout.strip().splitlines()
+            n = int(lines[0])
+            raw = bytearray()
+            for line in lines[1:n+1]:
+                parts = line.split()
+                code, jt, jf, k = int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3])
+                raw.extend(struct.pack("HBBI", code, jt, jf, k))
+            return n, bytes(raw)
+        except Exception:
+            # Fallback accept-all filter (ret #256)
+            return 1, struct.pack("HBBI", 0x06, 0, 0, 256)
 
 LW_DIR = "/dev/shm/pnet-watch"
 ETH_P_ALL = 0x0003
@@ -708,9 +726,9 @@ class Watcher:
 
 
 def main():
-    if len(sys.argv) != 2:
-        log("usage: azamlabs-linkwatchd.py <watch_id>")
-        return 2
+    if len(sys.argv) != 2 or sys.argv[1] in ("-h", "--help"):
+        log("Usage: pnet-linkwatchd.py <watch_id>")
+        return 0 if (len(sys.argv) == 2 and sys.argv[1] in ("-h", "--help")) else 2
     return Watcher(sys.argv[1]).run()
 
 

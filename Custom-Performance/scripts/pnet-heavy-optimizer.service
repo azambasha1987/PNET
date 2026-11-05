@@ -1,5 +1,5 @@
 [Unit]
-Description=Azam Basha High-Density Heavy Node Memory & KSM Optimizer
+Description=PNetLab High-Density Heavy Node Memory & KSM Optimizer
 After=network.target sys-kernel-mm-ksm.mount
 Wants=network.target
 

@@ -210,7 +210,18 @@ def run_metrics_server(port=9105):
         print("\nStopping metrics server.")
 
 if __name__ == "__main__":
-    if "--json" in sys.argv:
+    if "-h" in sys.argv or "--help" in sys.argv:
+        print("""Usage: pnet-dataplane-stats.py [OPTIONS]
+
+Options:
+  --json                 Output instantaneous structured JSON metrics snapshot
+  --sparkline [IFACE]    Output historical sparkline rates for interface
+  --server [PORT]        Run background HTTP Prometheus/JSON metrics server (default: 9105)
+  -h, --help             Show this help message and exit
+  (no args)              Run interactive live terminal dashboard
+""")
+        sys.exit(0)
+    elif "--json" in sys.argv:
         curr = read_interface_stats()
         print(json.dumps(curr, indent=2))
     elif "--sparkline" in sys.argv:

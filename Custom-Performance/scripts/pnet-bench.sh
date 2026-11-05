@@ -34,7 +34,9 @@ usage() {
     exit 0
 }
 
-[ -z "$PEER" ] && usage
+if [ -z "$PEER" ] || [[ "$PEER" =~ ^(-h|--help)$ ]]; then
+    usage
+fi
 
 # Auto-detect interface if not specified
 if [ "$IFACE" = "auto" ]; then

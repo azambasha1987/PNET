@@ -11,6 +11,7 @@ and logs recovery events to the watchdog log file.
 
 import os
 import sys
+import shutil
 import json
 import time
 import signal
@@ -341,15 +342,22 @@ StandardError=journal
 [Install]
 WantedBy=multi-user.target
 """
-    service_path = "/etc/systemd/system/azam-watchdog.service"
+    service_path = "/etc/systemd/system/pnet-watchdog.service"
+    legacy_path = "/etc/systemd/system/azam-watchdog.service"
     try:
         with open(service_path, "w") as f:
             f.write(service_content)
-        subprocess.run(["systemctl", "daemon-reload"], check=False)
-        subprocess.run(["systemctl", "enable", "--now", "azam-watchdog.service"], check=False)
-        print(f"[✔] azam-watchdog installed and started as systemd service.")
-        print(f"    Status: sudo systemctl status azam-watchdog.service")
-        print(f"    Logs:   sudo journalctl -fu azam-watchdog.service")
+        if not os.path.exists(legacy_path):
+            try:
+                os.symlink(service_path, legacy_path)
+            except Exception:
+                pass
+        if shutil.which("systemctl"):
+            subprocess.run(["systemctl", "daemon-reload"], check=False)
+            subprocess.run(["systemctl", "enable", "--now", "pnet-watchdog.service"], check=False)
+        print(f"[✔] pnet-watchdog installed as systemd service.")
+        print(f"    Status: sudo systemctl status pnet-watchdog.service")
+        print(f"    Logs:   sudo journalctl -fu pnet-watchdog.service")
         print(f"    File:   {WATCHDOG_LOG}")
     except Exception as e:
         print(f"[!] Systemd install failed: {e}")
@@ -391,12 +399,23 @@ def main():
         return
 
     if args.status:
-        print("[*] AzamLabs Watchdog Status:")
-        subprocess.run(["systemctl", "status", "azam-watchdog.service", "--no-pager"],
-                       check=False)
+        print("[*] PNetLab Node Watchdog Status:")
+        if shutil.which("systemctl"):
+            svc = "pnet-watchdog.service" if os.path.exists("/etc/systemd/system/pnet-watchdog.service") else "azam-watchdog.service"
+            subprocess.run(["systemctl", "status", svc, "--no-pager"], check=False)
+        else:
+            print("    systemctl not available on this platform (service status check skipped).")
         if os.path.isfile(WATCHDOG_LOG):
             print("\n[*] Last 20 log entries:")
-            subprocess.run(["tail", "-n", "20", WATCHDOG_LOG], check=False)
+            try:
+                with open(WATCHDOG_LOG, "r", encoding="utf-8", errors="ignore") as f:
+                    lines = f.readlines()
+                    for l in lines[-20:]:
+                        print(l, end="")
+            except Exception as e:
+                print(f"    Error reading log: {e}")
+        else:
+            print(f"    Log file {WATCHDOG_LOG} does not exist yet (watchdog clean).")
         return
 
     run_watchdog(master_ip=args.host, password=args.password, poll=args.poll)

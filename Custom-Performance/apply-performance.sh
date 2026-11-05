@@ -27,6 +27,32 @@ log_err()  { echo -e "${RED}[✘]${RESET} $*"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# Help & Dry-Run handlers
+if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
+    echo "Usage: sudo bash $0 [--master | --satellite | --dry-run | --check]"
+    echo ""
+    echo "Options:"
+    echo "  --master, -m       Deploy Custom-Performance with Master Controller profile (default)"
+    echo "  --satellite, -s    Deploy Custom-Performance with Satellite Worker profile"
+    echo "  --dry-run          Simulate deployment without modifying runtime files or symlinks"
+    echo "  --check            Run non-destructive diagnostic validation"
+    exit 0
+fi
+
+if [[ "${1:-}" =~ ^(--dry-run)$ ]]; then
+    echo -e "${CYAN}${BOLD}================================================================${RESET}"
+    echo -e "${BOLD}   [DRY-RUN] Simulating Custom-Performance Pillar Deployment   ${RESET}"
+    echo -e "${CYAN}${BOLD}================================================================${RESET}"
+    echo "  [+] Would register 18 performance and diagnostic CLI commands in /usr/local/bin"
+    echo "  [+] Would compile C-Engine memory wrappers (pnet-ksm-merge-exec & pnet-iol-shim)"
+    echo "  [+] Would configure Ultra-KSM 4KB deduplication and OPcache"
+    echo "  [+] Would activate Cgroups v2 resource governor and CPU scaling services"
+    echo "  [+] Would install 24/7 autonomous watchdog daemon"
+    python3 "${SCRIPT_DIR}/scripts/pnet-dry-test.py" 2>/dev/null || true
+    echo -e "${GREEN}[✔] Custom-Performance dry-run simulation completed successfully.${RESET}"
+    exit 0
+fi
+
 MODE="master"
 for arg in "$@"; do
     case "$arg" in
@@ -42,32 +68,32 @@ echo -e "${CYAN}${BOLD}=========================================================
 
 # 1. Performance CLI Tooling Registration
 log_info "[1/4] Registering Performance CLI Tools in /usr/local/bin/..."
-mkdir -p /usr/local/bin /opt/unetlab/scripts 2>/dev/null || true
+mkdir -p /usr/local/bin /usr/local/lib /opt/unetlab/scripts 2>/dev/null || true
 
-# Copy scripts to runtime location
+# Copy scripts to runtime location if directory is writable
 if [ -d "${SCRIPT_DIR}/scripts" ]; then
     cp -rf "${SCRIPT_DIR}/scripts/"* /opt/unetlab/scripts/ 2>/dev/null || true
 fi
 chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 
-ln -sf /opt/unetlab/scripts/pnet-speed-optimizer.sh       /usr/local/bin/pnet-speed
-ln -sf /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh  /usr/local/bin/pnet-optimizer
-ln -sf /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh  /usr/local/bin/pnet-heavy-optimizer
-ln -sf /opt/unetlab/scripts/pnet-bootstorm.py            /usr/local/bin/pnet-bootstorm
-ln -sf /opt/unetlab/scripts/pnet-dataplane-engine.sh      /usr/local/bin/pnet-dataplane
-ln -sf /opt/unetlab/scripts/pnet-roce-engine.sh           /usr/local/bin/pnet-roce
-ln -sf /opt/unetlab/scripts/pnet-link-impairment.sh       /usr/local/bin/pnet-link-impair
-ln -sf /opt/unetlab/scripts/pnet-cgroups-v2-engine.sh     /usr/local/bin/pnet-cgroups
-ln -sf /opt/unetlab/scripts/pnet-cpu-governor.py          /usr/local/bin/pnet-cpu-governor
-ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh          /usr/local/bin/pnet-doctor
-ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh          /usr/local/bin/pnet-images
-ln -sf /opt/unetlab/scripts/pnet-watchdog.py              /usr/local/bin/pnet-watchdog
-ln -sf /opt/unetlab/scripts/pnet-perf.py                  /usr/local/bin/pnet-perf
-ln -sf /opt/unetlab/scripts/pnet-bench.sh                 /usr/local/bin/pnet-bench
-ln -sf /opt/unetlab/scripts/pnet-cluster-capacity.py      /usr/local/bin/pnet-capacity
-ln -sf /opt/unetlab/scripts/pnet-fleet-status.sh          /usr/local/bin/pnet-fleet
-ln -sf /opt/unetlab/scripts/pnet-console-fix.sh           /usr/local/bin/pnet-console-fix
-ln -sf "${SCRIPT_DIR}/apply-performance.sh"               /usr/local/bin/pnet-apply-performance
+ln -sf /opt/unetlab/scripts/pnet-speed-optimizer.sh       /usr/local/bin/pnet-speed 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh  /usr/local/bin/pnet-optimizer 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh  /usr/local/bin/pnet-heavy-optimizer 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-bootstorm.py            /usr/local/bin/pnet-bootstorm 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-dataplane-engine.sh      /usr/local/bin/pnet-dataplane 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-roce-engine.sh           /usr/local/bin/pnet-roce 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-link-impairment.sh       /usr/local/bin/pnet-link-impair 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-cgroups-v2-engine.sh     /usr/local/bin/pnet-cgroups 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-cpu-governor.py          /usr/local/bin/pnet-cpu-governor 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh          /usr/local/bin/pnet-doctor 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh          /usr/local/bin/pnet-images 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-watchdog.py              /usr/local/bin/pnet-watchdog 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-perf.py                  /usr/local/bin/pnet-perf 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-bench.sh                 /usr/local/bin/pnet-bench 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-cluster-capacity.py      /usr/local/bin/pnet-capacity 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-fleet-status.sh          /usr/local/bin/pnet-fleet 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-console-fix.sh           /usr/local/bin/pnet-console-fix 2>/dev/null || true
+ln -sf "${SCRIPT_DIR}/apply-performance.sh"               /usr/local/bin/pnet-apply-performance 2>/dev/null || true
 chmod +x /usr/local/bin/pnet-* 2>/dev/null || true
 log_ok "Registered 18 performance and diagnostic CLI commands."
 

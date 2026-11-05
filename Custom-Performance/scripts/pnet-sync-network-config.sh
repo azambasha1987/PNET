@@ -19,6 +19,41 @@ log_ok()   { echo -e "${GREEN}[✔]${RESET} $*"; }
 log_warn() { echo -e "${YELLOW}[⚠]${RESET} $*"; }
 log_err()  { echo -e "${RED}[✘]${RESET} $*"; }
 
+if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
+    echo "Usage: sudo bash $0 [--check | --status | --dry-run]"
+    echo ""
+    echo "Options:"
+    echo "  (no args)    Reconcile Netplan & ifupdown configs, eliminate dual-IP bindings"
+    echo "  --check      Diagnostic check of active pnet0 IP assignments and bridges"
+    echo "  --status     Same as --check"
+    echo "  --dry-run    Simulate network reconciliation without altering routing or interfaces"
+    exit 0
+fi
+
+if [[ "${1:-}" =~ ^(--dry-run)$ ]]; then
+    echo "================================================================================"
+    echo "  [DRY-RUN] Simulating Network Reconciler & Dual-IP Purge Engine                "
+    echo "================================================================================"
+    echo "  [+] Would audit /etc/netplan/ and /etc/network/interfaces"
+    echo "  [+] Would verify single authoritative IP assignment on pnet0"
+    echo "  [+] Would remove secondary/rogue DHCP addresses"
+    echo "  [✔] Dry-run simulation completed successfully."
+    exit 0
+fi
+
+if [[ "${1:-}" =~ ^(--check|--status)$ ]]; then
+    echo "================================================================================"
+    echo "  [DIAGNOSTIC] PNetLab Network Reconciler Status                                "
+    echo "================================================================================"
+    echo -n "[*] Bridge pnet0 state: "
+    if [ -d /sys/class/net/pnet0 ]; then
+        echo "ACTIVE"
+    else
+        echo "INACTIVE"
+    fi
+    exit 0
+fi
+
 echo -e "${BOLD}${BLUE}================================================================================${RESET}"
 echo -e "${BOLD}       AzamLabs Authoritative Network Reconciler & Dual-IP Purge Engine        ${RESET}"
 echo -e "${BOLD}       Zero-Glitch Protocol • Permanent Netplan & ifupdown Synchronization     ${RESET}"
