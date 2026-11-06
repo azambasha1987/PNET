@@ -559,23 +559,61 @@ if os.path.isfile(dev_file):
             code = f.read()
 
         changed = False
-        if "mem-merge=" not in code or "virtio-balloon" not in code:
-            repl_custom = """public function customFlag($flag)
+        if "$flags = $this->applyUniversalOptimizations($flags);" not in code:
+            target = "$flags = $this->customFlag($flags);"
+            repl = "$flags = $this->customFlag($flags);\n        $flags = $this->applyUniversalOptimizations($flags);"
+            if target in code:
+                code = code.replace(target, repl, 1)
+                changed = True
+
+        if "function applyUniversalOptimizations" not in code:
+            method_def = '''
+    /**
+     * Universal Hypervisor & Device Optimization Pipeline
+     * Enforces KSM deduplication, dynamic memory ballooning, headless display suppression,
+     * and high-efficiency I/O across ALL QEMU appliances regardless of subclass overrides.
+     * @param string $flags The current QEMU flags
+     * @return string The optimized QEMU flags
+     */
+    public function applyUniversalOptimizations($flags)
     {
-        // AzamLabs Hyper-Efficiency Interceptor: universal KSM memory deduplication & dynamic memory ballooning
-        if (strpos($flag, 'mem-merge=') === false) {
-            $flag .= ' -machine mem-merge=on ';
+        // 1. Enforce KSM Memory Deduplication (-machine mem-merge=on)
+        if (strpos($flags, 'mem-merge=') === false) {
+            $flags .= ' -machine mem-merge=on ';
         }
-        if (strpos($flag, 'virtio-balloon') === false) {
-            $flag .= ' -device virtio-balloon-pci ';
+
+        // 2. Enforce Dynamic Virtio Memory Ballooning (-device virtio-balloon-pci)
+        if (strpos($flags, 'virtio-balloon') === false) {
+            $flags .= ' -device virtio-balloon-pci ';
         }
-        return $flag;
-    }"""
-            if re.search(r'(public\s+)?function\s+customFlag\s*\(\s*\$flags?\s*\)\s*\{[^}]*\}', code):
-                code = re.sub(r'(public\s+)?function\s+customFlag\s*\(\s*\$flags?\s*\)\s*\{[^}]*\}', repl_custom, code)
+
+        // 3. Enforce Memory Lock Disabling for KSM (-overcommit mem-lock=off)
+        if (strpos($flags, 'mem-lock=') === false) {
+            $flags .= ' -overcommit mem-lock=off ';
+        }
+
+        // 4. Suppress Headless Display & Emulated USB Timer Spikes for Serial/Telnet Nodes
+        $console = $this->console;
+        if ($console == 'telnet' || $console == 'serial' || empty($console)) {
+            // Strip emulated USB tablet polling at 1,000 Hz
+            $flags = preg_replace('/\\s*-usbdevice\\s+tablet\\b/', '', $flags);
+            $flags = preg_replace('/\\s*-usb\\b/', '', $flags);
+
+            // Strip emulated VGA video framebuffer (saves 16-32MB virtual VRAM per node)
+            if (strpos($flags, '-vga') === false) {
+                $flags .= ' -vga none -nographic ';
+            }
+        }
+
+        return $flags;
+    }
+'''
+            cf_target = "public function customFlag($flag)"
+            if cf_target in code:
+                code = code.replace(cf_target, method_def + "\n    " + cf_target, 1)
                 changed = True
             elif "function customFlag" in code:
-                code = re.sub(r'function\s+customFlag\s*\(\s*\$flags?\s*\)\s*\{[^}]*\}', repl_custom, code)
+                code = re.sub(r'function\s+customFlag', method_def + "\n    public function customFlag", code, count=1)
                 changed = True
 
         # Universal Self-Healing Disk Check: ensure missing/stale disks auto-recreate linked clones
@@ -606,6 +644,27 @@ if os.path.isfile(dev_file):
             print("  [✔] device_qemu.php: Universal runtime interceptor already active")
     except Exception as e:
         print(f"  [!] device_qemu patch note: {e}")
+
+# 3b. Ensure appliance subclasses call parent::customFlag to inherit base hypervisor tuning
+for sub_dev in ["/opt/unetlab/html/devices/qemu/device_vios.php", "/opt/unetlab/html/devices/qemu/device_viosl2.php"]:
+    if os.path.isfile(sub_dev):
+        try:
+            with open(sub_dev, 'r', encoding='utf-8') as f:
+                sub_code = f.read()
+            if "parent::customFlag" not in sub_code:
+                sub_code = re.sub(
+                    r'(public\s+function\s+customFlag\s*\(\s*\$flags?\s*\)\s*\{)',
+                    r'\1\n        $flag = parent::customFlag($flag);',
+                    sub_code
+                )
+                if not dry_run:
+                    with open(sub_dev, 'w', encoding='utf-8') as f:
+                        f.write(sub_code)
+                    print(f"  [✔] Patched {os.path.basename(sub_dev)} with parent::customFlag inheritance")
+                else:
+                    print(f"  [DRY-RUN] Would patch {os.path.basename(sub_dev)} with parent::customFlag inheritance")
+        except Exception as e:
+            pass
 
 # 4. Patch device_iol.php and pnetlab-brokerd.py to enforce 100:1 CPU idle governor & KSM merge
 dev_iol = "/opt/unetlab/html/devices/iol/device_iol.php"

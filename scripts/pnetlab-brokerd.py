@@ -9684,6 +9684,15 @@ def _launch_qemu(n, row, args):
     except ValueError:
         raise Reject("qemu: unbalanced quotes in flags")
     _qemu_check_image_links(os.path.join(QEMU_IMAGE_DIR, image))
+
+    # Universal Hypervisor Defense-in-Depth: ensure mem-merge=on, virtio-balloon-pci & mem-lock=off
+    if not any("mem-merge=" in t for t in toks):
+        toks.extend(["-machine", "mem-merge=on"])
+    if not any("virtio-balloon" in t for t in toks):
+        toks.extend(["-device", "virtio-balloon-pci"])
+    if not any("mem-lock=" in t for t in toks):
+        toks.extend(["-overcommit", "mem-lock=off"])
+
     _qemu_check_argv(toks, n, row["lab"], image)
     binary = "%s/bin/qemu-system-%s" % (_qemu_root(version), arch)
     if not os.path.isfile(binary):
