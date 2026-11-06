@@ -607,7 +607,7 @@ if os.path.isfile(dev_file):
     except Exception as e:
         print(f"  [!] device_qemu patch note: {e}")
 
-# 4. Patch device_iol.php to enforce 100:1 CPU idle governor & KSM whole-process merge
+# 4. Patch device_iol.php and pnetlab-brokerd.py to enforce 100:1 CPU idle governor & KSM merge
 dev_iol = "/opt/unetlab/html/devices/iol/device_iol.php"
 if os.path.isfile(dev_iol):
     try:
@@ -615,39 +615,35 @@ if os.path.isfile(dev_iol):
             code_iol = f.read()
 
         changed_iol = False
-        target_iol_cmd = '$cmd = "/opt/unetlab/wrappers/iol_wrapper ";'
-        target_iol_cmd_sq = "$cmd = '/opt/unetlab/wrappers/iol_wrapper ';"
-        repl_iol_cmd = """// PNetLab Universal Runtime Interceptor: Ultra-KSM & pnet-iol-launcher
-        $ksmWrap = '/opt/unetlab/wrappers/ksm_merge_exec';
-        $ksmLauncher = (is_executable($ksmWrap) && !file_exists('/opt/unetlab/wrappers/.ksm_merge_off')) ? $ksmWrap . ' ' : '';
-        $cmd = $ksmLauncher . '/opt/unetlab/wrappers/iol_wrapper ';"""
-        if 'ksm_merge_exec' not in code_iol:
-            if target_iol_cmd in code_iol:
-                code_iol = code_iol.replace(target_iol_cmd, repl_iol_cmd)
-                changed_iol = True
-            elif target_iol_cmd_sq in code_iol:
-                code_iol = code_iol.replace(target_iol_cmd_sq, repl_iol_cmd)
+
+        # Ensure command() points -F to pnet-iol-launcher
+        if 'pnet-iol-launcher' not in code_iol:
+            old_f_target = '" -F \' . $this->node->getRunningPath() . "/" . $this->image .'
+            new_f_target = '" -F \' . $this->node->getRunningPath() . "/pnet-iol-launcher" .'
+            if old_f_target in code_iol:
+                code_iol = code_iol.replace(old_f_target, new_f_target)
                 changed_iol = True
 
-        # Hook image launcher wrapper so iol_wrapper executes pnet-iol-launcher & pnet-iol-shim
-        if 'pnet-iol-launcher' not in code_iol and 'azam-iol-launcher' not in code_iol:
-            symlink_pattern = r'symlink\(\s*"/opt/unetlab/addons/iol/bin/"\s*\.\s*\$this->image,\s*\$this->getRunningPath\(\)\s*\.\s*"/"\s*\.\s*\$this->image\s*\);'
-            symlink_repl = """@symlink(
+        # Ensure prepare() creates pnet_iol_exec and pnet-iol-launcher symlinks
+        if 'pnet_iol_exec' not in code_iol:
+            old_prepare_sym = 'file_exists("/opt/unetlab/addons/iol/bin/" . $this->image)'
+            repl_prepare_sym = '''file_exists("/opt/unetlab/addons/iol/bin/" . $this->image)) {
+                @symlink(
                     "/opt/unetlab/addons/iol/bin/" . $this->image,
-                    $this->getRunningPath() . "/" . $this->image . ".bin"
+                    $this->getRunningPath() . "/" . $this->image
                 );
-                $launcher_content = "#!/bin/sh\\n" .
-                    "if [ -x /opt/unetlab/wrappers/pnet-iol-launcher ]; then\\n" .
-                    "    exec /opt/unetlab/wrappers/pnet-iol-launcher \\\"$0.bin\\\" \\\"$@\\\"\\n" .
-                    "elif [ -x /opt/unetlab/wrappers/azam-iol-launcher ]; then\\n" .
-                    "    exec /opt/unetlab/wrappers/azam-iol-launcher \\\"$0.bin\\\" \\\"$@\\\"\\n" .
-                    "else\\n" .
-                    "    exec \\\"$0.bin\\\" \\\"$@\\\"\\n" .
-                    "fi\\n";
-                file_put_contents($this->getRunningPath() . "/" . $this->image, $launcher_content);
-                @chmod($this->getRunningPath() . "/" . $this->image, 0755);"""
-            if re.search(symlink_pattern, code_iol):
-                code_iol = re.sub(symlink_pattern, symlink_repl, code_iol)
+                @symlink(
+                    "/opt/unetlab/addons/iol/bin/" . $this->image,
+                    $this->getRunningPath() . "/pnet_iol_exec"
+                );
+                @symlink(
+                    "/opt/unetlab/addons/iol/bin/pnet-iol-launcher",
+                    $this->getRunningPath() . "/pnet-iol-launcher"
+                );
+            }
+            if (false && file_exists("/opt/unetlab/addons/iol/bin/" . $this->image'''
+            if old_prepare_sym in code_iol:
+                code_iol = code_iol.replace(old_prepare_sym, repl_prepare_sym, 1)
                 changed_iol = True
 
         if changed_iol:
@@ -661,6 +657,41 @@ if os.path.isfile(dev_iol):
             print("  [✔] device_iol.php: Universal runtime IOL interceptor already active")
     except Exception as e:
         print(f"  [!] device_iol patch note: {e}")
+
+# 4.1 Patch pnetlab-brokerd.py (_launch_iol) for universal KSM & CPU shim injection
+brokerd_file = "/opt/unetlab/scripts/pnetlab-brokerd.py"
+if os.path.isfile(brokerd_file):
+    try:
+        with open(brokerd_file, 'r', encoding='utf-8') as f:
+            code_broker = f.read()
+
+        changed_broker = False
+
+        # In _launch_iol: switch -F to pnet-iol-launcher and add pnet_iol_exec link
+        old_broker_target = '"-F", "%s/%d/%d/%s" % (TMP_DIR, row["lab"], n, image),'
+        new_broker_target = '"-F", "%s/%d/%d/pnet-iol-launcher" % (TMP_DIR, row["lab"], n),'
+        if old_broker_target in code_broker:
+            code_broker = code_broker.replace(old_broker_target, new_broker_target)
+            changed_broker = True
+
+        old_ws_links = 'ws_links = {"iourc": IOL_BIN_DIR + "/iourc",\n                image: IOL_BIN_DIR + "/" + image}'
+        new_ws_links = 'ws_links = {"iourc": IOL_BIN_DIR + "/iourc",\n                image: IOL_BIN_DIR + "/" + image,\n                "pnet_iol_exec": IOL_BIN_DIR + "/" + image,\n                "pnet-iol-launcher": IOL_BIN_DIR + "/pnet-iol-launcher"}'
+        if old_ws_links in code_broker:
+            code_broker = code_broker.replace(old_ws_links, new_ws_links)
+            changed_broker = True
+
+        if changed_broker:
+            if dry_run:
+                print("  [DRY-RUN] Would patch pnetlab-brokerd.py with IOL KSM trampoline launcher")
+            else:
+                with open(brokerd_file, 'w', encoding='utf-8') as f:
+                    f.write(code_broker)
+                print("  [✔] Patched pnetlab-brokerd.py: IOL trampoline launcher & KSM shim injection active")
+                os.system("systemctl restart pnetlab-brokerd.service 2>/dev/null || true")
+        else:
+            print("  [✔] pnetlab-brokerd.py: IOL trampoline launcher already active")
+    except Exception as e:
+        print(f"  [!] brokerd patch note: {e}")
 PYEOF
 
 # Compile and deploy ksm_merge_exec wrapper, pnet-iol-shim and pnet-iol-launcher
@@ -693,6 +724,9 @@ SHIM_SRC="$SCRIPT_DIR/pnet-iol-shim.c"
 if [ "$DRY_RUN" -eq 1 ]; then
     echo "  [DRY-RUN] Would compile multiarch pnet-iol-shim (64-bit and 32-bit)"
 elif [ -f "$SHIM_SRC" ] && command -v gcc >/dev/null 2>&1; then
+    # Ensure 32-bit dynamic linker symlink exists for multilib compilation
+    [ -f /lib32/ld-linux.so.2 ] && ln -sf /lib32/ld-linux.so.2 /lib/ld-linux.so.2 2>/dev/null || true
+
     gcc -O3 -shared -fPIC -Wall -Wextra "$SHIM_SRC" -o /opt/unetlab/wrappers/pnet-iol-shim64.so -ldl 2>/dev/null || true
     cp -f /opt/unetlab/wrappers/pnet-iol-shim64.so /opt/unetlab/wrappers/pnet-iol-shim.so 2>/dev/null || true
     cp -f /opt/unetlab/wrappers/pnet-iol-shim64.so /opt/unetlab/wrappers/azam-iol-shim64.so 2>/dev/null || true
@@ -703,41 +737,54 @@ elif [ -f "$SHIM_SRC" ] && command -v gcc >/dev/null 2>&1; then
     echo "  [✔] Compiled pnet-iol-shim.so (64-bit and 32-bit multiarch)"
 fi
 
-# Deploy universal pnet-iol-launcher
+# Deploy universal pnet-iol-launcher to IOL bin directory & wrappers
 if [ "$DRY_RUN" -eq 1 ]; then
-    echo "  [DRY-RUN] Would deploy /opt/unetlab/wrappers/pnet-iol-launcher"
+    echo "  [DRY-RUN] Would deploy /opt/unetlab/addons/iol/bin/pnet-iol-launcher"
 else
-    cat << 'EOF_LAUNCHER' > /opt/unetlab/wrappers/pnet-iol-launcher
+    mkdir -p /opt/unetlab/addons/iol/bin 2>/dev/null || true
+    cat << 'EOF_LAUNCHER' > /opt/unetlab/addons/iol/bin/pnet-iol-launcher
 #!/bin/sh
-# PNetLab IOL 100:1 CPU Idle Governor & Ultra-KSM Launcher
-REAL_BIN="$1"
-shift
-
-if [ -z "$REAL_BIN" ] || [ ! -e "$REAL_BIN" ]; then
-    exec "$@"
+# Universal Cisco IOL Ultra-KSM & 100:1 CPU Governor Trampoline Launcher
+TARGET="./pnet_iol_exec"
+if [ ! -e "$TARGET" ]; then
+    if [ -n "$1" ] && [ -e "$1" ]; then
+        TARGET="$1"
+        shift
+    elif [ -e "$0.bin" ]; then
+        TARGET="$0.bin"
+    fi
 fi
 
-# Auto-detect ELF class (1 = 32-bit, 2 = 64-bit)
-SHIM="/opt/unetlab/wrappers/pnet-iol-shim.so"
-ELF_CLASS=$(od -An -j4 -N1 -tu1 "$REAL_BIN" 2>/dev/null | tr -d ' ' || echo "1")
+if [ ! -e "$TARGET" ]; then
+    echo "ERROR: pnet_iol_exec target binary not found in $(pwd)" >&2
+    exit 1
+fi
+
+# Detect ELF class: 1 = 32-bit (x86), 2 = 64-bit (x86_64)
+ELF_CLASS=$(od -An -j4 -N1 -tu1 "$TARGET" 2>/dev/null | tr -d ' ' || echo "2")
+
+SHIM="/opt/unetlab/wrappers/pnet-iol-shim64.so"
 if [ "$ELF_CLASS" = "1" ] && [ -f /opt/unetlab/wrappers/pnet-iol-shim32.so ]; then
     SHIM="/opt/unetlab/wrappers/pnet-iol-shim32.so"
 elif [ -f /opt/unetlab/wrappers/pnet-iol-shim64.so ]; then
     SHIM="/opt/unetlab/wrappers/pnet-iol-shim64.so"
+elif [ -f /opt/unetlab/wrappers/pnet-iol-shim.so ]; then
+    SHIM="/opt/unetlab/wrappers/pnet-iol-shim.so"
 fi
 
-if [ -f "$SHIM" ]; then
+if [ -n "$SHIM" ] && [ -f "$SHIM" ]; then
     export LD_PRELOAD="$SHIM"
 fi
 
 if [ -x /opt/unetlab/wrappers/ksm_merge_exec ] && [ ! -f /opt/unetlab/wrappers/.ksm_merge_off ]; then
-    exec /opt/unetlab/wrappers/ksm_merge_exec "$REAL_BIN" "$@"
+    exec /opt/unetlab/wrappers/ksm_merge_exec "$TARGET" "$@"
 else
-    exec "$REAL_BIN" "$@"
+    exec "$TARGET" "$@"
 fi
 EOF_LAUNCHER
-    chmod 755 /opt/unetlab/wrappers/pnet-iol-launcher
-    ln -sf /opt/unetlab/wrappers/pnet-iol-launcher /opt/unetlab/wrappers/azam-iol-launcher 2>/dev/null || true
+    chmod 755 /opt/unetlab/addons/iol/bin/pnet-iol-launcher
+    ln -sf /opt/unetlab/addons/iol/bin/pnet-iol-launcher /opt/unetlab/wrappers/pnet-iol-launcher 2>/dev/null || true
+    ln -sf /opt/unetlab/addons/iol/bin/pnet-iol-launcher /opt/unetlab/wrappers/azam-iol-launcher 2>/dev/null || true
     [ -f /opt/unetlab/wrappers/ksm_merge_exec ] && chmod 755 /opt/unetlab/wrappers/ksm_merge_exec 2>/dev/null || true
 
     # Ensure pnet-bootstorm CLI symlink is active

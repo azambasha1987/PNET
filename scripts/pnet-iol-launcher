@@ -1,0 +1,46 @@
+#!/bin/sh
+# ==============================================================================
+# PNetLab Universal Cisco IOL Ultra-KSM & 100:1 CPU Governor Trampoline Launcher
+#
+# Intercepts iol_wrapper execution of Cisco IOL images inside node workspaces.
+# Dynamically resolves 32-bit vs 64-bit ELF binaries, injects pnet-iol-shim.so
+# via LD_PRELOAD, invokes prctl(PR_SET_MEMORY_MERGE, 1), and executes under
+# ksm_merge_exec to achieve <64MB physical RAM per node and <0.01% idle CPU.
+# ==============================================================================
+
+TARGET="./pnet_iol_exec"
+if [ ! -e "$TARGET" ]; then
+    if [ -n "$1" ] && [ -e "$1" ]; then
+        TARGET="$1"
+        shift
+    elif [ -e "$0.bin" ]; then
+        TARGET="$0.bin"
+    fi
+fi
+
+if [ ! -e "$TARGET" ]; then
+    echo "ERROR: pnet_iol_exec target binary not found in $(pwd)" >&2
+    exit 1
+fi
+
+# Detect ELF class: 1 = 32-bit (x86), 2 = 64-bit (x86_64)
+ELF_CLASS=$(od -An -j4 -N1 -tu1 "$TARGET" 2>/dev/null | tr -d ' ' || echo "2")
+
+SHIM="/opt/unetlab/wrappers/pnet-iol-shim64.so"
+if [ "$ELF_CLASS" = "1" ] && [ -f /opt/unetlab/wrappers/pnet-iol-shim32.so ]; then
+    SHIM="/opt/unetlab/wrappers/pnet-iol-shim32.so"
+elif [ -f /opt/unetlab/wrappers/pnet-iol-shim64.so ]; then
+    SHIM="/opt/unetlab/wrappers/pnet-iol-shim64.so"
+elif [ -f /opt/unetlab/wrappers/pnet-iol-shim.so ]; then
+    SHIM="/opt/unetlab/wrappers/pnet-iol-shim.so"
+fi
+
+if [ -n "$SHIM" ] && [ -f "$SHIM" ]; then
+    export LD_PRELOAD="$SHIM"
+fi
+
+if [ -x /opt/unetlab/wrappers/ksm_merge_exec ] && [ ! -f /opt/unetlab/wrappers/.ksm_merge_off ]; then
+    exec /opt/unetlab/wrappers/ksm_merge_exec "$TARGET" "$@"
+else
+    exec "$TARGET" "$@"
+fi
