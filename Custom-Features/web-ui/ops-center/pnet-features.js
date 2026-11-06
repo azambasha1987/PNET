@@ -3214,6 +3214,68 @@
       '}' +
       'svg marker {' +
       '  overflow: visible !important;' +
+      '}' +
+      '/* Option 2: Executive Titanium & Amber Gold (CCIE Elite) Lab Header */' +
+      '.pnq-executive-card {' +
+      '  display: inline-block !important;' +
+      '  text-align: center !important;' +
+      '  box-sizing: border-box !important;' +
+      '  background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98)) !important;' +
+      '  padding: 16px 42px 18px 42px !important;' +
+      '  border-radius: 12px !important;' +
+      '  border: 1px solid rgba(245, 158, 11, 0.45) !important;' +
+      '  border-top: 3px solid #f59e0b !important;' +
+      '  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.8), 0 0 25px rgba(245, 158, 11, 0.15) !important;' +
+      '  backdrop-filter: blur(16px) !important;' +
+      '  -webkit-backdrop-filter: blur(16px) !important;' +
+      '  min-width: 480px !important;' +
+      '  max-width: 850px !important;' +
+      '  pointer-events: auto !important;' +
+      '}' +
+      '.pnq-card-badge-wrap {' +
+      '  margin: 0 0 6px 0 !important;' +
+      '  line-height: 1 !important;' +
+      '}' +
+      '.pnq-card-badge {' +
+      '  display: inline-block !important;' +
+      '  padding: 3px 12px !important;' +
+      '  border-radius: 4px !important;' +
+      '  background: rgba(245, 158, 11, 0.12) !important;' +
+      '  border: 1px solid rgba(245, 158, 11, 0.4) !important;' +
+      '  font-size: 11px !important;' +
+      '  font-weight: 700 !important;' +
+      '  color: #fbbf24 !important;' +
+      '  letter-spacing: 1.5px !important;' +
+      '  text-transform: uppercase !important;' +
+      '  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;' +
+      '}' +
+      '.pnq-card-title {' +
+      '  font-size: 24px !important;' +
+      '  font-weight: 800 !important;' +
+      '  color: #f8fafc !important;' +
+      '  letter-spacing: 0.8px !important;' +
+      '  margin: 0 !important;' +
+      '  line-height: 1.25 !important;' +
+      '  text-transform: uppercase !important;' +
+      '  text-shadow: 0 0 14px rgba(245, 158, 11, 0.4) !important;' +
+      '  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;' +
+      '}' +
+      '.pnq-card-subtitle {' +
+      '  font-size: 12px !important;' +
+      '  font-weight: 600 !important;' +
+      '  color: #94a3b8 !important;' +
+      '  margin: 6px 0 0 0 !important;' +
+      '  line-height: 1.35 !important;' +
+      '  letter-spacing: 0.4px !important;' +
+      '  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;' +
+      '}' +
+      '.customText[data-pnet-text="header"], .customText.pnq-header-wrapper, [name="Lab_Header"] {' +
+      '  max-width: none !important;' +
+      '  width: auto !important;' +
+      '  background: transparent !important;' +
+      '  border: none !important;' +
+      '  box-shadow: none !important;' +
+      '  padding: 0 !important;' +
       '}';
     document.head.appendChild(s);
   }
@@ -3471,8 +3533,8 @@
         });
       }
 
-      // 2. Compact Auto-Growing Text Annotations (grows up to 320px then wraps)
-      $('.customText:not([data-pnet-text="1"])').each(function () {
+      // 2. Compact Auto-Growing Text Annotations (grows up to 320px then wraps, skips headers)
+      $('.customText:not([data-pnet-text="1"]):not([data-pnet-text="header"]):not(.pnq-header-wrapper)').each(function () {
         var $t = $(this);
         $t.attr('data-pnet-text', '1');
         $t.css({
