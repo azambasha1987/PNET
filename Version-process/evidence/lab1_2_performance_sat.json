@@ -1,13 +1,13 @@
 {
   "test": "Lab 1.2 (Performance - SAT)",
-  "timestamp": "2026-11-06 10:09:33",
+  "timestamp": "2026-11-06 10:23:22",
   "satellite_host_id": 1,
   "satellite_ip": "192.168.1.18",
   "rpc_response": {
     "ok": true,
     "rc": 0,
     "out": [
-      "{\"cpu\": 46, \"ram\": 9, \"swap\": 0, \"disk\": 21, \"total_ram\": 62728780, \"total_swap\": 8388604, \"total_disk\": 105089261568, \"cores\": 8, \"qemu_version\": \"10.2.1\", \"uptime\": 10291, \"version\": \"6.8.93resolute1\", \"counts\": {\"iol\": 0, \"dynamips\": 0, \"qemu\": 2, \"docker\": 0, \"vpcs\": 0}}"
+      "{\"cpu\": 16, \"ram\": 12, \"swap\": 0, \"disk\": 22, \"total_ram\": 62728780, \"total_swap\": 8388604, \"total_disk\": 105089261568, \"cores\": 8, \"qemu_version\": \"10.2.1\", \"uptime\": 11119, \"version\": \"6.8.93resolute1\", \"counts\": {\"iol\": 2, \"dynamips\": 0, \"qemu\": 2, \"docker\": 0, \"vpcs\": 0}}"
     ],
     "err": ""
   }

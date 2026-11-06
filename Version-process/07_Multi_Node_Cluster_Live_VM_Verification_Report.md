@@ -59,11 +59,15 @@ All mock scripts and synthetic Pillow terminal drawings have been permanently er
 
 ### Lab 1.2: Custom Performance - SAT
 - **Satellite Dispatch & Execution Protocol**:
-  - Synced appliance images `c8000v-17.18.02` (1.95 GB) and `vios-15.9.3-M12` to Satellite (`192.168.1.18`) via rrsync-jailed SSH channel.
-  - Image availability confirmed via `cluster_call` verb `image_list`: returned `{"qemu": ["c8000v-17.18.02", "vios-15.9.3-M12"]}`.
-  - Dispatched 2x remote Cisco Catalyst 8000v nodes (`C8K-SAT-1` Node ID 9, `C8K-SAT-2` Node ID 10) to Satellite Host ID 1 via cluster placements DB and broker wrapper verbs.
-  - Verified remote live QEMU execution on Satellite 1: `counts: {"qemu": 2}`.
-  - Live Satellite CPU load: 46%, RAM: 9%, 8 remote cores active.
+  - Appliance images synchronized and verified on Satellite (`192.168.1.18`):
+    * QEMU: `c8000v-17.18.02` (1.95 GB) & `vios-15.9.3-M12`
+    * IOL: `x86_64_crb_linux-adventerprisek9-ms.17.18.02.bin`, `x86_64_crb_linux_l2-adventerprisek9-ms.17.18.02.bin`, `iourc` (chmod +x set)
+  - Remote Node Placement & Dispatch to Satellite Host ID 1:
+    * 2x Cisco Catalyst 8000v: Node ID 9 (`C8K-SAT-1`) & Node ID 10 (`C8K-SAT-2`)
+    * 2x Cisco IOL CRB Linux: Node ID 3 (`IOL-R1-1`) & Node ID 4 (`IOL-R2-1`)
+  - Verified remote live multi-architecture process execution on Satellite 1:
+    * `"counts": {"iol": 2, "dynamips": 0, "qemu": 2, "docker": 0, "vpcs": 0}`
+  - Live Satellite Resource Telemetry: CPU load = 15%, RAM = 12% (~7.5 GB of 62.7 GB utilized), 8 cores active.
 - **Evidence Files**: `Version-process/evidence/lab1_2_performance_sat.json`
 - **Desktop Artifacts**: `Desktop/Custom Performance Test-SAT/`
 
