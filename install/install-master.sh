@@ -126,16 +126,130 @@ if [ -d "$REPO_ROOT/scripts" ]; then
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 fi
 
-# Deploy and initialize cloud bridges (pnet0-9 + nat0)
-mkdir -p /opt/ovf 2>/dev/null || true
+# ==============================================================================
+# Universal Network Modernization & First-Boot "eth0 not found" Permanent Fix
+# ==============================================================================
+echo "Enforcing universal network interface stability & first-boot protection..."
+
+# 1. Instruct kernel to use consistent eth0 device naming across all hypervisors
+if [ -f /etc/default/grub ]; then
+    CHANGED_GRUB=0
+    if ! grep -q "net.ifnames=0" /etc/default/grub; then
+        sed -i 's/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="net.ifnames=0 biosdevname=0 /' /etc/default/grub 2>/dev/null || true
+        sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="net.ifnames=0 biosdevname=0 /' /etc/default/grub 2>/dev/null || true
+        CHANGED_GRUB=1
+    fi
+    if ! grep -q "biosdevname=0" /etc/default/grub; then
+        sed -i 's/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="biosdevname=0 /' /etc/default/grub 2>/dev/null || true
+        CHANGED_GRUB=1
+    fi
+    if [ "$CHANGED_GRUB" -eq 1 ] && command -v update-grub >/dev/null 2>&1; then
+        echo "Updating GRUB with kernel net.ifnames=0 biosdevname=0..."
+        update-grub 2>/dev/null || true
+    fi
+fi
+
+# 2. Permanently neutralize legacy OVF first-boot dialog trap
+mkdir -p /opt/ovf /etc/profile.d 2>/dev/null || true
+SYSTEM_UUID="$(dmidecode -s system-uuid 2>/dev/null || true)"
+if [ -n "$SYSTEM_UUID" ]; then
+    echo "$SYSTEM_UUID" > /opt/ovf/.configured
+else
+    touch /opt/ovf/.configured
+fi
+chmod 644 /opt/ovf/.configured 2>/dev/null || true
+
+# Neutralize interactive login wizard in /etc/profile.d/ovf.sh
+cat << 'OVF_EOF' > /etc/profile.d/ovf.sh
+#!/bin/sh
+# PNetLab: Auto-prompt neutralized permanently by installer
+exit 0
+OVF_EOF
+chmod 644 /etc/profile.d/ovf.sh 2>/dev/null || true
+
+# 3. Deploy systemd cloud bridges unit and enable it Before=networking.service
 if [ -f "$REPO_ROOT/scripts/pnet-bridges.sh" ]; then
     cp -f "$REPO_ROOT/scripts/pnet-bridges.sh" /opt/ovf/pnet-bridges.sh 2>/dev/null || true
 fi
 if [ -f "$REPO_ROOT/scripts/pnetlab-pnet-bridges.service" ]; then
     cp -f "$REPO_ROOT/scripts/pnetlab-pnet-bridges.service" /etc/systemd/system/pnetlab-pnet-bridges.service 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable pnetlab-pnet-bridges.service 2>/dev/null || true
 fi
 chmod 755 /opt/ovf/pnet-bridges.sh 2>/dev/null || true
 [ -x /opt/ovf/pnet-bridges.sh ] && /bin/bash /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+
+# 4. Deploy universal MAC-agnostic Netplan configuration bridging eth0 into pnet0
+if command -v netplan >/dev/null 2>&1; then
+    UPLINK_IFACE=""
+    for iface in $(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d'@' -f1); do
+        case "$iface" in
+            lo|pnet*|docker*|veth*|virbr*|tun*|tap*|br-*) continue ;;
+            eth*|ens*|enp*|eno*)
+                UPLINK_IFACE="$iface"
+                break
+                ;;
+        esac
+    done
+    [ -z "$UPLINK_IFACE" ] && UPLINK_IFACE="eth0"
+
+    # Only generate if pnet0 bridge is not already configured in netplan
+    if ! grep -q "pnet0" /etc/netplan/*.yaml /etc/netplan/*.yml 2>/dev/null; then
+        DETECTED_IP="$(ip -4 addr show dev "$UPLINK_IFACE" 2>/dev/null | awk '/inet /{print $2}' | head -n1 || true)"
+        DETECTED_GW="$(ip -4 route show default 2>/dev/null | awk '{print $3}' | head -n1 || true)"
+        [ -z "$DETECTED_GW" ] && DETECTED_GW="192.168.1.1"
+
+        if [ -n "$DETECTED_IP" ]; then
+            cat << NETPLAN_EOF > /etc/netplan/00-installer-config.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ${UPLINK_IFACE}:
+      dhcp4: false
+      dhcp6: false
+  bridges:
+    pnet0:
+      interfaces:
+        - ${UPLINK_IFACE}
+      addresses:
+        - ${DETECTED_IP}
+      routes:
+        - to: default
+          via: ${DETECTED_GW}
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 1.1.1.1
+      parameters:
+        stp: false
+        forward-delay: 0
+NETPLAN_EOF
+        else
+            cat << NETPLAN_EOF > /etc/netplan/00-installer-config.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ${UPLINK_IFACE}:
+      dhcp4: false
+      dhcp6: false
+  bridges:
+    pnet0:
+      interfaces:
+        - ${UPLINK_IFACE}
+      dhcp4: true
+      dhcp6: false
+      parameters:
+        stp: false
+        forward-delay: 0
+NETPLAN_EOF
+        fi
+        chmod 600 /etc/netplan/00-installer-config.yaml
+        netplan generate 2>/dev/null || true
+        netplan apply 2>/dev/null || true
+    fi
+fi
 
 # Apply all Tri-Pillar Custom Subsystems (Performance, Customization, Features)
 if [ -f "$REPO_ROOT/apply-all-custom.sh" ]; then

@@ -55,13 +55,23 @@ def main():
         print("  [✔] Dry-run completed successfully.")
         return 0
 
-    # 2. Touch permanent configured flag & remove pending flags
-    print("[2/5] Marking OVF configuration flags...")
+    # 2. Touch permanent configured flag with system UUID
+    print("[2/6] Marking OVF configuration flags with system UUID...")
     os.makedirs("/opt/ovf", exist_ok=True)
+    sys_uuid = ""
+    try:
+        uuid_proc = subprocess.run(["dmidecode", "-s", "system-uuid"], capture_output=True, text=True, timeout=5)
+        sys_uuid = uuid_proc.stdout.strip()
+    except Exception:
+        pass
+
     try:
         with open("/opt/ovf/.configured", "w") as f:
-            f.write(f"configured=true\nuplink={real_iface}\n")
-        print("      -> Successfully marked /opt/ovf/.configured")
+            if sys_uuid:
+                f.write(f"{sys_uuid}\n")
+            else:
+                f.write("configured=true\n")
+        print(f"      -> Successfully marked /opt/ovf/.configured (UUID: {sys_uuid or 'generic'})")
     except Exception as e:
         print(f"      [!] Could not write /opt/ovf/.configured: {e}")
 
@@ -73,8 +83,36 @@ def main():
                 pass
     print("      -> Cleared legacy firstboot and pending flags")
 
-    # 3. Patch /etc/profile.d/ovf.sh to prevent interactive prompt loop
-    print("[3/5] Neutralizing auto-launch in /etc/profile.d/ovf.sh...")
+    # 3. Patch /etc/default/grub for consistent kernel naming across all hypervisors
+    print("[3/6] Modernizing GRUB kernel command line (net.ifnames=0 biosdevname=0)...")
+    grub_file = "/etc/default/grub"
+    if os.path.isfile(grub_file):
+        try:
+            with open(grub_file, "r", encoding="utf-8", errors="ignore") as f:
+                grub_content = f.read()
+            grub_changed = False
+            if "net.ifnames=0" not in grub_content:
+                grub_content = re.sub(r'GRUB_CMDLINE_LINUX="([^"]*)"', r'GRUB_CMDLINE_LINUX="net.ifnames=0 biosdevname=0 \1"', grub_content)
+                grub_content = re.sub(r'GRUB_CMDLINE_LINUX_DEFAULT="([^"]*)"', r'GRUB_CMDLINE_LINUX_DEFAULT="net.ifnames=0 biosdevname=0 \1"', grub_content)
+                grub_changed = True
+            elif "biosdevname=0" not in grub_content:
+                grub_content = re.sub(r'GRUB_CMDLINE_LINUX="([^"]*)"', r'GRUB_CMDLINE_LINUX="biosdevname=0 \1"', grub_content)
+                grub_changed = True
+
+            if grub_changed:
+                with open(grub_file, "w", encoding="utf-8") as f:
+                    f.write(grub_content)
+                print(f"      -> Added net.ifnames=0 biosdevname=0 to {grub_file}")
+                if shutil.which("update-grub"):
+                    subprocess.run(["update-grub"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    print("      -> Successfully updated GRUB")
+            else:
+                print("      -> GRUB kernel arguments already modernized.")
+        except Exception as e:
+            print(f"      [!] Could not update GRUB: {e}")
+
+    # 4. Patch /etc/profile.d/ovf.sh to prevent interactive prompt loop
+    print("[4/6] Neutralizing auto-launch in /etc/profile.d/ovf.sh...")
     ovf_profile = "/etc/profile.d/ovf.sh"
     if os.path.isfile(ovf_profile):
         try:
@@ -85,8 +123,8 @@ def main():
         except Exception as e:
             print(f"      [!] Could not modify {ovf_profile}: {e}")
 
-    # 4. Patch /opt/ovf/ovfconfig.sh if present
-    print("[4/5] Patching /opt/ovf/ovfconfig.sh...")
+    # 5. Patch /opt/ovf/ovfconfig.sh if present
+    print("[5/6] Patching /opt/ovf/ovfconfig.sh...")
     ovf_config = "/opt/ovf/ovfconfig.sh"
     if os.path.isfile(ovf_config):
         try:
@@ -100,8 +138,8 @@ def main():
         except Exception as e:
             print(f"      [!] Could not patch {ovf_config}: {e}")
 
-    # 5. Patch /opt/ovf/ovfstartup.sh & pnet-bridges
-    print("[5/5] Patching ovfstartup, pnet-bridges, and ebtables firewall rules...")
+    # 6. Patch /opt/ovf/ovfstartup.sh & pnet-bridges
+    print("[6/6] Patching ovfstartup, pnet-bridges, and ebtables firewall rules...")
     for script in ["/opt/ovf/ovfstartup.sh", "/opt/unetlab/scripts/pnet-bridges.sh", "/opt/unetlab/scripts/pnet-fwd-reconcile.sh"]:
         if os.path.isfile(script):
             try:

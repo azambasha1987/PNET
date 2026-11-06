@@ -93,6 +93,59 @@ if [ -d "$REPO_ROOT/scripts" ]; then
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 fi
 
+# ==============================================================================
+# Universal Network Modernization & First-Boot "eth0 not found" Permanent Fix
+# ==============================================================================
+echo "Enforcing universal network interface stability & first-boot protection..."
+
+# 1. Instruct kernel to use consistent eth0 device naming across all hypervisors
+if [ -f /etc/default/grub ]; then
+    CHANGED_GRUB=0
+    if ! grep -q "net.ifnames=0" /etc/default/grub; then
+        sed -i 's/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="net.ifnames=0 biosdevname=0 /' /etc/default/grub 2>/dev/null || true
+        sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="net.ifnames=0 biosdevname=0 /' /etc/default/grub 2>/dev/null || true
+        CHANGED_GRUB=1
+    fi
+    if ! grep -q "biosdevname=0" /etc/default/grub; then
+        sed -i 's/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="biosdevname=0 /' /etc/default/grub 2>/dev/null || true
+        CHANGED_GRUB=1
+    fi
+    if [ "$CHANGED_GRUB" -eq 1 ] && command -v update-grub >/dev/null 2>&1; then
+        echo "Updating GRUB with kernel net.ifnames=0 biosdevname=0..."
+        update-grub 2>/dev/null || true
+    fi
+fi
+
+# 2. Permanently neutralize legacy OVF first-boot dialog trap
+mkdir -p /opt/ovf /etc/profile.d 2>/dev/null || true
+SYSTEM_UUID="$(dmidecode -s system-uuid 2>/dev/null || true)"
+if [ -n "$SYSTEM_UUID" ]; then
+    echo "$SYSTEM_UUID" > /opt/ovf/.configured
+else
+    touch /opt/ovf/.configured
+fi
+chmod 644 /opt/ovf/.configured 2>/dev/null || true
+
+# Neutralize interactive login wizard in /etc/profile.d/ovf.sh
+cat << 'OVF_EOF' > /etc/profile.d/ovf.sh
+#!/bin/sh
+# PNetLab: Auto-prompt neutralized permanently by installer
+exit 0
+OVF_EOF
+chmod 644 /etc/profile.d/ovf.sh 2>/dev/null || true
+
+# 3. Deploy systemd cloud bridges unit and enable it Before=networking.service
+if [ -f "$REPO_ROOT/scripts/pnet-bridges.sh" ]; then
+    cp -f "$REPO_ROOT/scripts/pnet-bridges.sh" /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+fi
+if [ -f "$REPO_ROOT/scripts/pnetlab-pnet-bridges.service" ]; then
+    cp -f "$REPO_ROOT/scripts/pnetlab-pnet-bridges.service" /etc/systemd/system/pnetlab-pnet-bridges.service 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable pnetlab-pnet-bridges.service 2>/dev/null || true
+fi
+chmod 755 /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+[ -x /opt/ovf/pnet-bridges.sh ] && /bin/bash /opt/ovf/pnet-bridges.sh 2>/dev/null || true
+
 # Apply all Tri-Pillar Custom Subsystems in Satellite mode (QEMU templates, pnet-* CLI tools, Ultra-KSM, watchdog)
 if [ -f "$REPO_ROOT/apply-all-custom.sh" ]; then
     bash "$REPO_ROOT/apply-all-custom.sh" --satellite || true

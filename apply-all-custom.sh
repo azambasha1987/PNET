@@ -197,6 +197,40 @@ EOF_BROKER
     fi
 fi
 
+# ── 5. Universal Network Interface Stability & First-Boot Protection ─────────
+log_info "Enforcing universal network interface stability and neutralizing legacy OVF prompts..."
+mkdir -p /opt/ovf /etc/profile.d 2>/dev/null || true
+SYS_UUID="$(dmidecode -s system-uuid 2>/dev/null || true)"
+if [ -n "$SYS_UUID" ]; then
+    echo "$SYS_UUID" > /opt/ovf/.configured
+else
+    touch /opt/ovf/.configured
+fi
+chmod 644 /opt/ovf/.configured 2>/dev/null || true
+
+cat << 'OVF_PROFILE_EOF' > /etc/profile.d/ovf.sh
+#!/bin/sh
+# PNetLab: Auto-prompt neutralized permanently
+exit 0
+OVF_PROFILE_EOF
+chmod 644 /etc/profile.d/ovf.sh 2>/dev/null || true
+
+# Deploy systemd cloud bridges unit
+BRIDGES_SVC="${SCRIPT_DIR}/scripts/pnetlab-pnet-bridges.service"
+[ -f "$BRIDGES_SVC" ] || BRIDGES_SVC="/opt/pnet/scripts/pnetlab-pnet-bridges.service"
+if [ -f "$BRIDGES_SVC" ]; then
+    cp -f "$BRIDGES_SVC" /etc/systemd/system/pnetlab-pnet-bridges.service 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable pnetlab-pnet-bridges.service 2>/dev/null || true
+fi
+
+ETH0_PERM_PY="${SCRIPT_DIR}/Custom-Performance/scripts/pnet-fix-eth0-permanent.py"
+[ -f "$ETH0_PERM_PY" ] || ETH0_PERM_PY="/opt/unetlab/scripts/pnet-fix-eth0-permanent.py"
+[ -f "$ETH0_PERM_PY" ] || ETH0_PERM_PY="/opt/pnet/Custom-Performance/scripts/pnet-fix-eth0-permanent.py"
+if [ -f "$ETH0_PERM_PY" ]; then
+    python3 "$ETH0_PERM_PY" 2>/dev/null || true
+fi
+
 systemctl daemon-reload 2>/dev/null || true
 if [ "$MODE" = "master" ] && systemctl is-active --quiet apache2 2>/dev/null; then
     apache2ctl configtest 2>&1 | grep -v "^Syntax OK" || true
