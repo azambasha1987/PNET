@@ -147,12 +147,24 @@ if [ -f "${MAIN_INDEX}" ]; then
         sed -i 's|<script src="/main/js/labs.js|<script type="module" src="/themes/default/islands/js/labs-workspace.js"></script>\n\t<script type="module" src="/themes/default/islands/js/icons-manager.js"></script>\n\t<script src="/main/js/labs.js|' "${MAIN_INDEX}" 2>/dev/null || true
     fi
     CACHE_TS="$(date +%s)"
-    if grep -q "pnet-features" "${MAIN_INDEX}"; then
-        sed -i "s|/main/js/pnet-features.js[^\"]*|/main/js/pnet-features.js?v=${CACHE_TS}|g" "${MAIN_INDEX}" 2>/dev/null || true
-    else
-        sed -i '/data-route="ai"/a \			<a class="nav-item" data-route="pnet-features" href="#/pnet-features">\n				<i class="fa fa-bolt" aria-hidden="true" style="color:#0ea5e9;"></i><span>PNet-Features</span></a>' "${MAIN_INDEX}" 2>/dev/null || true
-        sed -i "s|</body>|<script src=\"/main/js/pnet-features.js?v=${CACHE_TS}\"></script>\n</body>|" "${MAIN_INDEX}" 2>/dev/null || true
-    fi
+    python3 -c "
+import re
+p = '${MAIN_INDEX}'
+try:
+    with open(p, 'r', encoding='utf-8') as f:
+        c = f.read()
+    if 'data-route=\"pnet-features\"' not in c:
+        c = re.sub(r'(<a class=\"nav-item\" data-route=\"ai\"[^\n]*</a>)', r'\1\n\t\t\t\t<a class=\"nav-item\" data-route=\"pnet-features\" href=\"#/pnet-features\"><i class=\"fa fa-bolt\" aria-hidden=\"true\" style=\"color:#0ea5e9;\"></i><span>Azam Features</span></a>', c)
+    if 'pnet-features.js' not in c:
+        c = c.replace('</body>', f'<script src=\"/main/js/pnet-features.js?v=${CACHE_TS}\"></script>\n</body>')
+    else:
+        c = re.sub(r'/main/js/pnet-features\.js(?:\?v=[^\"]*)?', f'/main/js/pnet-features.js?v=${CACHE_TS}', c)
+    with open(p, 'w', encoding='utf-8') as f:
+        f.write(c)
+except Exception as e:
+    print('Failed to update index.html:', e)
+"
+
 fi
 log_ok "Web-UI components deployed with real-time cache busters."
 
