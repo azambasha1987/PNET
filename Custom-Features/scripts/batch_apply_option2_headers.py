@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
 PNetLab Lab Header Modernizer: Option 2 Executive Titanium & Amber Gold (CCIE Elite)
-Compact, Proportionate & Fully 2D-Resizable (Width & Height) Edition
+Standardized Compact 280px x 50px Footprint & Geometric Topology-Alignment Engine
 """
 
 import os
+import sys
 import glob
 import re
 import shutil
@@ -104,72 +105,129 @@ def parse_lab_metadata(lab_path, root):
         
     return badge, title.upper(), subtitle
 
-def extract_pos_from_style(style_str):
-    top = 25
-    left = 350
-    top_match = re.search(r'top:\s*(-?\d+)px', style_str)
-    if top_match:
-        top = int(top_match.group(1))
-    left_match = re.search(r'left:\s*(-?\d+)px', style_str)
-    if left_match:
-        left = int(left_match.group(1))
-    return top, left
+def parse_shape_box(shape_elem):
+    data = shape_elem.find('data')
+    if data is None or not data.text:
+        return None
+    txt = data.text
+    tm = re.search(r'top:\s*(-?\d+)px', txt)
+    lm = re.search(r'left:\s*(-?\d+)px', txt)
+    wm = re.search(r'width:\s*(-?\d+)px', txt)
+    hm = re.search(r'height:\s*(-?\d+)px', txt)
+    if tm and lm:
+        t = int(tm.group(1))
+        l = int(lm.group(1))
+        w = int(wm.group(1)) if wm else 0
+        h = int(hm.group(1)) if hm else 0
+        return {'top': t, 'left': l, 'width': w, 'height': h, 'right': l + w, 'bottom': t + h, 'name': shape_elem.get('name', '')}
+    return None
 
 def calculate_lab_coords(root):
     nodes = root.findall('.//node')
-    if not nodes:
-        return 25, 400
+    networks = root.findall('.//network')
+    shapes = [parse_shape_box(s) for s in root.findall('.//textobject') if s.get('type') == 'shape']
+    shapes = [s for s in shapes if s is not None and s['width'] > 0 and s['height'] > 0]
     
-    xs, ys = [], []
+    xs = []
+    ys = []
     for n in nodes:
         try:
             x = int(n.get('left', '0'))
             y = int(n.get('top', '0'))
-            if x > 0 and y > 0:
-                xs.append(x)
-                ys.append(y)
+            if x > 0: xs.append(x)
+            if y > 0: ys.append(y)
+        except ValueError:
+            pass
+    for net in networks:
+        try:
+            x = int(net.get('left', '0'))
+            y = int(net.get('top', '0'))
+            if x > 0: xs.append(x)
+            if y > 0: ys.append(y)
         except ValueError:
             pass
             
-    if not xs or not ys:
+    min_node_y = min(ys) if ys else 9999
+    min_node_x = min(xs) if xs else 9999
+    max_node_x = max(xs) if xs else 0
+    
+    # 1. Check for perimeter enclosing container shape docked at the top
+    enclosing_container = None
+    if shapes:
+        for s in shapes:
+            s_name = s['name'].lower()
+            if s['top'] <= min_node_y + 30:
+                if any(k in s_name for k in ['domain', 'perimeter', 'main', 'boundary']):
+                    enclosing_container = s
+                    break
+                if s['width'] >= 500 and s['height'] >= 220:
+                    if xs and min_node_x >= s['left'] - 60 and max_node_x <= s['right'] + 60:
+                        enclosing_container = s
+                        break
+        if enclosing_container is None and len(shapes) == 1 and shapes[0]['width'] >= 450:
+            if shapes[0]['top'] <= min_node_y + 30:
+                enclosing_container = shapes[0]
+
+    # Dock directly across the top container boundary
+    if enclosing_container is not None:
+        x_mid = (enclosing_container['left'] + enclosing_container['right']) // 2
+        top_dock = max(15, enclosing_container['top'] - 28)
+        left = max(40, x_mid - 140)
+        return top_dock, left
+
+    # 2. Standard Topology Centering across all items
+    all_xs = list(xs)
+    all_ys = list(ys)
+    for s in shapes:
+        all_xs.extend([s['left'], s['right']])
+        all_ys.append(s['top'])
+        
+    if not all_xs or not all_ys:
         return 25, 400
         
-    min_x, max_x = min(xs), max(xs)
-    min_y = min(ys)
+    min_x, max_x = min(all_xs), max(all_xs)
+    min_y = min(all_ys)
     
-    center_x = (min_x + max_x) // 2
-    left = max(60, center_x - 240)
-    top = max(18, min(75, min_y - 100)) if min_y >= 110 else 20
+    x_mid = (min_x + max_x) // 2
+    left = max(40, x_mid - 140)
+    
+    if min_y >= 120:
+        top = min(110, min_y - 70)
+    elif min_y >= 75:
+        top = max(15, min_y - 55)
+    else:
+        top = 15
+        
     return top, left
 
-def generate_header_html(header_id, top, left, badge, title, subtitle):
+def generate_compact_header_html(header_id, top, left, badge, title, subtitle):
     top = max(15, top)
     left = max(40, left)
     
-    # Calculate badge pill width dynamically
+    # Dynamic badge pill calculation
     badge_len = len(badge)
-    badge_w = int(max(90, min(260, badge_len * 7.2 + 22)))
+    badge_w = int(max(70, min(240, badge_len * 5.8 + 16)))
     badge_x = -badge_w // 2
     
-    # Title styling & length fitting
+    # Title styling & length compression
     title_len = len(title)
-    if title_len > 42:
-        title_attrs = 'font-size="12" font-weight="800" textLength="370" lengthAdjust="spacingAndGlyphs"'
-    elif title_len > 32:
-        title_attrs = 'font-size="13" font-weight="800" textLength="370" lengthAdjust="spacingAndGlyphs"'
-    elif title_len > 24:
-        title_attrs = 'font-size="13.5" font-weight="800"'
+    if title_len > 35:
+        title_attrs = 'font-size="10.5" font-weight="800" textLength="260" lengthAdjust="spacingAndGlyphs"'
+    elif title_len > 25:
+        title_attrs = 'font-size="11.5" font-weight="800" textLength="260" lengthAdjust="spacingAndGlyphs"'
+    elif title_len > 18:
+        title_attrs = 'font-size="12" font-weight="800" letter-spacing="0.5"'
     else:
-        title_attrs = 'font-size="14.5" font-weight="800"'
+        title_attrs = 'font-size="12.5" font-weight="800" letter-spacing="0.5"'
         
-    # Subtitle styling & length fitting
+    # Subtitle styling & length compression
     sub_len = len(subtitle)
-    if sub_len > 55:
-        sub_attrs = 'font-size="8.5" font-weight="600" textLength="380" lengthAdjust="spacingAndGlyphs"'
-    elif sub_len > 40:
-        sub_attrs = 'font-size="9.2" font-weight="600"'
+    if sub_len > 45:
+        sub_attrs = 'font-size="6.8" font-weight="600" textLength="265" lengthAdjust="spacingAndGlyphs"'
+    elif sub_len > 32:
+        sub_attrs = 'font-size="7.2" font-weight="600"'
     else:
-        sub_attrs = 'font-size="9.8" font-weight="600"'
+        sub_attrs = 'font-size="7.8" font-weight="600" letter-spacing="0.2"'
         
     # Escape XML entities
     badge_esc = badge.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
@@ -179,20 +237,20 @@ def generate_header_html(header_id, top, left, badge, title, subtitle):
     html = (
         f'<div id="customText{header_id}" class="customShape customText context-menu ck-content pnq-header-wrapper" '
         f'data-path="{header_id}" data-pnet-text="header" name="Lab_Header" '
-        f'style="position:absolute; display:inline-block; top:{top}px; left:{left}px; width:420px; height:58px; cursor:move; z-index:1000; '
+        f'style="position:absolute; display:inline-block; top:{top}px; left:{left}px; width:280px; height:50px; cursor:move; z-index:1000; '
         f'padding:0; margin:0; background:transparent !important; border:none !important; box-sizing:border-box;">'
         f'<div class="pnq-executive-card" style="display:flex; justify-content:center; align-items:center; box-sizing:border-box; '
         f'background:linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98)); '
-        f'padding:4px 10px; border-radius:8px; border:1px solid rgba(245, 158, 11, 0.45); '
+        f'padding:4px 8px; border-radius:8px; border:1px solid rgba(245, 158, 11, 0.45); '
         f'border-top:2.5px solid #f59e0b; box-shadow:0 6px 18px -3px rgba(0, 0, 0, 0.75), 0 0 14px rgba(245, 158, 11, 0.12); '
         f'backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); width:100%; height:100%; overflow:hidden; position:relative;">'
-        f'<svg viewBox="0 0 400 52" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible; pointer-events:none;" xmlns="http://www.w3.org/2000/svg">'
-        f'<g transform="translate(200, 10)">'
-        f'<rect x="{badge_x}" y="-8" width="{badge_w}" height="15" rx="3" fill="#f59e0b" fill-opacity="0.12" stroke="#f59e0b" stroke-opacity="0.4" stroke-width="1"/>'
-        f'<text text-anchor="middle" y="3" fill="#fbbf24" font-family="\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif" font-size="9" font-weight="700" letter-spacing="1">{badge_esc}</text>'
+        f'<svg viewBox="0 0 280 46" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible; pointer-events:none;" xmlns="http://www.w3.org/2000/svg">'
+        f'<g transform="translate(140, 9)">'
+        f'<rect x="{badge_x}" y="-7" width="{badge_w}" height="14" rx="3" fill="#f59e0b" fill-opacity="0.12" stroke="#f59e0b" stroke-opacity="0.4" stroke-width="1"/>'
+        f'<text text-anchor="middle" y="3.5" fill="#fbbf24" font-family="\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif" font-size="7.5" font-weight="700" letter-spacing="0.8">{badge_esc}</text>'
         f'</g>'
-        f'<text x="200" y="32" text-anchor="middle" fill="#f8fafc" font-family="\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif" letter-spacing="0.5" {title_attrs}>{title_esc}</text>'
-        f'<text x="200" y="47" text-anchor="middle" fill="#94a3b8" font-family="\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif" letter-spacing="0.25" {sub_attrs}>{sub_esc}</text>'
+        f'<text x="140" y="27" text-anchor="middle" fill="#f8fafc" font-family="\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif" {title_attrs}>{title_esc}</text>'
+        f'<text x="140" y="40" text-anchor="middle" fill="#94a3b8" font-family="\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif" {sub_attrs}>{sub_esc}</text>'
         f'</svg>'
         f'</div>'
         f'</div>'
@@ -212,6 +270,7 @@ def process_all_labs(dry_run=False):
             root = tree.getroot()
             
             badge, title, subtitle = parse_lab_metadata(lab_path, root)
+            top, left = calculate_lab_coords(root)
             
             # Find objects container
             objects = root.find('objects')
@@ -225,8 +284,6 @@ def process_all_labs(dry_run=False):
             header_to = None
             for to in textobjects.findall('textobject'):
                 to_name = to.get('name', '').lower()
-                to_id = to.get('id', '')
-                to_type = to.get('type', '')
                 data_elem = to.find('data')
                 d_text = data_elem.text if data_elem is not None and data_elem.text else ''
                 
@@ -236,15 +293,11 @@ def process_all_labs(dry_run=False):
                     
             if header_to is not None:
                 header_id = header_to.get('id', '1')
-                data_elem = header_to.find('data')
-                existing_html = data_elem.text if data_elem is not None and data_elem.text else ''
-                top, left = extract_pos_from_style(existing_html)
-                if top < 10 or top > 150:
-                    c_top, c_left = calculate_lab_coords(root)
-                    top = c_top
-                    
-                new_html = generate_header_html(header_id, top, left, badge, title, subtitle)
+                new_html = generate_compact_header_html(header_id, top, left, badge, title, subtitle)
                 if not dry_run:
+                    data_elem = header_to.find('data')
+                    if data_elem is None:
+                        data_elem = ET.SubElement(header_to, 'data')
                     data_elem.text = new_html
                     header_to.set('name', 'Lab_Header')
                     header_to.set('type', 'text')
@@ -258,8 +311,7 @@ def process_all_labs(dry_run=False):
                         pass
                 next_id = 1 if 1 not in existing_ids else (max(existing_ids) + 1 if existing_ids else 1)
                 
-                top, left = calculate_lab_coords(root)
-                new_html = generate_header_html(next_id, top, left, badge, title, subtitle)
+                new_html = generate_compact_header_html(next_id, top, left, badge, title, subtitle)
                 if not dry_run:
                     new_to = ET.SubElement(textobjects, 'textobject', {'id': str(next_id), 'name': 'Lab_Header', 'type': 'text'})
                     data_elem = ET.SubElement(new_to, 'data')
@@ -268,7 +320,6 @@ def process_all_labs(dry_run=False):
                 
             if not dry_run:
                 tree.write(lab_path, encoding='utf-8', xml_declaration=True)
-                # Ensure permissions
                 try:
                     import pwd, grp
                     uid = pwd.getpwnam('www-data').pw_uid
@@ -282,10 +333,11 @@ def process_all_labs(dry_run=False):
             error_count += 1
             print(f"Error on {lab_path}: {e}")
             
-    print(f"\n--- BATCH COMPLETE ---")
+    print(f"\n--- COMPACT 280x50 BATCH COMPLETE ---")
     print(f"Total Labs Processed:     {len(unl_files)}")
     print(f"Labs Updated:             {updated_count}")
     print(f"Errors Encountered:       {error_count}")
 
 if __name__ == '__main__':
-    process_all_labs()
+    dry_run = '--dry-run' in sys.argv
+    process_all_labs(dry_run=dry_run)

@@ -3364,8 +3364,8 @@
     if (w <= 20 || h <= 15) return;
 
     // Baseline dimensions for Executive Titanium card
-    var BASE_W = 380;
-    var BASE_H = 56;
+    var BASE_W = 280;
+    var BASE_H = 46;
 
     // Height compression modes
     if (h < 36) {
@@ -3493,10 +3493,10 @@
     e.preventDefault();
     var $card = $(this).closest('.pnq-executive-card');
     var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
-    var w = $wrapper.width() || $card.width() || 420;
-    var h = $wrapper.height() || $card.height() || 58;
-    var newW = Math.max(160, Math.round(w * 0.9));
-    var newH = Math.max(22, Math.round(h * 0.9));
+    var w = $wrapper.width() || $card.width() || 280;
+    var h = $wrapper.height() || $card.height() || 50;
+    var newW = Math.max(140, Math.round(w * 0.9));
+    var newH = Math.max(20, Math.round(h * 0.9));
     if ($wrapper.length) {
       $wrapper.css({ width: newW + 'px', height: newH + 'px' });
     }
@@ -3508,8 +3508,8 @@
     e.preventDefault();
     var $card = $(this).closest('.pnq-executive-card');
     var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
-    var w = $wrapper.width() || $card.width() || 420;
-    var h = $wrapper.height() || $card.height() || 58;
+    var w = $wrapper.width() || $card.width() || 280;
+    var h = $wrapper.height() || $card.height() || 50;
     var newW = Math.min(1200, Math.round(w * 1.1));
     var newH = Math.min(240, Math.round(h * 1.1));
     if ($wrapper.length) {
@@ -3524,9 +3524,9 @@
     var $card = $(this).closest('.pnq-executive-card');
     var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
     if ($wrapper.length) {
-      $wrapper.css({ width: '420px', height: '58px' });
+      $wrapper.css({ width: '280px', height: '50px' });
     }
-    $card.css({ width: '420px', height: '58px' });
+    $card.css({ width: '280px', height: '50px' });
   });
 
   if (document.readyState === 'loading') {
