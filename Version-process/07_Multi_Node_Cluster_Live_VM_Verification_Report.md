@@ -126,6 +126,15 @@ All mock scripts and synthetic Pillow terminal drawings have been permanently er
 2. **Regression 2: Brittle `sed` in `Custom-Features/apply-features.sh`**:
    - **Root Cause**: GNU `sed` failed silently on unescaped `\n` in append command, preventing `Azam Features` from being injected into `index.html`.
    - **Resolution**: Replaced with Python-based DOM injector in `Custom-Features/apply-features.sh` and pushed commit `d8fb3bb`.
+3. **Regression 3: Feature 2.8 Large Lab Upload (512MB) Failure (Error 80081)**:
+   - **Root Cause**: Stock Ubuntu 26.04 Resolute LTS packages reset PHP 8.5-FPM defaults to `upload_max_filesize = 2M` and `post_max_size = 8M`. Apache lacked explicit `LimitRequestBody`. When a 71.25MB lab was imported, PHP discarded `$_POST` and `$_FILES` with `PHP Request Startup: POST Content-Length exceeds limit`, causing `apiImportLabs` to receive empty payload and return `Upload failed (80081)`. Furthermore, script `pnet-upload-and-docker-fix.sh` was an orphaned script never invoked by `apply-features.sh` or `apply-all-custom.sh`.
+   - **Resolution**:
+     1. Updated `pnet-upload-and-docker-fix.sh` to configure `upload_max_filesize = 512M`, `post_max_size = 512M`, `memory_limit = 1024M`, `max_execution_time = 600`, `max_input_time = 600`.
+     2. Injected persistent drop-in configuration `/etc/php/*/fpm/conf.d/99-pnetlab-upload-limits.ini` and `/etc/php/*/cli/conf.d/99-pnetlab-upload-limits.ini` to guarantee limits survive future apt package updates.
+     3. Configured Apache with `LimitRequestBody 1073741824` (1GB) in `/etc/apache2/conf-available/azamlabs-upload-limit.conf` and enabled via `a2enconf`.
+     4. Formally wired `pnet-upload-and-docker-fix.sh` into `Custom-Features/apply-features.sh`, `apply-all-custom.sh`, `install/install-master.sh`, `Custom-Performance/apply-performance.sh` (via `pnet-php-modernizer.sh`), and `scripts/pnet-update.sh`.
+     5. Tested end-to-end with live 75.00 MB lab package via `POST /api/import` against `https://192.168.1.23`: import succeeded in 6.60 seconds with HTTP 200 `UNetLab file imported (80080)`.
+   - **Evidence File**: `Version-process/evidence/lab_import_feature_2_8_evidence.json`
 
 ---
 
