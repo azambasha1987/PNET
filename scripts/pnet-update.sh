@@ -473,6 +473,13 @@ EOF_BROKER
         bash "${SCRIPT_DIR}/pnet-php-modernizer.sh" || true
     fi
 
+    # 0b. Enforce 512MB Upload Limits, Apache Ceilings, and Docker Subsystem
+    if [ -f "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh" ]; then
+        bash "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh" || true
+    elif [ -f "/opt/PNET/Custom-Features/scripts/pnet-upload-and-docker-fix.sh" ]; then
+        bash "/opt/PNET/Custom-Features/scripts/pnet-upload-and-docker-fix.sh" || true
+    fi
+
     # 1. Ensure systemd rate-limit immunity for PHP-FPM and Apache2
     for svc_name in php8.5-fpm php8.4-fpm php8.3-fpm php8.2-fpm php8.1-fpm php-fpm apache2; do
         mkdir -p "/etc/systemd/system/${svc_name}.service.d" 2>/dev/null || true

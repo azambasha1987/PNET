@@ -106,6 +106,13 @@ fi
 if [ -f /opt/unetlab/scripts/pnet-speed-optimizer.sh ]; then
     bash /opt/unetlab/scripts/pnet-speed-optimizer.sh 2>/dev/null || true
 fi
+
+# Modernize PHP 8.4/8.5 engine, OPcache tuning, and dynamic properties
+if [ -f /opt/unetlab/scripts/pnet-php-modernizer.sh ]; then
+    bash /opt/unetlab/scripts/pnet-php-modernizer.sh 2>/dev/null || true
+elif [ -f "${SCRIPT_DIR}/scripts/pnet-php-modernizer.sh" ]; then
+    bash "${SCRIPT_DIR}/scripts/pnet-php-modernizer.sh" 2>/dev/null || true
+fi
 log_ok "Ultra-KSM 4KB page deduplication active."
 
 # 3. Dynamic Resource Governance (Cgroups v2 & CPU Governor)

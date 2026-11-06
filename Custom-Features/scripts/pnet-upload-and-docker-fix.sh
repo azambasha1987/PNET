@@ -118,27 +118,43 @@ echo "    AzamLabs Upload Limits & Docker Subsystem Provisioner   "
 echo "============================================================"
 
 # 1. Boost PHP Upload Limits across all installed PHP versions
-echo "[1/8] Configuring 512MB Upload Limits in PHP ini files..."
+echo "[1/8] Configuring 512MB Upload Limits in PHP ini files & persistent drop-ins..."
 for PHP_INI in /etc/php/*/apache2/php.ini /etc/php/*/fpm/php.ini /etc/php/*/cli/php.ini; do
     if [ -f "$PHP_INI" ]; then
         [ ! -f "${PHP_INI}.bak" ] && cp "$PHP_INI" "${PHP_INI}.bak.${TIMESTAMP}"
         sed -i 's/^;*upload_max_filesize =.*/upload_max_filesize = 512M/' "$PHP_INI"
         sed -i 's/^;*post_max_size =.*/post_max_size = 512M/' "$PHP_INI"
-        sed -i 's/^;*memory_limit =.*/memory_limit = 512M/' "$PHP_INI"
+        sed -i 's/^;*memory_limit =.*/memory_limit = 1024M/' "$PHP_INI"
         sed -i 's/^;*max_execution_time =.*/max_execution_time = 600/' "$PHP_INI"
         sed -i 's/^;*max_input_time =.*/max_input_time = 600/' "$PHP_INI"
     fi
 done
-echo "  -> PHP upload limits scaled to 512MB with 600s execution timeout."
+
+# Drop-in configuration across fpm/cli/apache2 conf.d (persists across apt package upgrades)
+for CONF_D in /etc/php/*/fpm/conf.d /etc/php/*/cli/conf.d /etc/php/*/apache2/conf.d; do
+    if [ -d "$CONF_D" ]; then
+        cat << 'EOF_PHP_DROP' > "${CONF_D}/99-pnetlab-upload-limits.ini"
+upload_max_filesize = 512M
+post_max_size = 512M
+memory_limit = 1024M
+max_execution_time = 600
+max_input_time = 600
+EOF_PHP_DROP
+    fi
+done
+echo "  -> PHP upload limits scaled to 512MB with 1024MB RAM and 600s execution timeout."
 
 # 2. Boost Apache Request Body Limit
-echo "[2/8] Configuring Apache LimitRequestBody (512MB)..."
+echo "[2/8] Configuring Apache LimitRequestBody (1GB for 512MB payload + multipart)..."
 if [ -d /etc/apache2/conf-available ]; then
     cat << 'EOF' > /etc/apache2/conf-available/azamlabs-upload-limit.conf
-# Allow large lab and image uploads up to 512MB
-LimitRequestBody 536870912
+# Allow large lab and image uploads up to 1GB (comfortably covers 512MB labs)
+LimitRequestBody 1073741824
+Timeout 600
+ProxyTimeout 600
 EOF
-    a2enconf azamlabs-upload-limit 2>/dev/null || true
+    cp -f /etc/apache2/conf-available/azamlabs-upload-limit.conf /etc/apache2/conf-available/pnet-upload-limit.conf
+    a2enconf azamlabs-upload-limit pnet-upload-limit 2>/dev/null || true
 fi
 
 # 3. Kernel IP Forwarding & Routing
@@ -308,6 +324,8 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+ln -sf /etc/systemd/system/azamlabs-docker-image-watcher.service /etc/systemd/system/pnetlab-docker-image-watcher.service 2>/dev/null || true
+
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload 2>/dev/null || true
     systemctl enable --now azamlabs-docker-image-watcher.service 2>/dev/null || true
@@ -335,11 +353,11 @@ EOF
     fi
 done
 
-# Reload web services if present (Graceful reload preserves session & prevents start-limit-hit)
-echo "[*] Reloading web server and PHP daemons..."
-systemctl reload apache2 2>/dev/null || systemctl restart apache2 2>/dev/null || true
-for PHP_FPM in $(systemctl list-units --type=service --state=running 2>/dev/null | grep -o 'php[0-9.]*-fpm' || true); do
-    systemctl reload "$PHP_FPM" 2>/dev/null || systemctl restart "$PHP_FPM" 2>/dev/null || true
+# Restart web services and PHP-FPM to ensure new upload limits take immediate effect
+echo "[*] Restarting web server and PHP daemons..."
+systemctl restart apache2 2>/dev/null || true
+for PHP_FPM in $(systemctl list-unit-files --type=service 2>/dev/null | grep -E 'php[0-9.]*-fpm' | awk '{print $1}'); do
+    systemctl restart "$PHP_FPM" 2>/dev/null || true
 done
 
 echo ""

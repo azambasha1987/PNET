@@ -55,6 +55,8 @@ ln -sf /opt/unetlab/scripts/pnet-ping-mesh.py           /usr/local/bin/pnet-ping
 ln -sf /opt/unetlab/scripts/pnet-scheduler.py           /usr/local/bin/pnet-scheduler
 ln -sf /opt/unetlab/scripts/pnet-cloud-bridge.py        /usr/local/bin/pnet-cloud-bridge
 ln -sf /opt/unetlab/scripts/pnet-topology-git.py        /usr/local/bin/pnet-topology-git
+ln -sf /opt/unetlab/scripts/pnet-upload-and-docker-fix.sh /usr/local/bin/pnet-upload-fix
+ln -sf /opt/unetlab/scripts/pnet-upload-and-docker-fix.sh /usr/local/bin/pnet-docker-fix
 ln -sf "${SCRIPT_DIR}/apply-features.sh"                 /usr/local/bin/pnet-apply-features
 chmod +x /usr/local/bin/pnet-* 2>/dev/null || true
 log_ok "Registered feature CLI commands."
@@ -227,6 +229,17 @@ if [ -f "/opt/unetlab/scripts/pnet-ops-api.py" ]; then
 elif [ -f "/opt/unetlab/scripts/azambasha-ops-api.py" ]; then
     python3 /opt/unetlab/scripts/azambasha-ops-api.py --install 2>/dev/null || true
     systemctl restart pnet-ops-api.service 2>/dev/null || systemctl restart azam-ops-api.service 2>/dev/null || true
+fi
+
+# 5. Large File Uploads (512MB) & Docker Container Subsystem
+log_info "[5/5] Provisioning 512MB Large Upload Limits & Docker Subsystem..."
+UPLOAD_SCRIPT="${SCRIPT_DIR}/scripts/pnet-upload-and-docker-fix.sh"
+[ -f "$UPLOAD_SCRIPT" ] || UPLOAD_SCRIPT="/opt/unetlab/scripts/pnet-upload-and-docker-fix.sh"
+if [ -f "$UPLOAD_SCRIPT" ]; then
+    bash "$UPLOAD_SCRIPT" || true
+    log_ok "512MB Upload Limits and Docker Subsystem applied."
+else
+    log_warn "pnet-upload-and-docker-fix.sh not found; skipping upload limit tuning."
 fi
 
 log_ok "Pillar 1: Custom-Features applied successfully!"

@@ -289,6 +289,19 @@ for conf in /etc/php/${PHP_VER}/fpm/php.ini /etc/php/${PHP_VER}/cli/php.ini /etc
     fi
 done
 
+# Ensure drop-in conf.d files persist across Ubuntu apt upgrades
+for CONF_D in /etc/php/*/fpm/conf.d /etc/php/*/cli/conf.d /etc/php/*/apache2/conf.d; do
+    if [ -d "$CONF_D" ]; then
+        cat << 'EOF_PHP_DROP' > "${CONF_D}/99-pnetlab-upload-limits.ini"
+upload_max_filesize = 512M
+post_max_size = 512M
+memory_limit = 1024M
+max_execution_time = 600
+max_input_time = 600
+EOF_PHP_DROP
+    fi
+done
+
 # Clean up standalone mod configs that forced JIT tracing
 for mod_ini in /etc/php/*/mods-available/99-azambasha-opcache.ini /etc/php/*/*/conf.d/99-azambasha-opcache.ini; do
     if [ -f "$mod_ini" ]; then

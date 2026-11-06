@@ -279,6 +279,13 @@ elif [ -f "/opt/unetlab/scripts/pnet-fix-cluster.sh" ]; then
     bash "/opt/unetlab/scripts/pnet-fix-cluster.sh" || true
 fi
 
+# Authoritatively enforce 512MB large upload limits, Apache timeout ceilings, and Docker subsystem
+if [ -f "$REPO_ROOT/Custom-Features/scripts/pnet-upload-and-docker-fix.sh" ]; then
+    bash "$REPO_ROOT/Custom-Features/scripts/pnet-upload-and-docker-fix.sh" || true
+elif [ -f "/opt/unetlab/scripts/pnet-upload-and-docker-fix.sh" ]; then
+    bash "/opt/unetlab/scripts/pnet-upload-and-docker-fix.sh" || true
+fi
+
 if [ -d /opt/unetlab/wrappers ]; then
     chmod -R 755 /opt/unetlab/wrappers || true
 fi

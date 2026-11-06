@@ -77,6 +77,8 @@ ln -sf /opt/unetlab/scripts/pnet-ai-copilot.py          /usr/local/bin/pnet-ai
 ln -sf /opt/unetlab/scripts/pnet-setup-ollama.sh        /usr/local/bin/pnet-ollama
 ln -sf /opt/unetlab/scripts/pnet-release-ingestion-engine.py /usr/local/bin/pnet-release-engine
 ln -sf /opt/unetlab/scripts/pnet-ingest-release.sh     /usr/local/bin/pnet-ingest-release
+ln -sf /opt/unetlab/scripts/pnet-upload-and-docker-fix.sh /usr/local/bin/pnet-upload-fix
+ln -sf /opt/unetlab/scripts/pnet-upload-and-docker-fix.sh /usr/local/bin/pnet-docker-fix
 ln -sf /opt/unetlab/scripts/pnet-fix-health.sh         /usr/local/bin/pnet-fix-health
 ln -sf "${SCRIPT_DIR}/apply-all-custom.sh"              /usr/local/bin/pnet-apply-all
 chmod +x /usr/local/bin/pnet-* /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
@@ -137,6 +139,15 @@ if [ "$MODE" = "master" ]; then
     if [ -f "$APACHE_FIX" ]; then
         log_info "Ensuring Apache2 HTTP/HTTPS VirtualHost and SSL stack are configured..."
         bash "$APACHE_FIX" || true
+    fi
+
+    # Ensure 512MB Upload Limits and Docker Subsystem are active
+    UPLOAD_FIX="${SCRIPT_DIR}/Custom-Features/scripts/pnet-upload-and-docker-fix.sh"
+    [ -f "$UPLOAD_FIX" ] || UPLOAD_FIX="/opt/unetlab/scripts/pnet-upload-and-docker-fix.sh"
+    [ -f "$UPLOAD_FIX" ] || UPLOAD_FIX="/opt/pnet/Custom-Features/scripts/pnet-upload-and-docker-fix.sh"
+    if [ -f "$UPLOAD_FIX" ]; then
+        log_info "Ensuring 512MB upload limits, Apache timeouts, and Docker subsystem are active..."
+        bash "$UPLOAD_FIX" || true
     fi
 
     # Ensure Privilege Broker Daemon service unit is active
