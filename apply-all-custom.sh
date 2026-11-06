@@ -223,9 +223,8 @@ fi
 chmod 644 /opt/ovf/.configured 2>/dev/null || true
 
 cat << 'OVF_PROFILE_EOF' > /etc/profile.d/ovf.sh
-#!/bin/sh
 # PNetLab: Auto-prompt neutralized permanently
-exit 0
+return 0 2>/dev/null || true
 OVF_PROFILE_EOF
 chmod 644 /etc/profile.d/ovf.sh 2>/dev/null || true
 

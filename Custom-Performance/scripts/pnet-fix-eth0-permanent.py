@@ -117,7 +117,7 @@ def main():
     if os.path.isfile(ovf_profile):
         try:
             with open(ovf_profile, "w") as f:
-                f.write("#!/bin/sh\n# PNetLab: Auto-prompt neutralized permanently\nexit 0\n")
+                f.write("# PNetLab: Auto-prompt neutralized permanently\nreturn 0 2>/dev/null || true\n")
             os.chmod(ovf_profile, 0o644)
             print(f"      -> Neutralized {ovf_profile}")
         except Exception as e:

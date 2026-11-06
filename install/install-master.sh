@@ -161,9 +161,8 @@ chmod 644 /opt/ovf/.configured 2>/dev/null || true
 
 # Neutralize interactive login wizard in /etc/profile.d/ovf.sh
 cat << 'OVF_EOF' > /etc/profile.d/ovf.sh
-#!/bin/sh
 # PNetLab: Auto-prompt neutralized permanently by installer
-exit 0
+return 0 2>/dev/null || true
 OVF_EOF
 chmod 644 /etc/profile.d/ovf.sh 2>/dev/null || true
 
