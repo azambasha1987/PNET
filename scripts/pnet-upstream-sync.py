@@ -157,6 +157,23 @@ def apply_azamlabs_protected_overlay(sandbox_dir, local_repo_dir):
             f.write(c)
         log("Enforced Natural Ascending Sort in labs.js exportDialog", "PASS")
 
+    # Enforce Natural Ascending Sort in modern Svelte Islands
+    islands_dir = os.path.join(sandbox_dir, "opt/unetlab/html/themes/default/islands/js")
+    if os.path.isdir(islands_dir):
+        t_island = 'var r=a.body&&a.body.data||{folders:[],labs:[]},e=(r.folders||[]).filter(function(q){return q.name!==".."}),n=r.labs||[];'
+        r_island = 'var r=a.body&&a.body.data||{folders:[],labs:[]},e=(r.folders||[]).filter(function(q){return q.name!==".."}).sort(function(a,b){return(a.name||"").localeCompare(b.name||"",undefined,{numeric:!0,sensitivity:"base"})}),n=(r.labs||[]).slice().sort(function(a,b){return(a.file||a.name||"").localeCompare(b.file||b.name||"",undefined,{numeric:!0,sensitivity:"base"})});'
+        for f_name in os.listdir(islands_dir):
+            if f_name.startswith("labs-workspace") and f_name.endswith(".js"):
+                fp = os.path.join(islands_dir, f_name)
+                if not os.path.islink(fp):
+                    with open(fp, "r", encoding="utf-8", errors="replace") as f:
+                        c_isl = f.read()
+                    if t_island in c_isl:
+                        c_isl = c_isl.replace(t_island, r_island)
+                        with open(fp, "w", encoding="utf-8") as f:
+                            f.write(c_isl)
+                        log(f"Enforced Natural Ascending Sort in {f_name}", "PASS")
+
 def run_regression_gates():
     """
     Executes mandatory pre-publish quality gates:
