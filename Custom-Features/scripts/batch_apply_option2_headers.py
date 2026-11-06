@@ -146,29 +146,54 @@ def generate_header_html(header_id, top, left, badge, title, subtitle):
     top = max(15, top)
     left = max(40, left)
     
+    # Calculate badge pill width dynamically
+    badge_len = len(badge)
+    badge_w = int(max(90, min(260, badge_len * 7.2 + 22)))
+    badge_x = -badge_w // 2
+    
+    # Title styling & length fitting
+    title_len = len(title)
+    if title_len > 42:
+        title_attrs = 'font-size="12" font-weight="800" textLength="370" lengthAdjust="spacingAndGlyphs"'
+    elif title_len > 32:
+        title_attrs = 'font-size="13" font-weight="800" textLength="370" lengthAdjust="spacingAndGlyphs"'
+    elif title_len > 24:
+        title_attrs = 'font-size="13.5" font-weight="800"'
+    else:
+        title_attrs = 'font-size="14.5" font-weight="800"'
+        
+    # Subtitle styling & length fitting
+    sub_len = len(subtitle)
+    if sub_len > 55:
+        sub_attrs = 'font-size="8.5" font-weight="600" textLength="380" lengthAdjust="spacingAndGlyphs"'
+    elif sub_len > 40:
+        sub_attrs = 'font-size="9.2" font-weight="600"'
+    else:
+        sub_attrs = 'font-size="9.8" font-weight="600"'
+        
+    # Escape XML entities
+    badge_esc = badge.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    title_esc = title.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    sub_esc = subtitle.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    
     html = (
         f'<div id="customText{header_id}" class="customShape customText context-menu ck-content pnq-header-wrapper" '
         f'data-path="{header_id}" data-pnet-text="header" name="Lab_Header" '
-        f'style="position:absolute; display:inline-block; top:{top}px; left:{left}px; cursor:move; z-index:1000; '
-        f'padding:0; margin:0; background:transparent !important; border:none !important; min-width:0; max-width:100%; min-height:0; max-height:100%; height:100%; box-sizing:border-box;">'
-        f'<div class="pnq-executive-card" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; box-sizing:border-box; '
+        f'style="position:absolute; display:inline-block; top:{top}px; left:{left}px; width:420px; height:58px; cursor:move; z-index:1000; '
+        f'padding:0; margin:0; background:transparent !important; border:none !important; box-sizing:border-box;">'
+        f'<div class="pnq-executive-card" style="display:flex; justify-content:center; align-items:center; box-sizing:border-box; '
         f'background:linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98)); '
-        f'padding:calc(6px * var(--pnq-scale, 1)) calc(16px * var(--pnq-scale, 1)) calc(8px * var(--pnq-scale, 1)) calc(16px * var(--pnq-scale, 1)); '
-        f'border-radius:8px; border:1px solid rgba(245, 158, 11, 0.45); '
+        f'padding:4px 10px; border-radius:8px; border:1px solid rgba(245, 158, 11, 0.45); '
         f'border-top:2.5px solid #f59e0b; box-shadow:0 6px 18px -3px rgba(0, 0, 0, 0.75), 0 0 14px rgba(245, 158, 11, 0.12); '
-        f'backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); width:100%; max-width:100%; min-width:0; height:100%; max-height:100%; min-height:0; overflow:hidden; position:relative; --pnq-scale:1;">'
-        f'<div class="pnq-card-badge-wrap" style="margin:0 0 calc(3px * var(--pnq-scale, 1)) 0; line-height:1; flex-shrink:1;">'
-        f'<span class="pnq-card-badge" style="display:inline-block; padding:calc(2px * var(--pnq-scale, 1)) calc(7px * var(--pnq-scale, 1)); border-radius:calc(3px * var(--pnq-scale, 1)); '
-        f'background:rgba(245, 158, 11, 0.12); border:1px solid rgba(245, 158, 11, 0.4); font-size:calc(9.5px * var(--pnq-scale, 1)); '
-        f'font-weight:700; color:#fbbf24; letter-spacing:calc(1px * var(--pnq-scale, 1)); text-transform:uppercase; '
-        f'font-family:\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; line-height:1.2; white-space:nowrap;">{badge}</span>'
-        f'</div>'
-        f'<div class="pnq-card-title" style="font-size:calc(15px * var(--pnq-scale, 1)); font-weight:800; color:#f8fafc; letter-spacing:calc(0.5px * var(--pnq-scale, 1)); margin:calc(2px * var(--pnq-scale, 1)) 0 0 0; '
-        f'line-height:1.25; text-transform:uppercase; text-shadow:0 0 10px rgba(245, 158, 11, 0.35); '
-        f'font-family:\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; word-break:break-word; flex-shrink:0; white-space:nowrap;">{title}</div>'
-        f'<div class="pnq-card-subtitle" style="font-size:calc(10.5px * var(--pnq-scale, 1)); font-weight:600; color:#94a3b8; margin:calc(3px * var(--pnq-scale, 1)) 0 0 0; '
-        f'line-height:1.3; letter-spacing:calc(0.25px * var(--pnq-scale, 1)); '
-        f'font-family:\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; word-break:break-word; flex-shrink:2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{subtitle}</div>'
+        f'backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); width:100%; height:100%; overflow:hidden; position:relative;">'
+        f'<svg viewBox="0 0 400 52" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block; overflow:visible; pointer-events:none;" xmlns="http://www.w3.org/2000/svg">'
+        f'<g transform="translate(200, 10)">'
+        f'<rect x="{badge_x}" y="-8" width="{badge_w}" height="15" rx="3" fill="#f59e0b" fill-opacity="0.12" stroke="#f59e0b" stroke-opacity="0.4" stroke-width="1"/>'
+        f'<text text-anchor="middle" y="3" fill="#fbbf24" font-family="\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif" font-size="9" font-weight="700" letter-spacing="1">{badge_esc}</text>'
+        f'</g>'
+        f'<text x="200" y="32" text-anchor="middle" fill="#f8fafc" font-family="\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif" letter-spacing="0.5" {title_attrs}>{title_esc}</text>'
+        f'<text x="200" y="47" text-anchor="middle" fill="#94a3b8" font-family="\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif" letter-spacing="0.25" {sub_attrs}>{sub_esc}</text>'
+        f'</svg>'
         f'</div>'
         f'</div>'
     )

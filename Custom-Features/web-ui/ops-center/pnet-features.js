@@ -3215,24 +3215,24 @@
       'svg marker {' +
       '  overflow: visible !important;' +
       '}' +
-      '/* Option 2: Executive Titanium & Amber Gold (CCIE Elite) Lab Header - Compact & 2D Resizable (Width & Height) */' +
+      '/* Option 2: Executive Titanium & Amber Gold (CCIE Elite) Lab Header - 2D Vector Scalable */' +
       '.pnq-header-wrapper, [name="Lab_Header"], .customText.pnq-header-wrapper {' +
-      '  min-width: 0 !important;' +
-      '  max-width: 100% !important;' +
-      '  min-height: 0 !important;' +
-      '  max-height: 100% !important;' +
-      '  height: 100% !important;' +
+      '  min-width: 60px !important;' +
+      '  min-height: 20px !important;' +
       '  box-sizing: border-box !important;' +
+      '  background: transparent !important;' +
+      '  border: none !important;' +
+      '  box-shadow: none !important;' +
+      '  padding: 0 !important;' +
       '}' +
       '.pnq-executive-card {' +
       '  display: flex !important;' +
-      '  flex-direction: column !important;' +
       '  justify-content: center !important;' +
       '  align-items: center !important;' +
       '  text-align: center !important;' +
       '  box-sizing: border-box !important;' +
       '  background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98)) !important;' +
-      '  padding: calc(6px * var(--pnq-scale, 1)) calc(16px * var(--pnq-scale, 1)) calc(8px * var(--pnq-scale, 1)) calc(16px * var(--pnq-scale, 1)) !important;' +
+      '  padding: 4px 10px !important;' +
       '  border-radius: 8px !important;' +
       '  border: 1px solid rgba(245, 158, 11, 0.45) !important;' +
       '  border-top: 2.5px solid #f59e0b !important;' +
@@ -3241,77 +3241,19 @@
       '  -webkit-backdrop-filter: blur(12px) !important;' +
       '  width: 100% !important;' +
       '  height: 100% !important;' +
-      '  max-width: 100% !important;' +
-      '  max-height: 100% !important;' +
-      '  min-width: 0 !important;' +
-      '  min-height: 0 !important;' +
       '  overflow: hidden !important;' +
       '  position: relative !important;' +
       '  pointer-events: auto !important;' +
       '}' +
-      '.pnq-card-badge-wrap {' +
-      '  margin: 0 0 calc(3px * var(--pnq-scale, 1)) 0 !important;' +
-      '  line-height: 1 !important;' +
-      '  flex-shrink: 1 !important;' +
+      '.pnq-executive-card svg {' +
+      '  width: 100% !important;' +
+      '  height: 100% !important;' +
+      '  max-width: 100% !important;' +
+      '  max-height: 100% !important;' +
+      '  display: block !important;' +
+      '  overflow: visible !important;' +
+      '  pointer-events: none !important;' +
       '}' +
-      '.pnq-card-badge {' +
-      '  display: inline-block !important;' +
-      '  padding: calc(2px * var(--pnq-scale, 1)) calc(7px * var(--pnq-scale, 1)) !important;' +
-      '  border-radius: calc(3px * var(--pnq-scale, 1)) !important;' +
-      '  background: rgba(245, 158, 11, 0.12) !important;' +
-      '  border: 1px solid rgba(245, 158, 11, 0.4) !important;' +
-      '  font-size: calc(9.5px * var(--pnq-scale, 1)) !important;' +
-      '  font-weight: 700 !important;' +
-      '  color: #fbbf24 !important;' +
-      '  letter-spacing: calc(1px * var(--pnq-scale, 1)) !important;' +
-      '  text-transform: uppercase !important;' +
-      '  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;' +
-      '  line-height: 1.2 !important;' +
-      '  white-space: nowrap !important;' +
-      '}' +
-      '.pnq-card-title {' +
-      '  font-size: calc(15px * var(--pnq-scale, 1)) !important;' +
-      '  font-weight: 800 !important;' +
-      '  color: #f8fafc !important;' +
-      '  letter-spacing: calc(0.5px * var(--pnq-scale, 1)) !important;' +
-      '  margin: calc(2px * var(--pnq-scale, 1)) 0 0 0 !important;' +
-      '  line-height: 1.25 !important;' +
-      '  text-transform: uppercase !important;' +
-      '  text-shadow: 0 0 10px rgba(245, 158, 11, 0.35) !important;' +
-      '  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;' +
-      '  white-space: nowrap !important;' +
-      '  flex-shrink: 0 !important;' +
-      '}' +
-      '.pnq-card-subtitle {' +
-      '  font-size: calc(10.5px * var(--pnq-scale, 1)) !important;' +
-      '  font-weight: 600 !important;' +
-      '  color: #94a3b8 !important;' +
-      '  margin: calc(3px * var(--pnq-scale, 1)) 0 0 0 !important;' +
-      '  line-height: 1.3 !important;' +
-      '  letter-spacing: calc(0.25px * var(--pnq-scale, 1)) !important;' +
-      '  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;' +
-      '  flex-shrink: 2 !important;' +
-      '  white-space: nowrap !important;' +
-      '  overflow: hidden !important;' +
-      '  text-overflow: ellipsis !important;' +
-      '}' +
-      '/* Height-Adaptive Compression when resized bottom-to-up */' +
-      '.pnq-executive-card.pnq-compact-v {' +
-      '  padding: calc(3px * var(--pnq-scale, 1)) calc(12px * var(--pnq-scale, 1)) calc(4px * var(--pnq-scale, 1)) calc(12px * var(--pnq-scale, 1)) !important;' +
-      '}' +
-      '.pnq-executive-card.pnq-compact-v .pnq-card-subtitle {' +
-      '  display: none !important;' +
-      '}' +
-      '.pnq-executive-card.pnq-ultra-compact-v {' +
-      '  padding: calc(2px * var(--pnq-scale, 1)) calc(10px * var(--pnq-scale, 1)) !important;' +
-      '}' +
-      '.pnq-executive-card.pnq-ultra-compact-v .pnq-card-badge-wrap,' +
-      '.pnq-executive-card.pnq-ultra-compact-v .pnq-card-subtitle {' +
-      '  display: none !important;' +
-      '}' +
-      '.pnq-executive-card.pnq-ultra-compact-v .pnq-card-title {' +
-      '  margin: 0 !important;' +
-      '}' + +
       '.pnq-card-scale-bar {' +
       '  position: absolute !important;' +
       '  top: 3px !important;' +
@@ -3551,15 +3493,14 @@
     e.preventDefault();
     var $card = $(this).closest('.pnq-executive-card');
     var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
-    var w = $wrapper.width() || $card.width() || 380;
-    var h = $wrapper.height() || $card.height() || 56;
+    var w = $wrapper.width() || $card.width() || 420;
+    var h = $wrapper.height() || $card.height() || 58;
     var newW = Math.max(160, Math.round(w * 0.9));
-    var newH = Math.max(24, Math.round(h * 0.9));
+    var newH = Math.max(22, Math.round(h * 0.9));
     if ($wrapper.length) {
       $wrapper.css({ width: newW + 'px', height: newH + 'px' });
     }
     $card.css({ width: newW + 'px', height: newH + 'px' });
-    applyHeaderDynamicScale($card[0]);
   });
 
   $(document).on('click', '.pnq-scale-up', function (e) {
@@ -3567,15 +3508,14 @@
     e.preventDefault();
     var $card = $(this).closest('.pnq-executive-card');
     var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
-    var w = $wrapper.width() || $card.width() || 380;
-    var h = $wrapper.height() || $card.height() || 56;
+    var w = $wrapper.width() || $card.width() || 420;
+    var h = $wrapper.height() || $card.height() || 58;
     var newW = Math.min(1200, Math.round(w * 1.1));
     var newH = Math.min(240, Math.round(h * 1.1));
     if ($wrapper.length) {
       $wrapper.css({ width: newW + 'px', height: newH + 'px' });
     }
     $card.css({ width: newW + 'px', height: newH + 'px' });
-    applyHeaderDynamicScale($card[0]);
   });
 
   $(document).on('click', '.pnq-scale-reset', function (e) {
@@ -3584,10 +3524,9 @@
     var $card = $(this).closest('.pnq-executive-card');
     var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
     if ($wrapper.length) {
-      $wrapper.css({ width: '380px', height: '56px' });
+      $wrapper.css({ width: '420px', height: '58px' });
     }
-    $card.css({ width: '380px', height: '56px' });
-    applyHeaderDynamicScale($card[0]);
+    $card.css({ width: '420px', height: '58px' });
   });
 
   if (document.readyState === 'loading') {
