@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 PNetLab Lab Header Modernizer: Option 2 Executive Titanium & Amber Gold (CCIE Elite)
-Applies the executive dark-titanium frosted glass container card with solid amber gold top accent bar,
-glowing uppercase title, gold pill badge, and silver subtitle across all labs.
+Compact, Proportionate & Fully-Resizable Edition
 """
 
 import os
@@ -139,8 +138,8 @@ def calculate_lab_coords(root):
     min_y = min(ys)
     
     center_x = (min_x + max_x) // 2
-    left = max(60, center_x - 300)
-    top = max(18, min(75, min_y - 120)) if min_y >= 130 else 20
+    left = max(60, center_x - 240)
+    top = max(18, min(75, min_y - 100)) if min_y >= 110 else 20
     return top, left
 
 def generate_header_html(header_id, top, left, badge, title, subtitle):
@@ -151,24 +150,24 @@ def generate_header_html(header_id, top, left, badge, title, subtitle):
         f'<div id="customText{header_id}" class="customShape customText context-menu ck-content pnq-header-wrapper" '
         f'data-path="{header_id}" data-pnet-text="header" name="Lab_Header" '
         f'style="position:absolute; display:inline-block; top:{top}px; left:{left}px; cursor:move; z-index:1000; '
-        f'padding:0; margin:0; background:transparent !important; border:none !important;">'
-        f'<div class="pnq-executive-card" style="display:inline-block; text-align:center; box-sizing:border-box; '
+        f'padding:0; margin:0; background:transparent !important; border:none !important; min-width:0; max-width:100%;">'
+        f'<div class="pnq-executive-card" style="display:block; text-align:center; box-sizing:border-box; '
         f'background:linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98)); '
-        f'padding:16px 42px 18px 42px; border-radius:12px; border:1px solid rgba(245, 158, 11, 0.45); '
-        f'border-top:3px solid #f59e0b; box-shadow:0 12px 32px -4px rgba(0, 0, 0, 0.8), 0 0 25px rgba(245, 158, 11, 0.15); '
-        f'backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); min-width:480px; max-width:850px;">'
-        f'<div class="pnq-card-badge-wrap" style="margin:0 0 6px 0; line-height:1;">'
-        f'<span class="pnq-card-badge" style="display:inline-block; padding:3px 12px; border-radius:4px; '
-        f'background:rgba(245, 158, 11, 0.12); border:1px solid rgba(245, 158, 11, 0.4); font-size:11px; '
-        f'font-weight:700; color:#fbbf24; letter-spacing:1.5px; text-transform:uppercase; '
-        f'font-family:\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;">{badge}</span>'
+        f'padding:6px 18px 8px 18px; border-radius:8px; border:1px solid rgba(245, 158, 11, 0.45); '
+        f'border-top:2.5px solid #f59e0b; box-shadow:0 6px 18px -3px rgba(0, 0, 0, 0.75), 0 0 14px rgba(245, 158, 11, 0.12); '
+        f'backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); width:100%; max-width:100%; min-width:0; position:relative;">'
+        f'<div class="pnq-card-badge-wrap" style="margin:0 0 3px 0; line-height:1;">'
+        f'<span class="pnq-card-badge" style="display:inline-block; padding:2px 7px; border-radius:3px; '
+        f'background:rgba(245, 158, 11, 0.12); border:1px solid rgba(245, 158, 11, 0.4); font-size:9.5px; '
+        f'font-weight:700; color:#fbbf24; letter-spacing:1px; text-transform:uppercase; '
+        f'font-family:\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; line-height:1.2;">{badge}</span>'
         f'</div>'
-        f'<div class="pnq-card-title" style="font-size:24px; font-weight:800; color:#f8fafc; letter-spacing:0.8px; margin:0; '
-        f'line-height:1.25; text-transform:uppercase; text-shadow:0 0 14px rgba(245, 158, 11, 0.4); '
-        f'font-family:\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;">{title}</div>'
-        f'<div class="pnq-card-subtitle" style="font-size:12px; font-weight:600; color:#94a3b8; margin:6px 0 0 0; '
-        f'line-height:1.35; letter-spacing:0.4px; '
-        f'font-family:\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;">{subtitle}</div>'
+        f'<div class="pnq-card-title" style="font-size:15px; font-weight:800; color:#f8fafc; letter-spacing:0.5px; margin:2px 0 0 0; '
+        f'line-height:1.25; text-transform:uppercase; text-shadow:0 0 10px rgba(245, 158, 11, 0.35); '
+        f'font-family:\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; word-break:break-word;">{title}</div>'
+        f'<div class="pnq-card-subtitle" style="font-size:10.5px; font-weight:600; color:#94a3b8; margin:3px 0 0 0; '
+        f'line-height:1.3; letter-spacing:0.25px; '
+        f'font-family:\'Segoe UI\', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; word-break:break-word;">{subtitle}</div>'
         f'</div>'
         f'</div>'
     )
