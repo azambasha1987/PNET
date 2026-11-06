@@ -403,6 +403,12 @@ opt_count = 0
 
 if os.path.isdir(templates_root):
     for root, dirs, files in os.walk(templates_root):
+        # Exclude 'device' subdirectory: device files are UI form schemas, not node templates
+        if "device" in dirs:
+            dirs.remove("device")
+        if "/device" in root.replace("\\", "/") or root.replace("\\", "/").endswith("/device"):
+            continue
+
         for f in files:
             if not f.endswith(".yml"):
                 continue
@@ -420,9 +426,9 @@ if os.path.isdir(templates_root):
                             txt = re.sub(r'\.\.\.\s*\n+\s*qemu_options:[^\n]+', '', txt).strip()
                             txt = txt + f"\n{opt_line.group(0)}\n...\n"
                     if "mem-merge=on" not in txt:
-                        if "qemu_options:" in txt:
-                            txt = re.sub(r'qemu_options:\s*([^\n]+)', r'qemu_options: -machine mem-merge=on \1', txt)
-                        else:
+                        if re.search(r'^[ \t]*qemu_options:[ \t]+[^\r\n]+', txt, re.MULTILINE):
+                            txt = re.sub(r'^([ \t]*qemu_options:[ \t]+)([^\r\n]+)', r'\1-machine mem-merge=on \2', txt, flags=re.MULTILINE)
+                        elif "qemu_options:" not in txt:
                             new_opt = "qemu_options: -machine pc,mem-merge=on -cpu host -enable-kvm -serial mon:stdio -nographic\n"
                             if "..." in txt:
                                 txt = txt.replace("...", f"{new_opt}...")
