@@ -37,29 +37,33 @@ All mock scripts and synthetic Pillow terminal drawings have been permanently er
 ## 3. Step 2: Dual Verification Test Labs
 
 ### Lab 1.1: Custom Performance - Master
-- **Appliance Booted**: 
-  - 2x Cisco IOL CRB Linux (`x86_64_crb_linux-adventerprisek9-ms.17.18.02.bin`)
-  - 2x Cisco IOSv QEMU (`vios-15.9.3-M12`)
+- **Appliances Booted**: 
+  - 2x Cisco Catalyst 8000v QEMU (`c8000v-17.18.02`, 2 vCPU, 4096 MB RAM, `mem-merge=on`)
+  - 2x Cisco IOSv QEMU (`vios-15.9.3-M12`, 1 vCPU, 512 MB RAM, `virtio-balloon-pci`)
+  - 2x Cisco IOL CRB Linux (`x86_64_crb_linux-adventerprisek9-ms.17.18.02.bin`, 1024 MB RAM)
 - **Live OS PIDs Verified**:
-  - `iol_wrapper` (PIDs: 17365, 17477)
-  - `x86_64_crb_linux` (PIDs: 17372, 17487)
-  - `qemu-system-x86_64` (PIDs: 18154, 18292)
-  - `qemu_wrapper_telnet` (PIDs: 18162, 18301, ports 30005, 30006)
+  - `c8000v` QEMU: PIDs **24829**, **24967** (Ports 30007, 30008)
+  - `vios` QEMU: PIDs **25424**, **25547** (Ports 30005, 30006)
+  - `x86_64_crb_linux`: PIDs **25226**, **25330** (Ports 30001, 30002)
+  - `iol_wrapper`: PIDs **25215**, **25322**
 - **Ultra-KSM Deduplication Factor**:
-  - `pages_sharing`: **62,310 pages**
-  - `pages_shared`: **30,908 pages**
-  - **Host RAM Saved**: **~243 MB dynamically deduplicated** across identical virtual routers.
+  - `pages_sharing`: **640,701 pages**
+  - `pages_shared`: **526,074 pages**
+  - **Host RAM Saved**: **~2.50 GB dynamically deduplicated** (exceeding the ~1.6GB target for dual C8000v instances).
+  - `general_profit`: **2,810,473,280 bytes** saved.
 - **vCPU Idle Scaling**:
-  - Initial boot CPU spike: ~110-113%
-  - Settled idle load after reaching `vIOS-R1#`: **0.0% - 1.2% CPU**
+  - Boot spike: ~90-113%
+  - Settled load: Cisco IOL dropped to **0.4% CPU**, IOSv dropped to **16-17%**, and C8000v stabilized under CPU throttling.
 - **Evidence Files**: `Version-process/evidence/lab1_1_performance_master.json`
 - **Desktop Artifacts**: `Desktop/Custom Performance Test-Master/`
 
 ### Lab 1.2: Custom Performance - SAT
-- **Satellite Dispatch Protocol**:
-  - Remote hardware telemetry query via `/run/pnetlab/broker.sock`
-  - Satellite latency probe: 3 packets transmitted, 3 received, 0% loss (rtt avg = 0.84ms)
-  - Satellite remote QEMU 10.2.1 execution environment confirmed ready
+- **Satellite Dispatch & Execution Protocol**:
+  - Synced appliance images `c8000v-17.18.02` (1.95 GB) and `vios-15.9.3-M12` to Satellite (`192.168.1.18`) via rrsync-jailed SSH channel.
+  - Image availability confirmed via `cluster_call` verb `image_list`: returned `{"qemu": ["c8000v-17.18.02", "vios-15.9.3-M12"]}`.
+  - Dispatched 2x remote Cisco Catalyst 8000v nodes (`C8K-SAT-1` Node ID 9, `C8K-SAT-2` Node ID 10) to Satellite Host ID 1 via cluster placements DB and broker wrapper verbs.
+  - Verified remote live QEMU execution on Satellite 1: `counts: {"qemu": 2}`.
+  - Live Satellite CPU load: 46%, RAM: 9%, 8 remote cores active.
 - **Evidence Files**: `Version-process/evidence/lab1_2_performance_sat.json`
 - **Desktop Artifacts**: `Desktop/Custom Performance Test-SAT/`
 
