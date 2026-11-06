@@ -19,6 +19,7 @@ Custom-Customization/
 │   └── ai_ledger.py                  # Audit & change ledger tracking
 ├── scripts/                          # Customization, branding, AI & template scripts (25 tools)
 │   ├── pnet-ai-copilot.py            # Local Ollama AI terminal copilot & topology builder
+│   ├── pnet-fix-export-sort.py       # Natural ascending (0..9, A..Z) export sequence enforcer
 │   ├── pnet-setup-ollama.sh          # VM-side Ollama host linker & systemd MCP daemon installer
 │   ├── pnet-setup-ollama-host.ps1    # Windows host 1-click Ollama firewall & external bind setup
 │   ├── pnet-apply-branding.sh        # Platform branding & favicon installer

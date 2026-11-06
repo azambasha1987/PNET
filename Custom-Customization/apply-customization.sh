@@ -59,6 +59,7 @@ chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /opt/unetlab/script
 
 ln -sf /opt/unetlab/scripts/pnet-dark-theme.sh          /usr/local/bin/pnet-dark
 ln -sf /opt/unetlab/scripts/pnet-fix-web-credentials.sh /usr/local/bin/pnet-credentials
+ln -sf /opt/unetlab/scripts/pnet-fix-export-sort.py     /usr/local/bin/pnet-fix-export-sort
 ln -sf /opt/unetlab/scripts/pnet-ssl.sh                 /usr/local/bin/pnet-ssl
 ln -sf /opt/unetlab/scripts/pnet-ai-copilot.py          /usr/local/bin/pnet-ai
 ln -sf /opt/unetlab/scripts/pnet-setup-ollama.sh        /usr/local/bin/pnet-ollama
@@ -141,6 +142,16 @@ if [ -f "${SCRIPT_DIR}/session-engine/pnet-keepalive.js" ]; then
         sed -i "/<\/body>/i <script src=\"/themes/default/js/pnet-keepalive.js\"></script>" "${THEME_INDEX}" 2>/dev/null || true
     fi
     log_ok "Sliding-auth keepalive heartbeat active."
+fi
+
+# 5. Natural Ascending Export Sorter Enforcement
+log_info "[5/5] Enforcing Natural Ascending Sequence (0..9, A..Z) for Export Dialog..."
+if [ "$MODE" = "master" ]; then
+    FIX_EXPORT="${SCRIPT_DIR}/scripts/pnet-fix-export-sort.py"
+    [ -f "$FIX_EXPORT" ] || FIX_EXPORT="/opt/unetlab/scripts/pnet-fix-export-sort.py"
+    if [ -f "$FIX_EXPORT" ]; then
+        python3 "$FIX_EXPORT" || true
+    fi
 fi
 
 log_ok "Pillar 2: Custom-Customization applied successfully!"
