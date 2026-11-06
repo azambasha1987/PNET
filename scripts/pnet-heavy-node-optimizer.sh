@@ -578,6 +578,23 @@ if os.path.isfile(dev_file):
                 code = re.sub(r'function\s+customFlag\s*\(\s*\$flags?\s*\)\s*\{[^}]*\}', repl_custom, code)
                 changed = True
 
+        # Universal Self-Healing Disk Check: ensure missing/stale disks auto-recreate linked clones
+        if "$hasDisk" not in code and "$firstPrepare = !is_file($rp" in code:
+            code = code.replace(
+                '$firstPrepare = !is_file($rp . "/.prepared") && !is_file($rp . "/.lock");',
+                """$hasDisk = false;
+        if (is_dir($rp)) {
+            foreach (scandir($rp) as $df) {
+                if (preg_match('/^[a-zA-Z0-9]+\\.qcow2$/', $df)) {
+                    $hasDisk = true;
+                    break;
+                }
+            }
+        }
+        $firstPrepare = (!$hasDisk || !is_file($rp . "/.prepared")) && !is_file($rp . "/.lock");"""
+            )
+            changed = True
+
         if changed:
             if dry_run:
                 print("  [DRY-RUN] Would patch device_qemu.php with universal mem-merge=on and virtio-balloon")
