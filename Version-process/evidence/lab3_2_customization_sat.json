@@ -1,0 +1,14 @@
+{
+  "test": "Lab 3.2 (Customization - SAT)",
+  "timestamp": "2026-11-06 09:32:30",
+  "host_cpu_architecture": "Architecture:                            x86_64\nCPU(s):                                  8\nOn-line CPU(s) list:                     0-7\nVendor ID:                               AuthenticAMD\nModel name:                              AMD Ryzen 9 9955HX 16-Core Processor\nThread(s) per core:                      1\nCore(s) per socket:                      8\nNUMA node0 CPU(s):                       0-7",
+  "template_cpu_flags": "AMD vios.yml cpu flags:\ncpulimit: 1\ncpu: 1\nqemu_options: \"-machine mem-merge=on -machine type=pc,accel=kvm -serial mon:stdio -nographic -no-user-config -nodefaults -rtc base=utc -cpu host,migratable=no,+invtsc -vga none -rtc base=utc,clock=host,driftfix=none -device virtio-balloon-pci\"\nc8000v.yml cpu flags:\ncpulimit: 1\ncpu: 4\nqemu_options: -machine mem-merge=on -machine type=pc,accel=kvm -cpu host -serial mon:stdio -nographic -no-user-config -nodefaults -rtc base=utc",
+  "satellite_remote_hardware": {
+    "ok": true,
+    "rc": 0,
+    "out": [
+      "{\"cpu\": 0, \"ram\": 2, \"swap\": 0, \"disk\": 18, \"total_ram\": 62728780, \"total_swap\": 8388604, \"total_disk\": 105089261568, \"cores\": 8, \"qemu_version\": \"10.2.1\", \"uptime\": 8068, \"version\": \"6.8.93resolute1\", \"counts\": {\"iol\": 0, \"dynamips\": 0, \"qemu\": 0, \"docker\": 0, \"vpcs\": 0}}"
+    ],
+    "err": ""
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "test": "Lab 2.2 (Features - SAT)",
+  "timestamp": "2026-11-06 09:30:42",
+  "cluster_hosts": "host_id\thost_name\thost_ip\thost_status\thost_last_seen\thost_version\thost_joined\n1\tR7-Laptop-SAT\t192.168.1.18\t1\t1793895560\t6.8.93resolute1\t1793895560",
+  "ping_latency_probe": "PING 192.168.1.18 (192.168.1.18) 56(84) bytes of data.\n64 bytes from 192.168.1.18: icmp_seq=1 ttl=64 time=4.42 ms\n64 bytes from 192.168.1.18: icmp_seq=2 ttl=64 time=4.63 ms\n64 bytes from 192.168.1.18: icmp_seq=3 ttl=64 time=5.41 ms\n\n--- 192.168.1.18 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 2003ms\nrtt min/avg/max/mdev = 4.423/4.819/5.405/0.422 ms",
+  "broker_dispatch_rpc": {
+    "ok": true,
+    "rc": 0,
+    "out": [
+      "{\"cpu\": 0, \"ram\": 2, \"swap\": 0, \"disk\": 18, \"total_ram\": 62728780, \"total_swap\": 8388604, \"total_disk\": 105089261568, \"cores\": 8, \"qemu_version\": \"10.2.1\", \"uptime\": 7960, \"version\": \"6.8.93resolute1\", \"counts\": {\"iol\": 0, \"dynamips\": 0, \"qemu\": 0, \"docker\": 0, \"vpcs\": 0}}"
+    ],
+    "err": ""
+  }
+}

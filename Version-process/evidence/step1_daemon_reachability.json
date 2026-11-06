@@ -1,0 +1,49 @@
+{
+  "step": "1. Cluster Daemon & Host Reachability Verification",
+  "master_ip": "192.168.1.23",
+  "satellite_ip": "192.168.1.18",
+  "broker_rpc": {
+    "ok": true,
+    "rc": 0,
+    "out": [
+      "{\"cpu\": 0, \"ram\": 2, \"swap\": 0, \"disk\": 18, \"total_ram\": 62728780, \"total_swap\": 8388604, \"total_disk\": 105089261568, \"cores\": 8, \"qemu_version\": \"10.2.1\", \"uptime\": 6344, \"version\": \"6.8.93resolute1\", \"counts\": {\"iol\": 0, \"dynamips\": 0, \"qemu\": 0, \"docker\": 0, \"vpcs\": 0}}"
+    ],
+    "err": ""
+  },
+  "satellite_telemetry": {
+    "cpu": 0,
+    "ram": 2,
+    "swap": 0,
+    "disk": 18,
+    "total_ram": 62728780,
+    "total_swap": 8388604,
+    "total_disk": 105089261568,
+    "cores": 8,
+    "qemu_version": "10.2.1",
+    "uptime": 6344,
+    "version": "6.8.93resolute1",
+    "counts": {
+      "iol": 0,
+      "dynamips": 0,
+      "qemu": 0,
+      "docker": 0,
+      "vpcs": 0
+    }
+  },
+  "daemons": {
+    "pnetlab-brokerd": "active",
+    "pnet-ops-api": "active"
+  },
+  "bridges": [
+    "pnet0",
+    "pnet1",
+    "pnet2",
+    "pnet3",
+    "pnet4",
+    "pnet5",
+    "pnet6",
+    "pnet7",
+    "pnet8",
+    "pnet9"
+  ]
+}

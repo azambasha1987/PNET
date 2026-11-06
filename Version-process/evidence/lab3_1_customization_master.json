@@ -1,0 +1,18 @@
+{
+  "test": "Lab 3.1 (Customization - Master)",
+  "timestamp": "2026-11-06 09:32:00",
+  "login_portal": {
+    "version": "6.8.93",
+    "card_verified": true,
+    "avatar_verified": true
+  },
+  "theme": {
+    "computed_bg": "rgb(0, 0, 0)"
+  },
+  "session": {
+    "cookies": [
+      "token",
+      "pnq_html5_console"
+    ]
+  }
+}
