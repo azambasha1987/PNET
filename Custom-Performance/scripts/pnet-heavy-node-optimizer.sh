@@ -641,7 +641,7 @@ if os.path.isfile(dev_iol):
                     $this->getRunningPath() . "/pnet-iol-launcher"
                 );
             }
-            if (false && file_exists("/opt/unetlab/addons/iol/bin/" . $this->image'''
+            if (false && (file_exists("/opt/unetlab/addons/iol/bin/" . $this->image)))'''
             if old_prepare_sym in code_iol:
                 code_iol = code_iol.replace(old_prepare_sym, repl_prepare_sym, 1)
                 changed_iol = True
