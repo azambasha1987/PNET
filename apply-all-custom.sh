@@ -80,6 +80,9 @@ ln -sf /opt/unetlab/scripts/pnet-ingest-release.sh     /usr/local/bin/pnet-inges
 ln -sf /opt/unetlab/scripts/pnet-upload-and-docker-fix.sh /usr/local/bin/pnet-upload-fix
 ln -sf /opt/unetlab/scripts/pnet-upload-and-docker-fix.sh /usr/local/bin/pnet-docker-fix
 ln -sf /opt/unetlab/scripts/pnet-fix-health.sh         /usr/local/bin/pnet-fix-health
+ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh        /usr/local/bin/pnet-doctor
+ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh        /usr/local/bin/pnet-image-doctor
+ln -sf /opt/unetlab/scripts/pnet-reconcile-images.py    /usr/local/bin/pnet-reconcile-images
 ln -sf "${SCRIPT_DIR}/apply-all-custom.sh"              /usr/local/bin/pnet-apply-all
 chmod +x /usr/local/bin/pnet-* /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
 

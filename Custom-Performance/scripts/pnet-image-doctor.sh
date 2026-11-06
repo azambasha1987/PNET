@@ -41,6 +41,11 @@ echo "============================================================"
 if [ "$(id -u)" -eq 0 ]; then
     ln -sf "$(realpath "$0")" /usr/local/bin/pnet-doctor 2>/dev/null || true
     ln -sf "$(realpath "$0")" /usr/local/bin/pnet-image-doctor 2>/dev/null || true
+    if [ -f "$(dirname "$0")/pnet-reconcile-images.py" ]; then
+        ln -sf "$(realpath "$(dirname "$0")/pnet-reconcile-images.py")" /usr/local/bin/pnet-reconcile-images 2>/dev/null || true
+    elif [ -f "/opt/unetlab/scripts/pnet-reconcile-images.py" ]; then
+        ln -sf /opt/unetlab/scripts/pnet-reconcile-images.py /usr/local/bin/pnet-reconcile-images 2>/dev/null || true
+    fi
 fi
 
 QEMU_DIR="/opt/unetlab/addons/qemu"
@@ -251,7 +256,16 @@ PYEOF
     fi
 fi
 
-# 3. Fix Permissions if in --fix mode
+# 3. Audit Lab Image Compatibility & Aliasing
+echo -e "\n[*] Auditing Lab Image Compatibility & Version Aliasing..."
+for rec_cand in "/opt/unetlab/scripts/pnet-reconcile-images.py" "$(dirname "$0")/pnet-reconcile-images.py"; do
+    if [ -f "$rec_cand" ]; then
+        python3 "$rec_cand" "$MODE" 2>/dev/null || true
+        break
+    fi
+done
+
+# 4. Fix Permissions if in --fix mode
 if [ "$MODE" = "--fix" ]; then
     echo -e "\n[*] Running permission repair on all image directories..."
     if [ -x /opt/unetlab/wrappers/unl_wrapper ]; then
@@ -260,6 +274,14 @@ if [ "$MODE" = "--fix" ]; then
     chown -R root:root "$QEMU_DIR" "$IOL_DIR" "$DYN_DIR" 2>/dev/null || true
     chmod -R 755 "$QEMU_DIR" "$IOL_DIR" "$DYN_DIR" 2>/dev/null || true
     echo "  -> Permissions repaired."
+
+    echo -e "\n[*] Enforcing automatic lab image aliasing & compatibility..."
+    for rec_cand in "/opt/unetlab/scripts/pnet-reconcile-images.py" "$(dirname "$0")/pnet-reconcile-images.py"; do
+        if [ -f "$rec_cand" ]; then
+            python3 "$rec_cand" --fix 2>/dev/null || true
+            break
+        fi
+    done
 
     echo -e "\n[*] Enforcing universal QEMU & IOL template and memory optimization..."
     for opt_cand in "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh" "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh"; do

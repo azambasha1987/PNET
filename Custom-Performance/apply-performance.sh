@@ -87,6 +87,7 @@ ln -sf /opt/unetlab/scripts/pnet-cgroups-v2-engine.sh     /usr/local/bin/pnet-cg
 ln -sf /opt/unetlab/scripts/pnet-cpu-governor.py          /usr/local/bin/pnet-cpu-governor 2>/dev/null || true
 ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh          /usr/local/bin/pnet-doctor 2>/dev/null || true
 ln -sf /opt/unetlab/scripts/pnet-image-doctor.sh          /usr/local/bin/pnet-images 2>/dev/null || true
+ln -sf /opt/unetlab/scripts/pnet-reconcile-images.py      /usr/local/bin/pnet-reconcile-images 2>/dev/null || true
 ln -sf /opt/unetlab/scripts/pnet-watchdog.py              /usr/local/bin/pnet-watchdog 2>/dev/null || true
 ln -sf /opt/unetlab/scripts/pnet-perf.py                  /usr/local/bin/pnet-perf 2>/dev/null || true
 ln -sf /opt/unetlab/scripts/pnet-bench.sh                 /usr/local/bin/pnet-bench 2>/dev/null || true
@@ -128,7 +129,11 @@ fi
 if [ -f /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh ]; then
     bash /opt/unetlab/scripts/pnet-heavy-node-optimizer.sh "--${MODE}" 2>/dev/null || true
 fi
-log_ok "Cgroups v2 governor and heavy node optimizer active."
+
+if [ -f /opt/unetlab/scripts/pnet-image-doctor.sh ]; then
+    bash /opt/unetlab/scripts/pnet-image-doctor.sh --fix 2>/dev/null || true
+fi
+log_ok "Cgroups v2 governor, heavy node optimizer, and image reconciler active."
 
 # 4. Autonomous 24/7 Watchdog Daemon & Storage Maintenance
 log_info "[4/4] Starting 24/7 autonomous watchdog and nightly TRIM maintenance..."
