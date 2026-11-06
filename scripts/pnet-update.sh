@@ -471,11 +471,17 @@ EOF_BROKER
     # 0. Modernize PHP 8.4/8.5 Runtime Engine & Enforce Safe Lab Loading
     if [ -f "${SCRIPT_DIR}/pnet-php-modernizer.sh" ]; then
         bash "${SCRIPT_DIR}/pnet-php-modernizer.sh" || true
+    elif [ -f "${SCRIPT_DIR}/../Custom-Performance/scripts/pnet-php-modernizer.sh" ]; then
+        bash "${SCRIPT_DIR}/../Custom-Performance/scripts/pnet-php-modernizer.sh" || true
+    elif [ -f "/opt/PNET/Custom-Performance/scripts/pnet-php-modernizer.sh" ]; then
+        bash "/opt/PNET/Custom-Performance/scripts/pnet-php-modernizer.sh" || true
     fi
 
     # 0b. Enforce 512MB Upload Limits, Apache Ceilings, and Docker Subsystem
     if [ -f "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh" ]; then
         bash "${SCRIPT_DIR}/pnet-upload-and-docker-fix.sh" || true
+    elif [ -f "${SCRIPT_DIR}/../Custom-Features/scripts/pnet-upload-and-docker-fix.sh" ]; then
+        bash "${SCRIPT_DIR}/../Custom-Features/scripts/pnet-upload-and-docker-fix.sh" || true
     elif [ -f "/opt/PNET/Custom-Features/scripts/pnet-upload-and-docker-fix.sh" ]; then
         bash "/opt/PNET/Custom-Features/scripts/pnet-upload-and-docker-fix.sh" || true
     fi
