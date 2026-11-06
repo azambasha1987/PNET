@@ -3217,7 +3217,6 @@
       '}' +
       '/* Option 2: Executive Titanium & Amber Gold (CCIE Elite) Lab Header - Compact & 2D Resizable (Width & Height) */' +
       '.pnq-header-wrapper, [name="Lab_Header"], .customText.pnq-header-wrapper {' +
-      '  container-type: inline-size;' +
       '  min-width: 0 !important;' +
       '  max-width: 100% !important;' +
       '  min-height: 0 !important;' +
@@ -3233,7 +3232,7 @@
       '  text-align: center !important;' +
       '  box-sizing: border-box !important;' +
       '  background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98)) !important;' +
-      '  padding: 6px 18px 8px 18px !important;' +
+      '  padding: calc(6px * var(--pnq-scale, 1)) calc(16px * var(--pnq-scale, 1)) calc(8px * var(--pnq-scale, 1)) calc(16px * var(--pnq-scale, 1)) !important;' +
       '  border-radius: 8px !important;' +
       '  border: 1px solid rgba(245, 158, 11, 0.45) !important;' +
       '  border-top: 2.5px solid #f59e0b !important;' +
@@ -3249,49 +3248,48 @@
       '  overflow: hidden !important;' +
       '  position: relative !important;' +
       '  pointer-events: auto !important;' +
-      '  transition: transform 0.15s ease !important;' +
       '}' +
       '.pnq-card-badge-wrap {' +
-      '  margin: 0 0 3px 0 !important;' +
+      '  margin: 0 0 calc(3px * var(--pnq-scale, 1)) 0 !important;' +
       '  line-height: 1 !important;' +
       '  flex-shrink: 1 !important;' +
       '}' +
       '.pnq-card-badge {' +
       '  display: inline-block !important;' +
-      '  padding: 2px 7px !important;' +
-      '  border-radius: 3px !important;' +
+      '  padding: calc(2px * var(--pnq-scale, 1)) calc(7px * var(--pnq-scale, 1)) !important;' +
+      '  border-radius: calc(3px * var(--pnq-scale, 1)) !important;' +
       '  background: rgba(245, 158, 11, 0.12) !important;' +
       '  border: 1px solid rgba(245, 158, 11, 0.4) !important;' +
-      '  font-size: 9.5px !important;' +
+      '  font-size: calc(9.5px * var(--pnq-scale, 1)) !important;' +
       '  font-weight: 700 !important;' +
       '  color: #fbbf24 !important;' +
-      '  letter-spacing: 1px !important;' +
+      '  letter-spacing: calc(1px * var(--pnq-scale, 1)) !important;' +
       '  text-transform: uppercase !important;' +
       '  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;' +
       '  line-height: 1.2 !important;' +
+      '  white-space: nowrap !important;' +
       '}' +
       '.pnq-card-title {' +
-      '  font-size: 15px !important;' +
+      '  font-size: calc(15px * var(--pnq-scale, 1)) !important;' +
       '  font-weight: 800 !important;' +
       '  color: #f8fafc !important;' +
-      '  letter-spacing: 0.5px !important;' +
-      '  margin: 2px 0 0 0 !important;' +
+      '  letter-spacing: calc(0.5px * var(--pnq-scale, 1)) !important;' +
+      '  margin: calc(2px * var(--pnq-scale, 1)) 0 0 0 !important;' +
       '  line-height: 1.25 !important;' +
       '  text-transform: uppercase !important;' +
       '  text-shadow: 0 0 10px rgba(245, 158, 11, 0.35) !important;' +
       '  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;' +
-      '  word-break: break-word !important;' +
+      '  white-space: nowrap !important;' +
       '  flex-shrink: 0 !important;' +
       '}' +
       '.pnq-card-subtitle {' +
-      '  font-size: 10.5px !important;' +
+      '  font-size: calc(10.5px * var(--pnq-scale, 1)) !important;' +
       '  font-weight: 600 !important;' +
       '  color: #94a3b8 !important;' +
-      '  margin: 3px 0 0 0 !important;' +
+      '  margin: calc(3px * var(--pnq-scale, 1)) 0 0 0 !important;' +
       '  line-height: 1.3 !important;' +
-      '  letter-spacing: 0.25px !important;' +
+      '  letter-spacing: calc(0.25px * var(--pnq-scale, 1)) !important;' +
       '  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;' +
-      '  word-break: break-word !important;' +
       '  flex-shrink: 2 !important;' +
       '  white-space: nowrap !important;' +
       '  overflow: hidden !important;' +
@@ -3299,35 +3297,21 @@
       '}' +
       '/* Height-Adaptive Compression when resized bottom-to-up */' +
       '.pnq-executive-card.pnq-compact-v {' +
-      '  padding: 3px 12px 4px 12px !important;' +
+      '  padding: calc(3px * var(--pnq-scale, 1)) calc(12px * var(--pnq-scale, 1)) calc(4px * var(--pnq-scale, 1)) calc(12px * var(--pnq-scale, 1)) !important;' +
       '}' +
       '.pnq-executive-card.pnq-compact-v .pnq-card-subtitle {' +
       '  display: none !important;' +
       '}' +
       '.pnq-executive-card.pnq-ultra-compact-v {' +
-      '  padding: 2px 10px !important;' +
+      '  padding: calc(2px * var(--pnq-scale, 1)) calc(10px * var(--pnq-scale, 1)) !important;' +
       '}' +
       '.pnq-executive-card.pnq-ultra-compact-v .pnq-card-badge-wrap,' +
       '.pnq-executive-card.pnq-ultra-compact-v .pnq-card-subtitle {' +
       '  display: none !important;' +
       '}' +
       '.pnq-executive-card.pnq-ultra-compact-v .pnq-card-title {' +
-      '  font-size: 13px !important;' +
-      '  line-height: 1 !important;' +
       '  margin: 0 !important;' +
-      '}' +
-      '@container (max-width: 380px) {' +
-      '  .pnq-card-title { font-size: 13px !important; }' +
-      '  .pnq-card-subtitle { font-size: 9.5px !important; }' +
-      '  .pnq-card-badge { font-size: 8.5px !important; padding: 1px 5px !important; }' +
-      '  .pnq-executive-card { padding: 4px 10px 6px 10px !important; }' +
-      '}' +
-      '@container (max-width: 270px) {' +
-      '  .pnq-card-title { font-size: 11px !important; }' +
-      '  .pnq-card-subtitle { font-size: 8.5px !important; }' +
-      '  .pnq-card-badge { font-size: 7.5px !important; }' +
-      '  .pnq-executive-card { padding: 3px 6px 4px 6px !important; }' +
-      '}' +
+      '}' + +
       '.pnq-card-scale-bar {' +
       '  position: absolute !important;' +
       '  top: 3px !important;' +
@@ -3413,35 +3397,141 @@
   }
 
   var _headerResizeObserver = null;
+
+  function applyHeaderDynamicScale(cardEl) {
+    if (!cardEl) return;
+    var $card = $(cardEl);
+    var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
+
+    // Determine current rendered dimensions (wrapper or card)
+    var w = 0, h = 0;
+    if ($wrapper.length) {
+      w = $wrapper[0].offsetWidth || $wrapper.width() || 0;
+      h = $wrapper[0].offsetHeight || $wrapper.height() || 0;
+    }
+    if (w <= 0 || h <= 0) {
+      w = cardEl.offsetWidth || $card.width() || 0;
+      h = cardEl.offsetHeight || $card.height() || 0;
+    }
+    if (w <= 0 || h <= 0) {
+      var rect = cardEl.getBoundingClientRect();
+      w = rect.width;
+      h = rect.height;
+    }
+
+    if (w <= 20 || h <= 15) return;
+
+    // Baseline dimensions for Executive Titanium card
+    var BASE_W = 380;
+    var BASE_H = 56;
+
+    // Height compression modes
+    if (h < 36) {
+      cardEl.classList.add('pnq-ultra-compact-v');
+      cardEl.classList.add('pnq-compact-v');
+      BASE_H = 24; // Only title visible
+    } else if (h < 50) {
+      cardEl.classList.add('pnq-compact-v');
+      cardEl.classList.remove('pnq-ultra-compact-v');
+      BASE_H = 38; // Badge + Title visible
+    } else {
+      cardEl.classList.remove('pnq-compact-v');
+      cardEl.classList.remove('pnq-ultra-compact-v');
+      BASE_H = 56; // Badge + Title + Subtitle visible
+    }
+
+    var scaleH = h / BASE_H;
+    var scaleW = w / BASE_W;
+    var scale = Math.min(scaleW, scaleH);
+
+    // Prevent horizontal clipping of title text
+    var titleEl = cardEl.querySelector('.pnq-card-title');
+    if (titleEl) {
+      var textLen = (titleEl.textContent || '').trim().length;
+      if (textLen > 0) {
+        var availW = Math.max(40, w - 24);
+        var approxW = textLen * 9.2;
+        if (approxW * scale > availW) {
+          scale = Math.min(scale, availW / approxW);
+        }
+      }
+    }
+
+    // Clamp scale: 0.35 (compact) to 2.5 (large displays)
+    scale = Math.max(0.35, Math.min(2.5, scale));
+    var scaleStr = scale.toFixed(2);
+
+    cardEl.style.setProperty('--pnq-scale', scaleStr);
+    $card.attr('data-scale', scaleStr);
+
+    var badgeEl = cardEl.querySelector('.pnq-card-badge');
+    var subtitleEl = cardEl.querySelector('.pnq-card-subtitle');
+
+    if (titleEl) {
+      titleEl.style.fontSize = (15 * scale).toFixed(1) + 'px';
+      titleEl.style.letterSpacing = (0.5 * scale).toFixed(1) + 'px';
+      titleEl.style.margin = (2 * scale).toFixed(1) + 'px 0 0 0';
+    }
+    if (badgeEl) {
+      badgeEl.style.fontSize = (9.5 * scale).toFixed(1) + 'px';
+      badgeEl.style.padding = (2 * scale).toFixed(1) + 'px ' + (7 * scale).toFixed(1) + 'px';
+      badgeEl.style.letterSpacing = (1 * scale).toFixed(1) + 'px';
+    }
+    if (subtitleEl) {
+      subtitleEl.style.fontSize = (10.5 * scale).toFixed(1) + 'px';
+      subtitleEl.style.letterSpacing = (0.25 * scale).toFixed(1) + 'px';
+      subtitleEl.style.margin = (3 * scale).toFixed(1) + 'px 0 0 0';
+    }
+
+    cardEl.style.padding = (Math.max(2, 6 * scale)).toFixed(1) + 'px ' + 
+                           (Math.max(6, 16 * scale)).toFixed(1) + 'px ' + 
+                           (Math.max(2, 8 * scale)).toFixed(1) + 'px ' + 
+                           (Math.max(6, 16 * scale)).toFixed(1) + 'px';
+
+    var $val = $card.find('.pnq-scale-val');
+    if ($val.length) {
+      $val.text(Math.round(scale * 100) + '%');
+    }
+  }
+
   function initHeaderResizingAndScaling() {
     if (!_headerResizeObserver && typeof ResizeObserver === 'function') {
       _headerResizeObserver = new ResizeObserver(function (entries) {
         for (var i = 0; i < entries.length; i++) {
           var entry = entries[i];
-          var h = entry.contentRect.height;
           var el = entry.target;
-          if (h > 0) {
-            if (h < 38) {
-              el.classList.add('pnq-ultra-compact-v');
-              el.classList.add('pnq-compact-v');
-            } else if (h < 54) {
-              el.classList.add('pnq-compact-v');
-              el.classList.remove('pnq-ultra-compact-v');
-            } else {
-              el.classList.remove('pnq-compact-v');
-              el.classList.remove('pnq-ultra-compact-v');
-            }
+          if (el.classList.contains('pnq-executive-card')) {
+            applyHeaderDynamicScale(el);
+          } else {
+            var innerCard = el.querySelector('.pnq-executive-card');
+            if (innerCard) applyHeaderDynamicScale(innerCard);
           }
         }
       });
     }
 
     $('.pnq-executive-card').each(function () {
+      var card = this;
       var $card = $(this);
+      var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
+
       if (_headerResizeObserver && !$card.data('ro-attached')) {
         $card.data('ro-attached', true);
-        _headerResizeObserver.observe(this);
+        _headerResizeObserver.observe(card);
+        if ($wrapper.length && $wrapper[0] !== card) {
+          _headerResizeObserver.observe($wrapper[0]);
+        }
       }
+
+      if ($wrapper.length && !$wrapper.data('res-attached')) {
+        $wrapper.data('res-attached', true);
+        $wrapper.on('resize', function () {
+          applyHeaderDynamicScale(card);
+        });
+      }
+
+      applyHeaderDynamicScale(card);
+
       if ($card.find('.pnq-card-scale-bar').length === 0) {
         var bar = $(
           '<div class="pnq-card-scale-bar" title="Header Scale Controls">' +
@@ -3452,16 +3542,6 @@
           '</div>'
         );
         $card.append(bar);
-        try {
-          var labId = $('#pnq-lab-page').attr('data-path') || 'default';
-          var savedScale = localStorage.getItem('pnq_header_scale_' + labId);
-          if (savedScale && parseFloat(savedScale) > 0) {
-            var s = parseFloat(savedScale);
-            $card.attr('data-scale', s);
-            $card.css({'transform': 'scale(' + s + ')', 'transform-origin': 'top center'});
-            $card.find('.pnq-scale-val').text(Math.round(s * 100) + '%');
-          }
-        } catch (_) {}
       }
     });
   }
@@ -3470,43 +3550,44 @@
     e.stopPropagation();
     e.preventDefault();
     var $card = $(this).closest('.pnq-executive-card');
-    var currentScale = parseFloat($card.attr('data-scale') || '1.0');
-    var newScale = Math.max(0.4, Math.round((currentScale - 0.1) * 10) / 10);
-    $card.attr('data-scale', newScale);
-    $card.css({'transform': 'scale(' + newScale + ')', 'transform-origin': 'top center'});
-    $card.find('.pnq-scale-val').text(Math.round(newScale * 100) + '%');
-    try {
-      var labId = $('#pnq-lab-page').attr('data-path') || 'default';
-      localStorage.setItem('pnq_header_scale_' + labId, newScale);
-    } catch (_) {}
+    var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
+    var w = $wrapper.width() || $card.width() || 380;
+    var h = $wrapper.height() || $card.height() || 56;
+    var newW = Math.max(160, Math.round(w * 0.9));
+    var newH = Math.max(24, Math.round(h * 0.9));
+    if ($wrapper.length) {
+      $wrapper.css({ width: newW + 'px', height: newH + 'px' });
+    }
+    $card.css({ width: newW + 'px', height: newH + 'px' });
+    applyHeaderDynamicScale($card[0]);
   });
 
   $(document).on('click', '.pnq-scale-up', function (e) {
     e.stopPropagation();
     e.preventDefault();
     var $card = $(this).closest('.pnq-executive-card');
-    var currentScale = parseFloat($card.attr('data-scale') || '1.0');
-    var newScale = Math.min(1.6, Math.round((currentScale + 0.1) * 10) / 10);
-    $card.attr('data-scale', newScale);
-    $card.css({'transform': 'scale(' + newScale + ')', 'transform-origin': 'top center'});
-    $card.find('.pnq-scale-val').text(Math.round(newScale * 100) + '%');
-    try {
-      var labId = $('#pnq-lab-page').attr('data-path') || 'default';
-      localStorage.setItem('pnq_header_scale_' + labId, newScale);
-    } catch (_) {}
+    var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
+    var w = $wrapper.width() || $card.width() || 380;
+    var h = $wrapper.height() || $card.height() || 56;
+    var newW = Math.min(1200, Math.round(w * 1.1));
+    var newH = Math.min(240, Math.round(h * 1.1));
+    if ($wrapper.length) {
+      $wrapper.css({ width: newW + 'px', height: newH + 'px' });
+    }
+    $card.css({ width: newW + 'px', height: newH + 'px' });
+    applyHeaderDynamicScale($card[0]);
   });
 
   $(document).on('click', '.pnq-scale-reset', function (e) {
     e.stopPropagation();
     e.preventDefault();
     var $card = $(this).closest('.pnq-executive-card');
-    $card.attr('data-scale', '1.0');
-    $card.css({'transform': 'none'});
-    $card.find('.pnq-scale-val').text('100%');
-    try {
-      var labId = $('#pnq-lab-page').attr('data-path') || 'default';
-      localStorage.removeItem('pnq_header_scale_' + labId);
-    } catch (_) {}
+    var $wrapper = $card.closest('.pnq-header-wrapper, .customText, .customShape');
+    if ($wrapper.length) {
+      $wrapper.css({ width: '380px', height: '56px' });
+    }
+    $card.css({ width: '380px', height: '56px' });
+    applyHeaderDynamicScale($card[0]);
   });
 
   if (document.readyState === 'loading') {
