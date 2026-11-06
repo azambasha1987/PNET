@@ -157,6 +157,14 @@ EOF
     a2enconf azamlabs-upload-limit pnet-upload-limit 2>/dev/null || true
 fi
 
+# 2.1 Hardening Lab XML Serialization & Import Resilience
+echo "[2.1/8] Hardening UNetLab Lab XML Serialization & Fault-Tolerant Batch Import..."
+MODERNIZER="/opt/PNET/Custom-Performance/scripts/pnet-php-modernizer.sh"
+[ -f "$MODERNIZER" ] || MODERNIZER="$(dirname "${BASH_SOURCE[0]}")/../../Custom-Performance/scripts/pnet-php-modernizer.sh"
+if [ -f "$MODERNIZER" ]; then
+    bash "$MODERNIZER" 2>/dev/null || true
+fi
+
 # 3. Kernel IP Forwarding & Routing
 echo "[3/8] Enabling Kernel IPv4 & IPv6 Packet Forwarding & ARP Proxy..."
 mkdir -p /etc/sysctl.d

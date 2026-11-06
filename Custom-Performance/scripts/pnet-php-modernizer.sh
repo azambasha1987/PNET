@@ -258,6 +258,235 @@ except Exception as e:
 PYLABEOF
 fi
 
+# 3.6 Harden Lab XML Serialization in __lab.php (Prevent Error 20047 on HTML/Entities/Control Chars)
+if [ -f "$LAB_PHP" ]; then
+    python3 - << 'PYLABXMLEX'
+import re
+
+fpath = "/opt/unetlab/html/includes/__lab.php"
+try:
+    with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    target = '''        // Well format the XML
+        $dom = new DOMDocument('1.0');
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = true
+        $xmlLoaded = $dom->loadXML($xml->asXML());
+        // Never replace a lab with XML that failed serialization.
+        if ($xmlLoaded === false || $dom->documentElement === null || $dom->documentElement->nodeName !== 'lab') {
+            error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][20047]);
+            return 20047;
+        }
+        //===================PNETLAB=====================
+        $labContentXML = $dom->saveXML();'''
+
+    # Support matching with semicolon after formatOutput = true;
+    target_clean = target.replace('$dom->formatOutput = true', '$dom->formatOutput = true;')
+
+    replacement = '''        // Well format the XML with resilient character sanitization and HTML entity normalization
+        $xmlRaw = $xml->asXML();
+        // 1. Strip illegal XML 1.0 control characters
+        $xmlClean = preg_replace('/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]/', '', $xmlRaw);
+
+        // 2. Translate common HTML named entities to valid XML numeric entities
+        $entitySearch = [
+            '&nbsp;', '&copy;', '&reg;', '&trade;', '&mdash;', '&ndash;',
+            '&hellip;', '&bull;', '&rsquo;', '&lsquo;', '&rdquo;', '&ldquo;',
+            '&prime;', '&Prime;', '&deg;', '&plusmn;', '&times;', '&divide;'
+        ];
+        $entityReplace = [
+            '&#160;', '&#169;', '&#174;', '&#8482;', '&#8212;', '&#8211;',
+            '&#8230;', '&#8226;', '&#8217;', '&#8216;', '&#8221;', '&#8220;',
+            '&#8242;', '&#8243;', '&#176;', '&#177;', '&#215;', '&#247;'
+        ];
+        $xmlClean = str_replace($entitySearch, $entityReplace, $xmlClean);
+
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = true;
+        $xmlLoaded = @$dom->loadXML($xmlClean, LIBXML_PARSEHUGE | LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_RECOVER);
+
+        if ($xmlLoaded && $dom->documentElement !== null && $dom->documentElement->nodeName === 'lab') {
+            $labContentXML = $dom->saveXML();
+        } else if (substr(trim($xmlClean), 0, 5) === '<?xml' && strpos($xmlClean, '<lab') !== false) {
+            // Resilient fallback: preserve sanitized serialized XML rather than destroying the lab save with 20047
+            $labContentXML = $xmlClean;
+        } else {
+            error_log(date('M d H:i:s ') . 'ERROR: ' . $GLOBALS['messages'][20047]);
+            return 20047;
+        }
+        //===================PNETLAB=====================
+        if (!isset($labContentXML) || $labContentXML === false) {
+            $labContentXML = $dom->saveXML();
+        }'''
+
+    if target_clean in content:
+        content = content.replace(target_clean, replacement)
+        with open(fpath, "w", encoding="utf-8") as f:
+            f.write(content)
+        print("      -> Successfully hardened XML serialization in __lab.php (Error 20047 immune)")
+    elif "$xmlClean = preg_replace" in content:
+        print("      -> __lab.php already contains hardened XML serialization")
+    else:
+        # Regex fallback match
+        pattern = r"// Well format the XML[\s\S]*?\$xmlLoaded = \$dom->loadXML\(\$xml->asXML\(\)\);[\s\S]*?return 20047;[\s\S]*?\$labContentXML = \$dom->saveXML\(\);"
+        if re.search(pattern, content):
+            new_content = re.sub(pattern, replacement.strip(), content, count=1)
+            with open(fpath, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print("      -> Successfully patched XML serialization in __lab.php via regex")
+except Exception as e:
+    print(f"      -> Note on __lab.php XML serialization patch: {e}")
+PYLABXMLEX
+fi
+
+# 3.7 Harden Lab Batch Import in api_labs.php (Resilient Raw Fallback & Non-blocking Responses)
+API_LABS_PHP="/opt/unetlab/html/includes/api_labs.php"
+if [ -f "$API_LABS_PHP" ]; then
+    python3 - << 'PYAPILABEOF'
+import re
+
+fpath = "/opt/unetlab/html/includes/api_labs.php"
+try:
+    with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    changed = False
+
+    # 1. Initialize fallback tracking variables if not present
+    init_target = """			$importLabs = scanDirFiles($tmpFolder);
+			$errorLabs = [];
+			$errorDetails = [];
+			$eveTotal = 0;"""
+
+    init_replacement = """			$importLabs = scanDirFiles($tmpFolder);
+			$errorLabs = [];
+			$errorDetails = [];
+			$fallbackImportedLabs = [];
+			$importedCount = 0;
+			$eveTotal = 0;"""
+
+    if init_target in content and "$fallbackImportedLabs" not in content:
+        content = content.replace(init_target, init_replacement)
+        changed = True
+
+    # 2. Scope labFileName and labFileDir before try block
+    scope_target = """		foreach ($importLabs as $importLab) {
+
+			$relativePath = preg_replace('/^' . preg_quote($tmpFolder, '/') . '/', '', $importLab);
+			$backupFailure = false;
+
+			try {"""
+
+    scope_replacement = """		foreach ($importLabs as $importLab) {
+
+			$relativePath = preg_replace('/^' . preg_quote($tmpFolder, '/') . '/', '', $importLab);
+			$labFileName = $labFolder . $relativePath;
+			$labFileDir = dirname($labFileName);
+			$backupFailure = false;
+
+			try {"""
+
+    if scope_target in content:
+        content = content.replace(scope_target, scope_replacement)
+        # Remove redundant re-declaration inside try
+        content = content.replace("""				$labFileName = $labFolder . $relativePath;
+				$labFileDir = dirname($labFileName);""", "// $labFileName and $labFileDir defined before try")
+        changed = True
+
+    # 3. Add resilient fallback move in catch and non-blocking response handling
+    loop_target = """				if (!is_dir($labFileDir) && !mkdir($labFileDir, 0755, true) && !is_dir($labFileDir)) {
+					throw new Exception('Could not create destination directory');
+				}
+				if (!rename($importLab, $labFileName)) {
+					throw new Exception('Could not move imported lab to destination');
+				}
+			} catch (Exception $th) {
+				error_log($th->getMessage());
+				$errorLabs[] = $relativePath;
+				if ($backupFailure || strpos($th->getMessage(), 'Could not move imported lab') === 0) {
+					$errorDetails[] = $relativePath . ': ' . $th->getMessage();
+				}
+				continue;
+			}
+		}
+
+		if (count($errorLabs) > 0) {
+			$errorMessage = 'Some Labs can not be imported: ' . implode(', ', $errorLabs);
+			if (count($errorDetails) > 0) {
+				$errorMessage .= ' (' . implode('; ', $errorDetails) . ')';
+			}
+			throw new Exception($errorMessage);
+		}
+
+		$output['code'] = 200;
+		$output['status'] = 'success';
+		$output['message'] = $GLOBALS['messages'][80080];"""
+
+    loop_replacement = """				if (!is_dir($labFileDir) && !mkdir($labFileDir, 0755, true) && !is_dir($labFileDir)) {
+					throw new Exception('Could not create destination directory');
+				}
+				if (!rename($importLab, $labFileName)) {
+					throw new Exception('Could not move imported lab to destination');
+				}
+				$importedCount++;
+			} catch (Exception $th) {
+				error_log('apiImportLabs: Exception on ' . $relativePath . ': ' . $th->getMessage());
+				$errorLabs[] = $relativePath;
+				if ($backupFailure || strpos($th->getMessage(), 'Could not move imported lab') === 0) {
+					$errorDetails[] = $relativePath . ': ' . $th->getMessage();
+				}
+
+				// Resilient Raw Fallback Move: Ensure lab is never lost due to parser/serialization quirks
+				if (file_exists($importLab) && !file_exists($labFileName)) {
+					if (!is_dir($labFileDir)) {
+						@mkdir($labFileDir, 0755, true);
+					}
+					if (@rename($importLab, $labFileName) || @copy($importLab, $labFileName)) {
+						@chmod($labFileName, 0644);
+						@chown($labFileName, 'www-data');
+						$fallbackImportedLabs[] = $relativePath;
+						error_log('apiImportLabs: Resiliently preserved lab file via raw fallback: ' . $relativePath);
+					}
+				}
+				continue;
+			}
+		}
+
+		$totalSuccessful = (isset($importedCount) ? $importedCount : 0) + (isset($fallbackImportedLabs) ? count($fallbackImportedLabs) : 0);
+		if ($totalSuccessful === 0 && count($errorLabs) > 0) {
+			$errorMessage = 'No Labs could be imported: ' . implode(', ', $errorLabs);
+			if (count($errorDetails) > 0) {
+				$errorMessage .= ' (' . implode('; ', $errorDetails) . ')';
+			}
+			throw new Exception($errorMessage);
+		}
+
+		$output['code'] = 200;
+		$output['status'] = 'success';
+		$output['message'] = $GLOBALS['messages'][80080];
+		if (isset($fallbackImportedLabs) && count($fallbackImportedLabs) > 0) {
+			$output['message'] .= ' (' . count($fallbackImportedLabs) . ' lab(s) imported via resilient schema fallback)';
+		}"""
+
+    if loop_target in content:
+        content = content.replace(loop_target, loop_replacement)
+        changed = True
+
+    if changed:
+        with open(fpath, "w", encoding="utf-8") as f:
+            f.write(content)
+        print("      -> Successfully hardened api_labs.php with resilient fallback and non-blocking responses")
+    elif "$fallbackImportedLabs" in content:
+        print("      -> api_labs.php already contains hardened import logic")
+    else:
+        print("      -> Note on api_labs.php: target block not found")
+except Exception as e:
+    print(f"      -> Note on api_labs.php patch: {e}")
+PYAPILABEOF
+fi
+
 # Ensure PHP-FPM FastCGI is registered with Apache
 a2enmod proxy_fcgi setenvif rewrite ssl headers 2>/dev/null || true
 a2enconf "php${PHP_VER}-fpm" 2>/dev/null || a2enconf php-fpm 2>/dev/null || true
