@@ -279,6 +279,15 @@ ldconfig >> "$LOG" 2>&1 || die "ldconfig failed after qemu-compat-libs extractio
 # the workspace ownership DB-independently); on a joined re-run it heals.
 /opt/unetlab/wrappers/unl_wrapper -a fixpermissions >> "$LOG" 2>&1 || warn "fixpermissions warnings (expected pre-join)"
 
+# Custom-Performance Hook (Subsystems 4.1 through 4.13)
+if [ -f "$SCRIPT_DIR/apply-performance.sh" ]; then
+    log "Applying Custom-Performance suite (4.1 through 4.13)..."
+    bash "$SCRIPT_DIR/apply-performance.sh" --satellite >> "$LOG" 2>&1 || warn "apply-performance.sh warnings"
+elif [ -f /opt/unetlab/scripts/apply-performance.sh ]; then
+    log "Applying Custom-Performance suite (4.1 through 4.13)..."
+    bash /opt/unetlab/scripts/apply-performance.sh --satellite >> "$LOG" 2>&1 || warn "apply-performance.sh warnings"
+fi
+
 log "=== Satellite install complete ==="
 log "Next: on the MASTER, System -> Cluster -> Generate PSK, then run here:"
 log "    pnet-satellite-join --master <master-ip> --id <1|2> --psk <psk>"

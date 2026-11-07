@@ -865,7 +865,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
     echo "  [DRY-RUN] Would register and start azambasha-heavy-optimizer.service & azambasha-cpu-governor.service"
 else
     # 1. Heavy Optimizer Service
-    cat << 'EOF' > /etc/systemd/system/azambasha-heavy-optimizer.service
+    cat << 'EOF' > /etc/systemd/system/pnet-heavy-optimizer.service
 [Unit]
 Description=PNetLab High-Density Heavy Node Memory & KSM Optimizer
 After=network.target sys-kernel-mm-ksm.mount
