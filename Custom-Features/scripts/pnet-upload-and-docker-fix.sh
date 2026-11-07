@@ -258,20 +258,20 @@ fi
 
 # 6. Preload Official HTML5 Web Packet Capture Container (azam-capture-web:1.0)
 echo "[6/8] Preloading HTML5 In-Browser Packet Capture Image..."
-if command -v docker >/dev/null 2>&1; then
-    if docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -Eq 'azam-capture-web:1.0'; then
+if command -v docker >/dev/null 2>&1 && timeout 5 docker info >/dev/null 2>&1; then
+    if timeout 10 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -Eq 'azam-capture-web:1.0'; then
         echo "  -> azam-capture-web:1.0 is already preloaded."
     else
-        echo "  -> Pulling rspnet/azam-capture-web:latest from Docker Hub..."
-        if docker pull rspnet/azam-capture-web:latest 2>/dev/null; then
+        echo "  -> Pulling rspnet/azam-capture-web:latest from Docker Hub (60s timeout)..."
+        if timeout 60 docker pull rspnet/azam-capture-web:latest 2>/dev/null; then
             docker tag rspnet/azam-capture-web:latest azam-capture-web:1.0 2>/dev/null || true
             echo "  -> Successfully pulled and tagged azam-capture-web:1.0"
         else
-            echo "  [WARN] Docker Hub pull skipped or offline. Web capture will auto-pull on first GUI click."
+            echo "  [WARN] Docker Hub pull timed out or offline. Web capture will auto-pull on first GUI click."
         fi
     fi
 else
-    echo "  [INFO] Docker engine not active; skipping image pre-pull."
+    echo "  [INFO] Docker daemon not responsive or inactive; skipping image pre-pull."
 fi
 
 # 7. Provision & Enable AzamLabs Docker Image Watcher Service
