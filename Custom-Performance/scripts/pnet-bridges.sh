@@ -39,6 +39,21 @@ for i in 0 1 2 3 4 5 6 7 8 9; do
     "$IP" link set "pnet$i" up 2>/dev/null || true
 done
 
+# Guarantee pnet0 is attached to physical uplink NIC so link carrier is never lost
+if [ -d /sys/class/net/pnet0 ] && [ -z "$(ls -A /sys/class/net/pnet0/brif 2>/dev/null)" ]; then
+    for iface in $("$IP" -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d'@' -f1); do
+        case "$iface" in
+            lo|pnet*|nat*|docker*|veth*|virbr*|tun*|tap*|br-*|wlan*|hwsim*) continue ;;
+            eth*|ens*|enp*|eno*)
+                "$IP" link set "$iface" master pnet0 2>/dev/null || true
+                "$IP" link set "$iface" up 2>/dev/null || true
+                "$IP" link set pnet0 up 2>/dev/null || true
+                break
+                ;;
+        esac
+    done
+fi
+
 # nat0 is the built-in NAT cloud bridge (ifupdown gives it 10.0.137.254/24 +
 # udhcpd + MASQUERADE). Ensure the device so the modal lists "NAT0" regardless.
 if ! "$IP" link show nat0 >/dev/null 2>&1; then

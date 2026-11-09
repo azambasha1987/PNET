@@ -176,7 +176,6 @@ if [ -f "$REPO_ROOT/scripts/pnetlab-pnet-bridges.service" ]; then
     systemctl enable pnetlab-pnet-bridges.service 2>/dev/null || true
 fi
 chmod 755 /opt/ovf/pnet-bridges.sh 2>/dev/null || true
-[ -x /opt/ovf/pnet-bridges.sh ] && /bin/bash /opt/ovf/pnet-bridges.sh 2>/dev/null || true
 
 # 4. Deploy universal MAC-agnostic Netplan configuration bridging eth0 into pnet0
 if command -v netplan >/dev/null 2>&1; then
@@ -247,8 +246,16 @@ NETPLAN_EOF
         chmod 600 /etc/netplan/00-installer-config.yaml
         netplan generate 2>/dev/null || true
         netplan apply 2>/dev/null || true
+
+        # Critical safeguard: ensure physical uplink is immediately enslaved to pnet0 so active SSH connection never drops
+        ip link set "$UPLINK_IFACE" master pnet0 2>/dev/null || true
+        ip link set "$UPLINK_IFACE" up 2>/dev/null || true
+        ip link set pnet0 up 2>/dev/null || true
     fi
 fi
+
+# Ensure all cloud bridges (pnet0-9, nat0) exist and carrier is asserted
+[ -x /opt/ovf/pnet-bridges.sh ] && /bin/bash /opt/ovf/pnet-bridges.sh 2>/dev/null || true
 
 # Apply all Tri-Pillar Custom Subsystems (Performance, Customization, Features)
 if [ -f "$REPO_ROOT/apply-all-custom.sh" ]; then
