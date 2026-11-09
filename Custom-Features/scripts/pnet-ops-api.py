@@ -18,19 +18,39 @@ PID_FILE = "/var/run/azam-ops-api.pid"
 # ──────────────────────────────────────────────────────────────────────────────
 # Whitelisted commands (name → real command)
 # ──────────────────────────────────────────────────────────────────────────────
+
+def resolve_script(canonical_name):
+    """Finds canonical pnet-* script with fallback to legacy azambasha-* aliases."""
+    legacy_name = canonical_name.replace("pnet-", "azambasha-")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        f"/opt/unetlab/scripts/{canonical_name}",
+        f"/usr/local/bin/{canonical_name}",
+        os.path.join(script_dir, canonical_name),
+        os.path.join(os.path.dirname(script_dir), "scripts", canonical_name),
+        f"/opt/unetlab/scripts/{legacy_name}",
+        f"/usr/local/bin/{legacy_name}",
+        os.path.join(script_dir, legacy_name),
+        os.path.join(os.path.dirname(script_dir), "scripts", legacy_name),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    return f"/opt/unetlab/scripts/{canonical_name}"
+
 COMMANDS = {
     # Optimization Engine
-    "optimizer-check":    ["bash", "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh", "--check"],
-    "optimizer-run":      ["bash", "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh", "--apply"],
-    "optimizer-dry-run":  ["bash", "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh", "--dry-run"],
-    "optimizer-compress": ["bash", "/opt/unetlab/scripts/azambasha-heavy-node-optimizer.sh", "--compress-images"],
+    "optimizer-check":    ["bash", resolve_script("pnet-heavy-node-optimizer.sh"), "--check"],
+    "optimizer-run":      ["bash", resolve_script("pnet-heavy-node-optimizer.sh"), "--apply"],
+    "optimizer-dry-run":  ["bash", resolve_script("pnet-heavy-node-optimizer.sh"), "--dry-run"],
+    "optimizer-compress": ["bash", resolve_script("pnet-heavy-node-optimizer.sh"), "--compress-images"],
     "doctor-compress":    ["bash", "/usr/local/bin/pnet-doctor", "--compress"],
 
     # Health, Monitoring & Auditing
-    "audit":             ["bash", "/opt/unetlab/scripts/azambasha-quarterly-audit.sh"],
-    "health-check":      ["bash", "/opt/unetlab/scripts/azambasha-health-check.sh"],
-    "dry-test":          ["python3", "/opt/unetlab/scripts/azambasha-dry-test.py"],
-    "update-check":      ["bash", "/opt/unetlab/scripts/azambasha-update.sh", "--check"],
+    "audit":             ["bash", resolve_script("pnet-quarterly-audit.sh")],
+    "health-check":      ["bash", resolve_script("pnet-health-check.sh")],
+    "dry-test":          ["python3", resolve_script("pnet-dry-test.py")],
+    "update-check":      ["bash", resolve_script("pnet-update.sh"), "--check"],
     "fleet":         ["bash", "/usr/local/bin/pnet-fleet"],
     "capacity":      ["python3", "/usr/local/bin/pnet-capacity"],
     "doctor":        ["bash", "/usr/local/bin/pnet-doctor", "--check"],
@@ -55,32 +75,32 @@ COMMANDS = {
     # AI Lab Copilot
     "ai-generate":        None,
     "ai-diagnose":        None,
-    "ai-templates":       ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--list-templates"],
+    "ai-templates":       ["python3", resolve_script("pnet-ai-copilot.py"), "--list-templates"],
 
     # Config Diff & Rollback
-    "config-snapshot":    ["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--snapshot"],
-    "config-nodes":       ["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--nodes"],
+    "config-snapshot":    ["python3", resolve_script("pnet-config-diff.py"), "--snapshot"],
+    "config-nodes":       ["python3", resolve_script("pnet-config-diff.py"), "--nodes"],
     "config-diff":        None,
     "config-rollback":    None,
 
     # Ping Mesh & Traffic Gen
-    "mesh-sweep":         ["python3", "/opt/unetlab/scripts/azambasha-ping-mesh.py", "--sweep"],
+    "mesh-sweep":         ["python3", resolve_script("pnet-ping-mesh.py"), "--sweep"],
     "mesh-traffic":       None,
 
     # Scheduler & Quotas
-    "scheduler-status":   ["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--status"],
-    "scheduler-check":    ["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--check"],
-    "scheduler-stop-idle":["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--stop-idle"],
-    "scheduler-install":  ["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--install"],
+    "scheduler-status":   ["python3", resolve_script("pnet-scheduler.py"), "--status"],
+    "scheduler-check":    ["python3", resolve_script("pnet-scheduler.py"), "--check"],
+    "scheduler-stop-idle":["python3", resolve_script("pnet-scheduler.py"), "--stop-idle"],
+    "scheduler-install":  ["python3", resolve_script("pnet-scheduler.py"), "--install"],
 
 
 
     # Cloud & Real-LAN Transit
-    "bridge-status":      ["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--status"],
-    "bridge-enable-nat":  ["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--enable-nat"],
-    "bridge-disable-nat": ["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--disable-nat"],
-    "bridge-wireguard-up":["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--wireguard-up"],
-    "bridge-wireguard-down":["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--wireguard-down"],
+    "bridge-status":      ["python3", resolve_script("pnet-cloud-bridge.py"), "--status"],
+    "bridge-enable-nat":  ["python3", resolve_script("pnet-cloud-bridge.py"), "--enable-nat"],
+    "bridge-disable-nat": ["python3", resolve_script("pnet-cloud-bridge.py"), "--disable-nat"],
+    "bridge-wireguard-up":["python3", resolve_script("pnet-cloud-bridge.py"), "--wireguard-up"],
+    "bridge-wireguard-down":["python3", resolve_script("pnet-cloud-bridge.py"), "--wireguard-down"],
 
     # Anti-Bootstorm Engine
     "bootstorm-start":    None,
@@ -418,7 +438,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
 
         elif norm_path == "/azam-ops/api/mesh/sweep":
             try:
-                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-ping-mesh.py", "--sweep", "--json"],
+                r = subprocess.run(["python3", resolve_script("pnet-ping-mesh.py"), "--sweep", "--json"],
                                    capture_output=True, text=True, timeout=15)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
@@ -426,7 +446,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
 
         elif norm_path == "/azam-ops/api/ai/templates":
             try:
-                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--list-templates", "--json"],
+                r = subprocess.run(["python3", resolve_script("pnet-ai-copilot.py"), "--list-templates", "--json"],
                                    capture_output=True, text=True, timeout=10)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
@@ -434,7 +454,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
 
         elif norm_path == "/azam-ops/api/config/nodes":
             try:
-                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--nodes", "--json"],
+                r = subprocess.run(["python3", resolve_script("pnet-config-diff.py"), "--nodes", "--json"],
                                    capture_output=True, text=True, timeout=10)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
@@ -442,7 +462,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
 
         elif norm_path == "/azam-ops/api/scheduler/status":
             try:
-                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-scheduler.py", "--status", "--json"],
+                r = subprocess.run(["python3", resolve_script("pnet-scheduler.py"), "--status", "--json"],
                                    capture_output=True, text=True, timeout=10)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
@@ -450,7 +470,7 @@ class AzamOpsHandler(BaseHTTPRequestHandler):
 
         elif norm_path == "/azam-ops/api/bridge/status":
             try:
-                r = subprocess.run(["python3", "/opt/unetlab/scripts/azambasha-cloud-bridge.py", "--status", "--json"],
+                r = subprocess.run(["python3", resolve_script("pnet-cloud-bridge.py"), "--status", "--json"],
                                    capture_output=True, text=True, timeout=10)
                 self.reply_json(json.loads(r.stdout))
             except Exception as e:
@@ -774,28 +794,28 @@ print("[*] AzamLabs Python SDK Loaded.")
                     tmpl = params.get("template", "")
                     prompt = params.get("prompt", "")
                     if tmpl:
-                        cmd = ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--template", tmpl]
+                        cmd = ["python3", resolve_script("pnet-ai-copilot.py"), "--template", tmpl]
                     elif prompt:
-                        cmd = ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--prompt", prompt]
+                        cmd = ["python3", resolve_script("pnet-ai-copilot.py"), "--prompt", prompt]
                     else:
-                        cmd = ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--template", "cisco_ospf"]
+                        cmd = ["python3", resolve_script("pnet-ai-copilot.py"), "--template", "cisco_ospf"]
                 elif tool == "ai-diagnose":
                     log_txt = params.get("log", "").strip()
-                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-ai-copilot.py", "--diagnose", log_txt or "show ip ospf neighbor"]
+                    cmd = ["python3", resolve_script("pnet-ai-copilot.py"), "--diagnose", log_txt or "show ip ospf neighbor"]
                 elif tool == "config-diff":
                     rev_a = params.get("rev_a", "")
                     rev_b = params.get("rev_b", "")
-                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--diff", rev_a, rev_b]
+                    cmd = ["python3", resolve_script("pnet-config-diff.py"), "--diff", rev_a, rev_b]
                 elif tool == "config-rollback":
                     lab = params.get("lab", "default_lab")
                     node = params.get("node", "R1-Border-Gateway")
                     rev = params.get("revision", "")
-                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-config-diff.py", "--lab", lab, "--node", node, "--rollback", rev]
+                    cmd = ["python3", resolve_script("pnet-config-diff.py"), "--lab", lab, "--node", node, "--rollback", rev]
                 elif tool == "mesh-traffic":
                     target = params.get("target", "192.168.1.1")
                     rate = str(params.get("rate", "5"))
                     dur = str(params.get("duration", "5"))
-                    cmd = ["python3", "/opt/unetlab/scripts/azambasha-ping-mesh.py", "--traffic-gen", "--target", target, "--rate", rate, "--duration", dur]
+                    cmd = ["python3", resolve_script("pnet-ping-mesh.py"), "--traffic-gen", "--target", target, "--rate", rate, "--duration", dur]
                 elif tool == "bootstorm-start":
                     lab = params.get("lab", "").strip()
                     heavy_delay = str(params.get("heavy_delay", "18"))
@@ -881,9 +901,9 @@ print("[*] AzamLabs Python SDK Loaded.")
                     bootstorm_bin = "/usr/local/bin/pnet-bootstorm"
                     if not os.path.exists(bootstorm_bin):
                         for candidate in [
-                            "/opt/unetlab/scripts/azambasha-bootstorm.py",
-                            "/opt/unetlab/scripts/azambasha-bootstorm.py",
-                            os.path.join(os.path.dirname(os.path.abspath(__file__)), "azambasha-bootstorm.py")
+                            resolve_script("pnet-bootstorm.py"),
+                            resolve_script("pnet-bootstorm.py"),
+                            os.path.join(os.path.dirname(os.path.abspath(__file__)), "pnet-bootstorm.py")
                         ]:
                             if os.path.exists(candidate):
                                 bootstorm_bin = candidate
@@ -1003,9 +1023,9 @@ print("[*] AzamLabs Python SDK Loaded.")
                 return
             script = "/usr/local/bin/pnet-airgap-pack"
             if not os.path.isfile(script):
-                script = "/opt/unetlab/scripts/azambasha-airgap-pack.sh"
+                script = resolve_script("pnet-airgap-pack.sh")
             if not os.path.isfile(script):
-                script = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "azambasha-airgap-pack.sh")
+                script = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "pnet-airgap-pack.sh")
             def run_bundle():
                 subprocess.run(["bash", script], capture_output=True, text=True)
             threading.Thread(target=run_bundle, daemon=True).start()
@@ -1038,9 +1058,9 @@ print("[*] AzamLabs Python SDK Loaded.")
             rate = body.get("rate", "10mbit")
             script = "/usr/local/bin/pnet-link-impairment"
             if not os.path.isfile(script):
-                script = "/opt/unetlab/scripts/azambasha-link-impairment.sh"
+                script = resolve_script("pnet-link-impairment.sh")
             if not os.path.isfile(script):
-                script = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "azambasha-link-impairment.sh")
+                script = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "pnet-link-impairment.sh")
             cmd = ["bash", script]
             if action == "clear":
                 cmd.extend(["clear", iface])

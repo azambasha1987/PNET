@@ -435,6 +435,24 @@ class PNetReleaseEngine:
                     if f.is_file():
                         overlays.append((f"opt/unetlab/html/ops-center/{f.name}", f, 0o644))
 
+            # Web-UI JS modules
+            web_js = web_main / "js"
+            if web_js.is_dir():
+                for f in web_js.glob("*.js"):
+                    overlays.append((f"opt/unetlab/html/main/js/{f.name}", f, 0o644))
+
+            # Floating console window script
+            wc_js = web_main / "pnetlab-webconsole.js"
+            if wc_js.is_file():
+                overlays.append(("opt/unetlab/html/themes/default/js/pnetlab-webconsole.js", wc_js, 0o644))
+                overlays.append(("opt/unetlab/themes/default/js/pnetlab-webconsole.js", wc_js, 0o644))
+
+            # Core PHP API patches
+            patches_inc = self.custom_feat_dir / "patches" / "html" / "includes"
+            if patches_inc.is_dir():
+                for f in patches_inc.glob("*.php"):
+                    overlays.append((f"opt/unetlab/html/includes/{f.name}", f, 0o644))
+
             # Custom-Features: Schema definitions
             feat_schema = self.custom_feat_dir / "schema"
             if feat_schema.is_dir():
@@ -481,12 +499,24 @@ class PNetReleaseEngine:
             for f in feat_scripts.glob("pnet-*"):
                 if f.is_file():
                     overlays.append((f"opt/unetlab/scripts/{f.name}", f, 0o755 if f.suffix in [".sh", ".py"] else 0o644))
+            cat9k = feat_scripts / "config_cat9kv.py"
+            if cat9k.is_file():
+                overlays.append(("opt/unetlab/scripts/config_cat9kv.py", cat9k, 0o755))
+            bridge_py = feat_scripts / "http_ws_bridge.py"
+            if bridge_py.is_file():
+                overlays.append(("opt/pnet-webconsole/backend/http_ws_bridge.py", bridge_py, 0o755))
+            manifest_f = feat_scripts / "docker-template-manifest.sha256"
+            if manifest_f.is_file():
+                overlays.append(("opt/unetlab/scripts/docker-template-manifest.sha256", manifest_f, 0o644))
 
         # 6. Repository scripts: Canonical administrative tools
         if self.scripts_dir.is_dir():
             for s_path in self.scripts_dir.glob("pnet-*"):
                 if s_path.is_file():
                     overlays.append((f"opt/unetlab/scripts/{s_path.name}", s_path, 0o755 if s_path.suffix in [".sh", ".py"] else 0o644))
+            manifest_r = self.scripts_dir / "docker-template-manifest.sha256"
+            if manifest_r.is_file():
+                overlays.append(("opt/unetlab/scripts/docker-template-manifest.sha256", manifest_r, 0o644))
 
         # Cloud bridge runner and systemd unit overlay
         br_sh = self.scripts_dir / "pnet-bridges.sh"

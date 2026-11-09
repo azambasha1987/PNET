@@ -3723,6 +3723,33 @@ def _links_reconcile_bg():
         log("links_reconcile failed: %r" % e)
 
 
+
+def _get_real_iface():
+    """Discover real physical uplink network interface."""
+    brif = "/sys/class/net/pnet0/brif"
+    if os.path.isdir(brif):
+        for slave in sorted(os.listdir(brif)):
+            if os.path.exists("/sys/class/net/%s/device" % slave):
+                return slave
+    net_dir = "/sys/class/net"
+    if os.path.isdir(net_dir):
+        for dev in sorted(os.listdir(net_dir)):
+            if dev == "lo" or dev.startswith(("pnet", "docker", "veth", "virbr", "tun", "tap", "br-", "dummy", "wg", "zt")):
+                continue
+            if os.path.exists(os.path.join(net_dir, dev, "device")):
+                return dev
+    try:
+        res = subprocess.run(["ip", "-o", "link", "show"], capture_output=True, text=True, timeout=5)
+        for line in res.stdout.splitlines():
+            parts = line.split(":")
+            if len(parts) >= 2:
+                name = parts[1].strip().split("@")[0]
+                if name.startswith(("ens", "enp", "eno", "eth")) and not name.startswith("pnet"):
+                    return name
+    except Exception:
+        pass
+    return "eth0"
+
 def _docker0_offload_once():
     """SR Linux needs tx offload off on the host's docker0. It used to be a
     `sudo ethtool` on every SR Linux start; owner ruling (c) 2026-10-13: once,
@@ -10684,6 +10711,16 @@ def main():
     srv = Server(SOCK_PATH, Handler)
     os.chmod(SOCK_PATH, 0o660)
     shutil.chown(SOCK_PATH, "root", SOCK_GROUP)
+    # Maintain compatibility symlink for legacy /run/azamlabs/broker.sock
+    try:
+        legacy_dir = "/run/azamlabs"
+        os.makedirs(legacy_dir, exist_ok=True)
+        legacy_sock = os.path.join(legacy_dir, "broker.sock")
+        if os.path.islink(legacy_sock) or os.path.exists(legacy_sock):
+            os.unlink(legacy_sock)
+        os.symlink(SOCK_PATH, legacy_sock)
+    except Exception:
+        pass
     log("pnetlab-brokerd listening on %s (%d verbs)" %
         (SOCK_PATH, len(VERBS)))
     # slice 4: reconcile tagged links against the DB once, off the accept path

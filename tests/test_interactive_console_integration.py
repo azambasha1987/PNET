@@ -17,15 +17,29 @@ except ImportError:
 if not PLAYWRIGHT_AVAILABLE and pytest:
     pytest.skip("Playwright not installed; skipping browser console integration test.", allow_module_level=True)
 
+def is_live_vm_ready(host):
+    if not host or "<" in host or ">" in host:
+        return False
+    import socket
+    try:
+        s = socket.create_connection((host, 80), timeout=1.5)
+        s.close()
+        return True
+    except (socket.timeout, OSError):
+        return False
+
 class TestInteractiveConsoleIntegration(unittest.TestCase):
     def test_interactive_console_integration(self):
         if not PLAYWRIGHT_AVAILABLE:
             self.skipTest("Playwright not installed; skipping browser console integration test.")
-        main()
+        master_ip = os.environ.get("PNET_MASTER_IP", "").strip()
+        if not is_live_vm_ready(master_ip):
+            self.skipTest("Live PNetLab master VM not configured (PNET_MASTER_IP) or unreachable; skipping interactive test.")
+        main(master_ip)
 
 ARTIFACT_DIR = r"C:\Users\azamb\.gemini\antigravity\brain\53959bcc-ebd3-4baa-a7c6-5bcbd4f78f68"
 
-def main():
+def main(master_ip="127.0.0.1"):
     with sync_playwright() as p:
         print("[1] Launching Chrome...")
         browser = p.chromium.launch(
@@ -36,7 +50,7 @@ def main():
         page = context.new_page()
 
         print("[2] Logging in to PNetLab...")
-        page.goto("http://<MASTER_IP>/login/")
+        page.goto(f"http://{master_ip}/login/")
         page.fill('input[name="username"]', 'admin')
         page.fill('input[name="password"]', 'pnet')
         btn = page.query_selector('button[type="submit"]') or page.query_selector('button') or page.query_selector('input[type="submit"]')
@@ -45,7 +59,7 @@ def main():
         page.wait_for_timeout(3000)
 
         print("[3] Navigating to Lab Topology...")
-        page.goto("http://<MASTER_IP>/legacy/topology")
+        page.goto(f"http://{master_ip}/legacy/topology")
         page.wait_for_timeout(4000)
 
         # Set HTML5 console mode in localStorage

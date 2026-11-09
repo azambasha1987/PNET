@@ -20,7 +20,7 @@
     "pnetlab-vpcs": "6.8.93",
     "pnetlab": "6.8.93"
   },
-  "generated_utc": "2026-11-05T08:10:33Z",
+  "generated_utc": "2026-11-09T14:36:21Z",
   "install_profiles": {
     "master": {
       "best_effort_debs": [
@@ -48,7 +48,7 @@
     }
   },
   "min_bootstrap_version": "2026.08.22",
-  "not_valid_after": "2027-02-03T08:10:33Z",
+  "not_valid_after": "2027-02-07T14:36:21Z",
   "oci": {
     "pnet-wifi-spike:1.0": {
       "image_id": "sha256:fba55307f4adbd62bafc55978a7c0bc3d31022674a104550df70b37587ed4ef6",
@@ -60,9 +60,9 @@
   "release": "6.8.93",
   "satellite_installer": {
     "name": "pnetlab-install-resolute-satellite-6.8.93.sh",
-    "sha256": "e5d862023dd26a4dc451fdc267749697ff6e4f7e342170f7a21288db029698ff",
+    "sha256": "e335b80102fa3cae98b71c4f253a6a12f7ee953fc8357e0b56a265e0af68b955",
     "url": "https://codeberg.org/api/packages/netkillui/generic/pnetlab-core-assets/6.8.93/pnetlab-install-resolute-satellite-6.8.93.sh"
   },
   "schema": 1,
-  "sequence": 94
+  "sequence": 95
 }

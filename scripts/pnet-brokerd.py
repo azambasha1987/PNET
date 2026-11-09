@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# azamlabs-brokerd — root privilege broker for the AzamLabs engine (B1).
+# pnetlab-brokerd — root privilege broker for the PNetLab engine (B1).
 #
 # Replaces the engine's exec("sudo ...") call sites: a root daemon on a unix
 # socket exposing an ALLOWLISTED verb set with per-argument validation. PHP
@@ -12,11 +12,14 @@
 # Peer must be uid 0 or www-data (SO_PEERCRED). Every request is logged to
 # journald (stderr). Unknown verbs / bad args are rejected, never executed.
 #
-# Run via azamlabs-brokerd.service (shipped in the azamlabs deb).
+# Run via pnetlab-brokerd.service (shipped in the pnetlab deb).
 
+import fnmatch
 import hashlib
 import hmac
+import io
 import ipaddress
+import itertools
 import json
 import math
 import queue
@@ -24,14 +27,17 @@ import os
 import pwd
 import re
 import secrets
+import select
 import shlex
 import signal
 import shutil
 import socket
 import socketserver
+import stat as statmod
 import ssl
 import struct
 import subprocess
+import tarfile
 import sys
 import tempfile
 import threading
@@ -40,23 +46,18 @@ import zlib
 import importlib.util
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcp"))
-try:
-    from ai_ledger import UsageLedger
-except Exception:
-    class UsageLedger:
-        def __init__(self, *args, **kwargs): pass
-        def read(self): return {}
-        def used(self, *args, **kwargs): return 0
-        def add(self, *args, **kwargs): pass
+from ai_ledger import UsageLedger
 
 try:
     import yaml
 except Exception:      # pragma: no cover - broker refuses docker_create without it
     yaml = None
 
-SOCK_PATH = "/run/azamlabs/broker.sock"
+SOCK_PATH = "/run/pnetlab/broker.sock"
 SOCK_GROUP = "www-data"
-MAX_REQUEST = 1048576
+# One JSON request line; a lab_steps batch for the largest node (a few hundred
+# steps of ~120 bytes) stays well under this.
+MAX_REQUEST = 524288
 
 # Native RoCE endpoint controller (v1).  The guest agent has two fixed,
 # read-only status resources. Keep the transport limits here rather than
@@ -66,7 +67,7 @@ ROCE_AGENT_TIMEOUT = 2.0
 ROCE_AGENT_MAX_RESPONSE = 32768
 ROCE_BROKER_API = "rxe-broker/v1"
 ROCE_WORKLOAD_API = "rxe-workload/v1"
-ROCE_RUN_DIR = "/run/azamlabs/roce"
+ROCE_RUN_DIR = "/run/pnetlab/roce"
 ROCE_RUN_LIMIT = 64
 ROCE_WORKLOAD_LOCK = threading.RLock()
 RE_ROCE_RUN = re.compile(r"^[0-9a-f]{32}$")
@@ -75,8 +76,20 @@ RE_ROCE_UUID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 BASE = "/opt/unetlab"
 LABS_DIR = BASE + "/labs"
 TMP_DIR = BASE + "/tmp"
+# Written by pnet-satellite-join; its presence (root-owned regular file) is the
+# satellite role. A satellite has no local MySQL: see _satellite_role().
+SATELLITE_CONF = "/etc/pnetlab-satellite/satd.conf"
 UNL_WRAPPER = BASE + "/wrappers/unl_wrapper"
 NSENTER = BASE + "/wrappers/nsenter"
+# Host-side DHCP/addressing for docker-family nodes: host binaries run in the
+# container's net ns only (never -r -m), so no container-resident file executes.
+HOST_BUSYBOX = "/usr/bin/busybox"
+HOST_IP = "/usr/sbin/ip"
+UDHCPC_SCRIPT = BASE + "/wrappers/udhcpc-host.script"
+UDHCPC_SETPRIV = ["/usr/bin/setpriv", "--no-new-privs", "--inh-caps=-all",
+                  "--bounding-set=-all,+net_admin,+net_raw,+net_bind_service",
+                  "--"]
+RE_RESOLV_PATH = re.compile(r"/var/lib/docker/containers/[0-9a-f]{64}/resolv\.conf\Z")
 WRAPPER_LOG = BASE + "/data/Logs/unl_wrapper.txt"
 
 # Appliance-wide QEMU CPU policy.  The flag is deliberately kept beside the
@@ -84,8 +97,10 @@ WRAPPER_LOG = BASE + "/data/Logs/unl_wrapper.txt"
 # metadata is runtime-only: it records the authoritative value supplied by
 # DeviceQemu at attach time so a policy toggle never has to parse QEMU argv.
 CPU_POLICY_FILE = BASE + "/cpulimit"
-CPU_SCOPE_ROOT = "/sys/fs/cgroup/azamlabs.slice"
-CPU_SCOPE_STATE_DIR = "/run/azamlabs/qemu-cpu"
+SCOPE_SLICE = "pnetlab.slice"
+CPU_SCOPE_ROOT = "/sys/fs/cgroup/" + SCOPE_SLICE
+CPU_SCOPE_STATE_DIR = "/run/pnetlab/qemu-cpu"
+IOL_L1_STATE_DIR = "/run/pnetlab/iol-l1"     # per-interface suspend marks read by iol_wrapper
 CPU_PERIOD_US = 100000
 CPU_WEIGHT = 100
 CPU_QUOTA_PER_VCPU_PERCENT = 50
@@ -126,12 +141,7 @@ AI_USAGE = AI_DIR + "/usage.json"               # per-day, per-pod token ledger 
 AI_PROGRESS_DIR = AI_DIR + "/progress"          # per-pod live build event stream (P7)
 AI_AGENT = BASE + "/scripts/mcp/ai_lab_agent.py"
 MCP_UNIT = "pnetlab-mcp.service"
-for _cand in [BASE + "/scripts/mcp/pnet-mcp.service", BASE + "/scripts/mcp/pnetlab-mcp.service", BASE + "/scripts/mcp/azamlabs-mcp.service"]:
-    if os.path.isfile(_cand):
-        MCP_UNIT_SRC = _cand
-        break
-else:
-    MCP_UNIT_SRC = BASE + "/scripts/mcp/pnet-mcp.service"
+MCP_UNIT_SRC = BASE + "/scripts/mcp/pnetlab-mcp.service"
 MCP_UNIT_DST = "/etc/systemd/system/pnetlab-mcp.service"
 MCP_SERVICE_OPS = {"start", "stop", "restart", "enable", "disable", "status"}
 RE_TOKEN_NAME = re.compile(r"^[A-Za-z0-9 _.-]{1,48}$")
@@ -151,7 +161,7 @@ ADDONS_QEMU = BASE + "/addons/qemu"
 # the linked clone (`^[a-zA-Z0-9]+.qcow2$`), minus that one's unescaped dot.
 RE_QEMU_DISK = re.compile(r"^[a-zA-Z0-9]{1,64}\.qcow2$")
 # A destination image DIRECTORY NAME — never a path. Dots ARE allowed because
-# AzamLabs's own qemu image dirs use them by convention
+# PNetLab's own qemu image dirs use them by convention
 # (vios-adventerprisek9-m.spa.159-3.m8), and a saved image that cannot follow
 # the house naming would just get renamed by hand afterwards. Safety comes from
 # the first character having to be alphanumeric — so "." and ".." cannot be
@@ -229,7 +239,9 @@ LW_PRESETS = {
     "cdp":   {"l2": "ether dst 01:00:0c:cc:cc:cc and ether[20:2] = 0x2000"},
     "lldp":  {"l2": "ether proto 0x88cc"},
     "isis":  {"l2": "isis"},
-    "dot1q": {"l2": "vlan"},
+    # Any frame: the tag test itself is the BPF prefix (_lw_vlan_match), because
+    # the kernel strips the tag before filters see it and "vlan" matches nothing.
+    "dot1q": {"l2": "len >= 0"},
     # IP routing protocols (IPv4 / IPv6 variants)
     "ospf":  {"v4": "ip proto 89", "v6": "ip6 proto 89"},
     "eigrp": {"v4": "ip proto 88", "v6": "ip6 proto 88"},
@@ -264,7 +276,7 @@ LW_PRESETS = {
 # All fragments MUST compile: verified with `tcpdump -y EN10MB -ddd '<expr>'`.
 #
 # SKIP list (cBPF can't walk v6 extension headers): IPv6 variants of
-# eigrp/bgp/rip/lisp/vxlan subtypes; CDP/LLDP TLVs; dot1q per-VID.
+# eigrp/bgp/rip/lisp/vxlan subtypes; CDP/LLDP TLVs.
 LW_SUBTYPES = {
     "icmp": {
         "echo-req":   {"v4": "icmp[icmptype]=8",   "v6": "icmp6 and ip6[40]=128"},
@@ -692,6 +704,27 @@ def spawn_unit(unit, argv, props=(), setenv=()):
     return unit
 
 
+# Lab daemons (unl_wrapper -> IOL, QEMU console bridges, VPCS, docker bridges) and
+# router dnsmasq must not stay in pnetlab-brokerd.service's cgroup: a broker restart,
+# Restart=on-failure or a deb upgrade stops that cgroup and would SIGTERM every node.
+_SCOPE_SEQ = itertools.count(1)
+
+
+def scope_argv(unit, argv, description):
+    """Pure: argv that runs argv inside transient scope `unit` in SCOPE_SLICE.
+    --scope makes systemd-run exec argv in-process, so rc/stdout/stderr pass through."""
+    return ["systemd-run", "--scope", "--quiet", "--collect",
+            "--slice=" + SCOPE_SLICE, "--unit=" + unit,
+            "--description=" + description, "--"] + list(argv)
+
+
+def scope_unit_name(prefix, *parts):
+    """`<prefix>-<parts>-<unique>.scope`; pid + counter + random so repeated or
+    concurrent calls never reuse a live scope name."""
+    uniq = "%d-%d-%s" % (os.getpid(), next(_SCOPE_SEQ), secrets.token_hex(3))
+    return "-".join([prefix] + [str(p) for p in parts] + [uniq]) + ".scope"
+
+
 def _require_root_script(path):
     """Refuse to root-EXEC a script that a www-data foothold could have authored:
     it must be a regular file, owned by root, and not group/other-writable. Fails
@@ -747,7 +780,7 @@ def _cpu_policy_enabled():
 
 
 def _qemu_scope_unit(session):
-    return "azamlabs-qemu-%d.scope" % session
+    return "pnetlab-qemu-%d.scope" % session
 
 
 def _qemu_scope_metadata_path(session):
@@ -915,7 +948,7 @@ def _discover_qemu(session):
 
 
 def _scope_cgroup_path(unit):
-    if not re.fullmatch(r"azamlabs-qemu-[0-9]+\.scope", unit):
+    if not re.fullmatch(r"pnetlab-qemu-[0-9]+\.scope", unit):
         raise Reject("bad QEMU scope unit")
     return os.path.join(CPU_SCOPE_ROOT, unit)
 
@@ -937,7 +970,7 @@ def _read_scope_value(path, name):
 def _verify_qemu_scope(pid, session, unit, starttime, cpu_max, weight):
     """Verify PID identity, cgroup membership, and exact controller values."""
     deadline = time.monotonic() + CPU_SCOPE_VERIFY_SECONDS
-    expected_path = "/azamlabs.slice/" + unit
+    expected_path = "/pnetlab.slice/" + unit
     path = _scope_cgroup_path(unit)
     while True:
         ok, current_starttime = _qemu_identity(pid, session)
@@ -978,19 +1011,19 @@ def _qemu_quota_us(smp):
 
 
 def _qemu_quota_timer_unit(session):
-    return "azamlabs-qemu-%d-quota.timer" % session
+    return "pnetlab-qemu-%d-quota.timer" % session
 
 
-def _set_azamlabs_slice_weight():
+def _set_pnetlab_slice_weight():
     rc, out, err = run([
-        "systemctl", "set-property", "--runtime", "azamlabs.slice",
+        "systemctl", "set-property", "--runtime", "pnetlab.slice",
         "CPUWeight=%d" % CPU_WEIGHT,
     ], timeout=30, check_rc=False)
     if rc != 0:
-        raise Reject("set-property failed for azamlabs.slice: %s" %
+        raise Reject("set-property failed for pnetlab.slice: %s" %
                      (err.strip() or rc))
     if _read_scope_value(CPU_SCOPE_ROOT, "cpu.weight") != str(CPU_WEIGHT):
-        raise Reject("azamlabs.slice CPUWeight read-back mismatch")
+        raise Reject("pnetlab.slice CPUWeight read-back mismatch")
 
 
 def _run_qemu_scope(unit, pid, session, smp):
@@ -1001,7 +1034,7 @@ def _run_qemu_scope(unit, pid, session, smp):
         "org.freedesktop.systemd1.Manager", "StartTransientUnit",
         "ssa(sv)a(sa(sv))", unit, "fail", "6",
         "PIDs", "au", "1", str(pid),
-        "Slice", "s", "azamlabs.slice",
+        "Slice", "s", "pnetlab.slice",
         "CPUQuotaPerSecUSec", "t", str(CPU_QUOTA_INFINITY_US),
         "CPUQuotaPeriodUSec", "t", str(CPU_PERIOD_US),
         "CPUWeight", "t", str(CPU_WEIGHT),
@@ -1077,7 +1110,7 @@ def verb_qemu_cpu_scope(args):
         try:
             pid, starttime = _discover_qemu(session)
             _run_qemu_scope(unit, pid, session, smp)
-            _set_azamlabs_slice_weight()
+            _set_pnetlab_slice_weight()
             _verify_qemu_scope(pid, session, unit, starttime,
                                "max %d" % CPU_PERIOD_US,
                                str(CPU_WEIGHT))
@@ -1111,7 +1144,7 @@ def _iter_qemu_scope_units():
     except OSError as e:
         raise Reject("cannot enumerate QEMU scopes: %s" % e)
     return sorted(name for name in names
-                  if re.fullmatch(r"azamlabs-qemu-[0-9]+\.scope", name))
+                  if re.fullmatch(r"pnetlab-qemu-[0-9]+\.scope", name))
 
 
 def _scope_qemu_pid(unit, session):
@@ -1159,7 +1192,7 @@ def verb_qemu_cpu_policy(args):
         units = _iter_qemu_scope_units()
         targets = []
         for unit in units:
-            session = int(re.fullmatch(r"azamlabs-qemu-([0-9]+)\.scope",
+            session = int(re.fullmatch(r"pnetlab-qemu-([0-9]+)\.scope",
                                        unit).group(1))
             target = _scope_qemu_pid(unit, session)
             if target is None:
@@ -1228,6 +1261,13 @@ def verb_wrapper(args):
         if not lab.endswith(".unl"):
             raise Reject("lab must be a .unl file")
         argv += ["-F", lab]
+        # own scope per lab action so a broker restart does not stop its daemons
+        sess = v_int(args, "session")
+        if args.get("node") is not None:
+            unit = scope_unit_name("pnetlab-node", sess, v_int(args, "node"))
+        else:
+            unit = scope_unit_name("pnetlab-lab", sess)
+        argv = scope_argv(unit, argv, "unl_wrapper " + action)
     elif action in WRAPPER_BARE_ACTIONS:
         argv += [action]
     else:
@@ -1305,8 +1345,8 @@ def verb_winbox_rdp_attach(args):
     pid = str(v_int(args, "pid"))
     ip = v_ip(args, "ip")
     if not link_exists("rdp" + uid):
-        run_quiet(["ip", "link", "add", "rdp" + uid,
-                   "type", "veth", "peer", "name", "dc0" + uid])
+        run_quiet(["ip", "link", "add", "rdp" + uid] + _group_args(lab_session) +
+                  ["type", "veth", "peer", "name", "dc0" + uid])
         run_quiet(["ip", "link", "set", "dev", "rdp" + uid, "up"])
         run_quiet(["ip", "link", "set", "dev", "dc0" + uid, "up"])
         run_quiet(["ip", "link", "set", "netns", pid, "dc0" + uid,
@@ -1328,8 +1368,8 @@ def verb_winbox_span_attach(args):
     pid = str(v_int(args, "pid"))
     net = v_re(args, "net", RE_NET)
     if not link_exists("span" + uid):
-        run_quiet(["ip", "link", "add", "span" + uid,
-                   "type", "veth", "peer", "name", "cap" + uid])
+        run_quiet(["ip", "link", "add", "span" + uid] + _group_args(lab_session) +
+                  ["type", "veth", "peer", "name", "cap" + uid])
         run_quiet(["ip", "link", "set", "dev", "span" + uid, "up"])
         run_quiet(["ip", "link", "set", "dev", "span" + uid, "mtu", "9000"])
         run_quiet(["ip", "link", "set", "dev", "cap" + uid, "up"])
@@ -1350,12 +1390,12 @@ def verb_capture_links_del(args):
 
 
 def verb_capture_rdp_attach(args):
-    uid = _uid_of(args)[4]
+    _, lab_session, _, _, uid = _uid_of(args)
     pid = str(v_int(args, "pid"))
     ip = v_ip(args, "ip")
     if not link_exists("rdp" + uid):
-        run_quiet(["ip", "link", "add", "rdp" + uid,
-                   "type", "veth", "peer", "name", "dc0" + uid])
+        run_quiet(["ip", "link", "add", "rdp" + uid] + _group_args(lab_session) +
+                  ["type", "veth", "peer", "name", "dc0" + uid])
         run_quiet(["ip", "link", "set", "dev", "rdp" + uid, "up"])
         run_quiet(["ip", "link", "set", "dev", "dc0" + uid, "up"])
         run_quiet(["ip", "link", "set", "netns", pid, "dc0" + uid,
@@ -1368,7 +1408,7 @@ def verb_capture_rdp_attach(args):
 
 
 def verb_capture_mirror_attach(args):
-    uid = _uid_of(args)[4]
+    _, lab_session, _, _, uid = _uid_of(args)
     pid = str(v_int(args, "pid"))
     tap = v_re(args, "tap", RE_TAP)
     target = "cap" + uid
@@ -1389,8 +1429,9 @@ def verb_capture_mirror_attach(args):
         created_filters = []
         try:
             if not link_exists(target):
-                _tc_step(["ip", "link", "add", target, "type", "veth",
-                          "peer", "name", "dcap" + uid])
+                _tc_step(["ip", "link", "add", target] +
+                         _group_args(lab_session) +
+                         ["type", "veth", "peer", "name", "dcap" + uid])
                 created_link = True
                 _tc_step(["ip", "link", "set", "dev", target, "up"])
                 _tc_step(["ip", "link", "set", "dev", target, "mtu", "9000"])
@@ -1455,7 +1496,7 @@ def verb_capture_teardown(args):
                           for direction in CAPTURE_FILTERS}
                 if "foreign" in states.values():
                     # Do not strand a foreign mirror action pointing at a deleted
-                    # device merely because it occupies AzamLabs's reserved pref.
+                    # device merely because it occupies PNetLab's reserved pref.
                     raise Reject("capture filter ownership conflict on " + tap)
                 for direction in CAPTURE_FILTERS:
                     try:
@@ -1528,38 +1569,40 @@ def verb_wireshark_container_remove(args):
     t = v_int(args, "tenant")
     s = v_int(args, "session")
     lab_id = "%d_%d" % (t, s)
-    run_quiet(["a2disconf", "pnet-capture-" + lab_id])
-    try:
-        os.unlink("/etc/apache2/conf-available/pnet-capture-%s.conf" % lab_id)
-    except OSError:
-        pass
-    run_quiet(["apache2ctl", "graceful"])
+    # Legacy per-lab capture vhost cleanup. Nothing creates these confs any
+    # more, and this verb runs on every node stop: only touch Apache (and
+    # gracefully restart it) when one is actually left behind.
+    conf = "pnet-capture-%s.conf" % lab_id
+    if (os.path.lexists("/etc/apache2/conf-available/" + conf) or
+            os.path.lexists("/etc/apache2/conf-enabled/" + conf)):
+        run_quiet(["a2disconf", "pnet-capture-" + lab_id])
+        try:
+            os.unlink("/etc/apache2/conf-available/" + conf)
+        except OSError:
+            pass
+        run_quiet(["apache2ctl", "graceful"])
     run_quiet(["ip", "link", "del", "wm" + lab_id])
     return 0, [], ""
 
 
 def verb_session_cleanup(args):
     s = v_int(args, "session")
-    # exact ^vnet<S>_ match — the old "grep vnet$S" pipeline also swept
-    # prefix-colliding sessions (vnet1 matched vnet12_*)
-    rc, out, _ = run(["brctl", "show"], timeout=30)
-    prefix = "vnet%d_" % s
-    for line in out:
-        br = line.split("\t")[0].strip()
-        if br.startswith(prefix):
-            run_quiet(["ip", "link", "set", "dev", br, "down"])
-            run_quiet(["brctl", "delbr", br])
-    # cluster overlays: deleting a bridge only DETACHES its vxlan port — sweep
-    # the session's vx<S>_* devices too (exact-prefix match like vnet above)
-    vx_prefix = "vx%d_" % s
-    rc, links, _ = run(["ip", "-o", "link", "show"], timeout=30)
-    for line in links:
+    # slice 4: the lab's links (G(S) members + untagged vnet/vx/router/capture
+    # names of exactly lab S) go through the links_cleanup lab form
+    if 1 <= s <= LAB_SESSION_MAX:
         try:
-            name = line.split(":", 2)[1].strip().split("@")[0]
-        except IndexError:
-            continue
-        if name.startswith(vx_prefix):
-            run_quiet(["ip", "link", "del", name])
+            summary, warnings = _new_summary(), []
+            _cleanup_lab(s, summary, warnings)
+            for w in warnings:
+                log("session_cleanup %d: %s" % (s, w))
+        except Exception as e:
+            log("session_cleanup links: %s" % e)
+        # capture containers of exactly lab S (any tenant): the PHP per-row
+        # removal is the primary path, this catches anything it missed
+        try:
+            _capture_reap(lambda ls: ls != s)
+        except Exception as e:
+            log("session_cleanup %d captures: %s" % (s, e))
     shutil.rmtree("%s/%d" % (TMP_DIR, s), ignore_errors=True)
     # best-effort: stop any link watcher riding this session (any tenant)
     try:
@@ -1588,6 +1631,18 @@ def verb_session_cleanup(args):
 
 
 # ---- Network Watcher (linkwatch) --------------------------------------------
+
+def _lw_vlan_match(f):
+    """VLAN condition of one filter: a VID, "any" (dot1q preset) or None. The
+    daemon turns it into BPF instructions; it never enters the libpcap text.
+    Integers only: digit strings are refused, unlike v_int."""
+    vid = f.get("vlan_id")
+    if vid in ("", None):
+        return "any" if f.get("preset") == "dot1q" else None
+    if type(vid) is not int or vid < 1 or vid > 4094:
+        raise Reject("bad arg vlan_id")
+    return vid
+
 
 def _lw_build_expr(f):
     """Build the libpcap expression for one filter ENTIRELY broker-side from
@@ -1627,22 +1682,12 @@ def _lw_build_expr(f):
     elif proto:
         terms.append(proto)
     if not terms:
-        raise Reject("empty filter")
+        if _lw_vlan_match(f) is None:
+            raise Reject("empty filter")
+        return "len >= 0"       # custom fields + VLAN ID only
     expr = " and ".join(terms)
-    # 6.8.93 Parity (#83): Granular VLAN Tag Filtering (1-4094)
-    # E.g. 'ICMP in VLAN 20' or 'dot1q' with VID: only 802.1Q tagged frames with that VID match
-    vlan_val = f.get("vlan") or f.get("vlan_id") or (f.get("subtype_arg") if preset == "dot1q" else None)
-    if vlan_val is not None and str(vlan_val).strip() != "":
-        try:
-            vid = int(vlan_val)
-            if 1 <= vid <= 4094:
-                if preset == "dot1q":
-                    return "vlan %d" % vid
-                return "vlan %d and (%s)" % (vid, expr)
-        except (ValueError, TypeError):
-            pass
-
-    # 802.1Q-tagged traffic needs the vlan-shifted variant of IP-layer matches
+    # The kernel strips one tag, so a single-tagged frame matches the first arm.
+    # The second arm reaches IP behind the inner tag of a QinQ frame.
     if _lw_is_ip(preset):
         expr = "(%s) or (vlan and (%s))" % (expr, expr)
     return expr
@@ -1666,8 +1711,14 @@ def _lw_parse(args):
             raise Reject("duplicate filter id")
         seen.add(fid)
         expr = _lw_build_expr(f)
-        conf_filters.append({"id": fid, "expr": expr})
-        out.append("%s %s" % (fid, expr))
+        conf_filter = {"id": fid, "expr": expr}
+        vlan = _lw_vlan_match(f)
+        if vlan is None:
+            out.append("%s %s" % (fid, expr))
+        else:
+            conf_filter["vlan"] = vlan
+            out.append("%s vlan=%s %s" % (fid, vlan, expr))
+        conf_filters.append(conf_filter)
     # snapshot/refresh cadence (s): UI "speed" control, clamped for sanity
     interval = 1.0
     if args.get("interval") is not None:
@@ -1725,7 +1776,7 @@ def verb_linkwatch_start(args):
     os.chmod(hb, 0o664)
     shutil.chown(hb, "root", "www-data")
     spawn_unit(unit,
-               ["/usr/bin/python3", BASE + "/scripts/azamlabs-linkwatchd.py", wid],
+               ["/usr/bin/python3", BASE + "/scripts/pnetlab-linkwatchd.py", wid],
                props=("MemoryMax=64M", "CPUQuota=30%"))
     return 0, out, ""
 
@@ -1894,7 +1945,7 @@ def verb_prototrace_start(args):
     os.chmod(hb, 0o664)
     shutil.chown(hb, "root", "www-data")
     spawn_unit(unit,
-               ["/usr/bin/python3", BASE + "/scripts/azamlabs-prototracer.py", wid],
+               ["/usr/bin/python3", BASE + "/scripts/pnetlab-prototracer.py", wid],
                props=("MemoryMax=64M", "CPUQuota=30%"))
     return 0, [expr], ""
 
@@ -2046,11 +2097,155 @@ def verb_node_show_many(args):
     return 0, out, ""
 
 
+KILL_WAIT = 5            # s to wait for SIGKILLed workspace processes to exit
+POWERDOWN_GRACE_MAX = 60 # s ceiling for node_powerdown's ACPI grace
+QEMU_MONITOR_CMDS = {"system_powerdown", "stop", "cont", "savevm pnet-snapshot"}
+
+
+def _ws_pids(ws):
+    """Pids fuser finds using workspace ws (fuser prints pids on stdout)."""
+    try:
+        rc, out, _ = run(["fuser", "-n", "file", ws], timeout=10, check_rc=False)
+    except subprocess.TimeoutExpired:
+        return []
+    return [int(p) for p in re.findall(r"\d+", " ".join(out))]
+
+
+def _pid_alive(pid):
+    try:
+        with open("/proc/%d/stat" % pid) as f:
+            return f.read().rsplit(")", 1)[1].split()[0] != "Z"
+    except (OSError, IndexError):
+        return False
+
+
+def _wait_pids_gone(pids, secs):
+    end = time.monotonic() + secs
+    while True:
+        if not any(_pid_alive(p) for p in pids):
+            return True
+        if time.monotonic() >= end:
+            return False
+        time.sleep(0.2)
+
+
+def _qemu_pids(pids):
+    out = []
+    for p in pids:
+        try:
+            with open("/proc/%d/comm" % p) as f:
+                if f.read().startswith("qemu"):
+                    out.append(p)
+        except OSError:
+            pass
+    return out
+
+
 def verb_node_kill_workspace(args):
     ws = v_path_under(args, "workspace", TMP_DIR)
+    pids = _ws_pids(ws)
     # with the space the PHP concat lost ("-n file"."/path" was a no-op)
     run_quiet(["fuser", "-k", "-n", "file", ws])
+    # fuser -k only sends SIGKILL: a large guest is still tearing down when it
+    # returns, and links_cleanup then skips its still-busy taps
+    _wait_pids_gone(pids, KILL_WAIT)
     return 0, [], ""
+
+
+def _hmp_send(lab, n, mon, cmd):
+    """Send one HMP command on the node's own qemu monitor socket. The socket
+    is opened O_PATH|O_NOFOLLOW through the node dir fd and must be a
+    single-link socket owned by root or the node's unl<n> user, then connected
+    through /proc/self/fd, so a swapped-in symlink or hard link can't redirect
+    the command to another socket."""
+    dfd = _open_node_dir(lab, n)
+    try:
+        try:
+            fd = os.open(mon + ".sock", os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC,
+                         dir_fd=dfd)
+        except FileNotFoundError:
+            return False
+    finally:
+        os.close(dfd)
+    try:
+        st = os.fstat(fd)
+        if (not statmod.S_ISSOCK(st.st_mode) or st.st_nlink != 1
+                or st.st_uid not in (0, UNL_UID_BASE + n)):
+            raise Reject("%s.sock: not the node's monitor socket" % mon)
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(5)
+        try:
+            s.connect("/proc/self/fd/%d" % fd)
+            buf = b""
+            while b"(qemu)" not in buf:
+                chunk = s.recv(4096)
+                if not chunk:
+                    return False
+                buf += chunk
+            s.sendall(cmd.encode() + b"\n")
+            # savevm returns only when the snapshot is written
+            s.settimeout(300 if cmd.startswith("savevm") else 5)
+            buf = b""
+            while buf.count(b"(qemu)") < 1:
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+        except (OSError, socket.timeout):
+            return False
+        finally:
+            s.close()
+    finally:
+        os.close(fd)
+    return True
+
+
+def _v_qemu_node(args):
+    """(n, {"lab": L}) for the qemu-only monitor verbs {node_session,
+    session?}. Master: the DB row (type must be qemu; session, if given,
+    must match). Satellite: no DB (ruling R1), so _node_lab's root-only,
+    workspace-checked session is the lab; the node type is not checked
+    there, and _hmp_send still only talks to a single-link socket owned by
+    root or unl<n> inside that workspace."""
+    if not _satellite_role():
+        n, row = _v_node_row(args, "qemu")
+        session = _opt_session(args)
+        if session is not None and session != row["lab"]:
+            raise Reject("node session not in this lab")
+        return n, row
+    n = v_int(args, "node_session")
+    return n, {"lab": _node_lab(n, _opt_session(args))}
+
+
+def verb_qemu_monitor(args):
+    """device_qemu shutdown()/freeze()/hibernate(): were `sudo nc -U` on the
+    node's monitor socket, dead since www-data lost sudo. Fixed command set."""
+    n, row = _v_qemu_node(args)
+    mon = v_enum(args, "mon", {"monitor", "monitor2"})
+    cmd = v_enum(args, "cmd", QEMU_MONITOR_CMDS)
+    if not _hmp_send(row["lab"], n, mon, cmd):
+        return 1, [], "monitor not reachable"
+    return 0, [], ""
+
+
+def verb_node_powerdown(args):
+    """Graceful stop for templates with `shutdown: 1`: ACPI power button,
+    wait up to grace s for qemu to exit, then kill whatever is left in the
+    workspace. Prints `graceful` or `killed`."""
+    n, row = _v_qemu_node(args)
+    grace = v_int(args, "grace")
+    if not 1 <= grace <= POWERDOWN_GRACE_MAX:
+        raise Reject("bad arg grace")
+    ws = "%s/%d/%d" % (TMP_DIR, row["lab"], n)
+    pids = _ws_pids(ws)
+    qemu = _qemu_pids(pids)
+    how = "killed"
+    if qemu and _hmp_send(row["lab"], n, "monitor", "system_powerdown") \
+            and _wait_pids_gone(qemu, grace):
+        how = "graceful"
+    run_quiet(["fuser", "-k", "-n", "file", ws])
+    _wait_pids_gone(pids, KILL_WAIT)
+    return 0, [how], ""
 
 
 def _node_dir(args):
@@ -2178,7 +2373,7 @@ def verb_device_factory_run(args):
     run_quiet(["dos2unix", script])
     os.chmod(script, 0o755)
     nid = v_re(args, "id", RE_FACTORY_ID)
-    # Device-store install scripts run `mysql azamlabs_db ...` relying on root's
+    # Device-store install scripts run `mysql pnetlab_db ...` relying on root's
     # /root/.my.cnf. A transient systemd unit starts with HOME unset, so mysql
     # never reads that file -> ERROR 1045 (root@localhost, using password: NO) on
     # docker image installs. Set HOME=/root so the credential-less root mysql the
@@ -2472,40 +2667,17 @@ def verb_folder_delete(args):
 # ---- server network config (management bridge + DNS) -----------------------
 # Edits the appliance's own networking: the pnet0 management bridge stanza in
 # /etc/network/interfaces (ifupdown) and DNS/search-domain via the systemd-
-# resolved drop-in AzamLabs already ships. Every write timestamps a backup first.
+# resolved drop-in PNetLab already ships. Every write timestamps a backup first.
 # Applying a pnet0 address change bounces the management link — the caller opts
 # into that with apply=1; DNS-only changes never bounce (just restart resolved).
 
 NETCFG_INTERFACES = "/etc/network/interfaces"
-NETCFG_RESOLVED = "/etc/systemd/resolved.conf.d/azamlabs.conf"
+NETCFG_RESOLVED = "/etc/systemd/resolved.conf.d/pnetlab.conf"
 NETCFG_BACKUP_DIR = BASE + "/data/netcfg-backups"
+NETCFG_SYSFS = "/sys/class/net"
+NETCFG_BEGIN = "# BEGIN pnetlab-netcfg pnet0"
+NETCFG_END = "# END pnetlab-netcfg pnet0"
 RE_NETCFG_DOMAIN = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9.-]{0,252}[A-Za-z0-9])?$")
-
-
-def _get_real_iface():
-    brif = "/sys/class/net/pnet0/brif"
-    if os.path.isdir(brif):
-        for slave in sorted(os.listdir(brif)):
-            if os.path.exists("/sys/class/net/%s/device" % slave):
-                return slave
-    net_dir = "/sys/class/net"
-    if os.path.isdir(net_dir):
-        for dev in sorted(os.listdir(net_dir)):
-            if dev == "lo" or dev.startswith(("pnet", "docker", "veth", "virbr", "tun", "tap", "br-", "dummy", "wg", "zt")):
-                continue
-            if os.path.exists(os.path.join(net_dir, dev, "device")):
-                return dev
-    try:
-        res = subprocess.run(["ip", "-o", "link", "show"], capture_output=True, text=True, timeout=5)
-        for line in res.stdout.splitlines():
-            parts = line.split(":")
-            if len(parts) >= 2:
-                name = parts[1].strip().split("@")[0]
-                if name.startswith(("ens", "enp", "eno", "eth")) and not name.startswith("pnet"):
-                    return name
-    except Exception:
-        pass
-    return "ens33"
 
 
 def _netcfg_valid_netmask(mask):
@@ -2523,7 +2695,7 @@ def _netcfg_read_interfaces():
         with open(NETCFG_INTERFACES) as f:
             lines = f.read().split("\n")
     except OSError:
-        lines = []
+        return {"mode": mode, "address": "", "netmask": "", "gateway": ""}
     in_pnet0 = False
     for ln in lines:
         s = ln.strip()
@@ -2531,7 +2703,7 @@ def _netcfg_read_interfaces():
             in_pnet0 = True
             continue
         if in_pnet0:
-            if s.startswith("auto ") or (s.startswith("iface ") and "pnet0" not in s):
+            if s.startswith("auto ") or s.startswith("iface ") and "pnet0" not in s:
                 break
             m = re.match(r"iface pnet0 inet (\w+)", s)
             if m:
@@ -2547,18 +2719,6 @@ def _netcfg_read_interfaces():
         try:
             iface = ipaddress.IPv4Interface(address)
             address, netmask = str(iface.ip), str(iface.netmask)
-        except Exception:
-            pass
-    # Fallback to live pnet0 IP if address not in interfaces but mode is static
-    if not address and mode == "static":
-        try:
-            res = subprocess.run(["ip", "-o", "-4", "addr", "show", "pnet0"], capture_output=True, text=True, timeout=5)
-            for line in res.stdout.splitlines():
-                parts = line.split()
-                if len(parts) >= 4:
-                    iface = ipaddress.IPv4Interface(parts[3])
-                    address, netmask = str(iface.ip), str(iface.netmask)
-                    break
         except Exception:
             pass
     return {"mode": mode, "address": address, "netmask": netmask, "gateway": gateway}
@@ -2579,29 +2739,82 @@ def _netcfg_read_resolved():
     return {"dns": dns, "domain": domain}
 
 
+def _netcfg_read_live():
+    """What the kernel has now, which the file alone cannot tell: whether pnet0
+    exists at all, and the address on it (or on eth0 when it does not)."""
+    bridge = os.path.isdir(os.path.join(NETCFG_SYSFS, "pnet0"))
+    dev = "pnet0" if bridge else "eth0"
+    address = ""
+    if os.path.isdir(os.path.join(NETCFG_SYSFS, dev)):
+        rc, out, _ = run(["ip", "-4", "-o", "addr", "show", "dev", dev],
+                         timeout=10, check_rc=False)
+        for ln in out:
+            f = ln.split()
+            if rc == 0 and len(f) > 3 and f[2] == "inet":
+                address = f[3]
+                break
+    return {"bridge": bridge, "device": dev, "address": address}
+
+
 def _netcfg_build_pnet0(mode, address, netmask, gateway):
-    real_iface = _get_real_iface()
-    out = ["allow-hotplug pnet0",
-           "iface pnet0 inet %s" % mode,
-           "    pre-up ip link set dev %s up" % real_iface,
-           "    bridge_ports %s" % real_iface,
-           "    bridge_stp off"]
+    # allow-hotplug (not auto): pnet0 is brought up by the udev event from the
+    # pnet-bridges oneshot creating the bridge, so networking.service's `ifup -a`
+    # doesn't block on it — removes the ~90s boot wait. (Editor Apply reboots, so
+    # the new stanza takes effect cleanly on the way up.) Same text as
+    # pnetlab-netcfg.sh and the network installer, markers included: the three
+    # writers share this file, and a DNS-only save must not read as an address
+    # change.
     if mode == "static":
-        out.append("    address %s" % address)
-        out.append("    netmask %s" % netmask)
-        if gateway:
-            out.append("    gateway %s" % gateway)
-    return out
+        cidr = ipaddress.IPv4Interface("%s/%s" % (address, netmask)).with_prefixlen
+        return [NETCFG_BEGIN,
+                "# Managed by pnetlab-netcfg. Mode: STATIC. Kept under allow-hotplug (NOT auto) so",
+                "# udev applies `inet static` non-blocking, preserving the ~10s boot. Change with:",
+                "#   pnetlab-netcfg           (interactive)   or   pnetlab-netcfg dhcp",
+                "allow-hotplug pnet0",
+                "iface pnet0 inet static",
+                "    address %s" % cidr,
+                "    gateway %s" % gateway,
+                "    pre-up ip link set dev eth0 up",
+                "    bridge_ports eth0",
+                "    bridge_stp off",
+                NETCFG_END]
+    return [NETCFG_BEGIN,
+            "# Managed by pnetlab-netcfg. Mode: DHCP (stock non-blocking design).",
+            "# `inet manual` + a BACKGROUNDED dhcpcd (NOT `inet dhcp`, which blocks ifup and",
+            "# stretches boot to ~1m41s). allow-hotplug (NOT auto) lets the pnet0 bridge come",
+            "# up via the udev hotplug event without ifup -a blocking on it -> ~10s boot.",
+            "allow-hotplug pnet0",
+            "iface pnet0 inet manual",
+            "    up dhcpcd -b pnet0",
+            "    down dhcpcd -k pnet0 || true",
+            "    pre-up ip link set dev eth0 up",
+            "    bridge_ports eth0",
+            "    bridge_stp off",
+            NETCFG_END]
 
 
 def _netcfg_replace_pnet0(content, new_stanza):
     """Surgically swap ONLY the pnet0 stanza, preserving every other interface
-    (pnet1-9, nat0, etc.) verbatim. A stanza runs from its `auto pnet0` line to
-    the next top-level `auto ` line."""
+    (pnet1-9, nat0, etc.) verbatim. A marked stanza runs to its END marker; an
+    unmarked one from its `auto pnet0` line to the next top-level `auto ` line.
+    A BEGIN with no END, left by older versions of this function, is dropped
+    with its comments and the stanza under it replaced as an unmarked one."""
     lines = content.split("\n")
     out, i, n, done = [], 0, len(lines), False
     while i < n:
-        if lines[i].strip() in ("auto pnet0", "allow-hotplug pnet0"):
+        if lines[i].strip() == NETCFG_BEGIN:
+            end = i
+            while end < n and lines[end].strip() != NETCFG_END:
+                end += 1
+            if end < n:
+                out.extend(new_stanza)
+                i = end + 1
+                done = True
+                continue
+            i += 1
+            while i < n and lines[i].lstrip().startswith("#"):
+                i += 1
+        elif lines[i].strip() in ("auto pnet0", "allow-hotplug pnet0"):
             out.extend(new_stanza)
             out.append("")                     # single blank before the next stanza
             i += 1
@@ -2612,16 +2825,14 @@ def _netcfg_replace_pnet0(content, new_stanza):
             out.append(lines[i])
             i += 1
     if not done:
-        out.append("")
-        out.extend(new_stanza)
-        out.append("")
+        raise Reject("pnet0 stanza not found in %s" % NETCFG_INTERFACES)
     return "\n".join(out)
 
 
 def _netcfg_backup(ts):
     d = NETCFG_BACKUP_DIR + "/" + ts
     os.makedirs(d, mode=0o700, exist_ok=True)
-    for src in (NETCFG_INTERFACES, NETCFG_RESOLVED, "/etc/netplan/01-azamlabs-netcfg.yaml"):
+    for src in (NETCFG_INTERFACES, NETCFG_RESOLVED):
         if os.path.isfile(src):
             shutil.copy2(src, d + "/" + os.path.basename(src))
     return d
@@ -2632,6 +2843,7 @@ def verb_server_netcfg(args):
     if op == "get":
         data = _netcfg_read_interfaces()
         data.update(_netcfg_read_resolved())
+        data["live"] = _netcfg_read_live()
         return 0, [json.dumps(data)], ""
 
     # ---- set ----
@@ -2647,7 +2859,8 @@ def verb_server_netcfg(args):
             raise Reject("a gateway is required for a static management address")
         ipaddress.IPv4Address(gateway)        # raises on bad gw
         # Gateway sanity: it must live in the address's own subnet, otherwise the
-        # route is unusable and the box would be stranded.
+        # route is unusable and the box would be stranded. Catches the common
+        # transposed-digit typo synchronously, before anything is written.
         try:
             gw_net = ipaddress.IPv4Interface("%s/%s" % (address, netmask)).network
         except Exception:
@@ -2669,116 +2882,34 @@ def verb_server_netcfg(args):
 
     apply_net = v_bool(args, "apply")
 
-    # backup first, always
-    ts = time.strftime("%Y%m%d-%H%M%S")
-    backup = _netcfg_backup(ts)
-
-    # 1. Rewrite /etc/network/interfaces (pnet0 stanza)
     try:
         with open(NETCFG_INTERFACES) as f:
             old = f.read()
     except OSError as e:
-        old = ""
+        raise Reject("cannot read %s: %s" % (NETCFG_INTERFACES, e))
     new = _netcfg_replace_pnet0(old, _netcfg_build_pnet0(mode, address, netmask, gateway))
     iface_changed = (new != old)
-    if iface_changed or not os.path.exists(NETCFG_INTERFACES):
+    # The stanza only runs for an existing pnet0: without the bridge this would
+    # save an address and reboot into the same state, while the file reads back
+    # as if it had worked.
+    if iface_changed and not os.path.isdir(os.path.join(NETCFG_SYSFS, "pnet0")):
+        raise Reject("the pnet0 management bridge does not exist on this host, so "
+                     "an address set here cannot take effect. Nothing was saved. "
+                     "Check: journalctl -u pnetlab-pnet-bridges")
+
+    # backup first, always
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    backup = _netcfg_backup(ts)
+
+    # rewrite /etc/network/interfaces (pnet0 stanza only)
+    if iface_changed:
         tmp = NETCFG_INTERFACES + ".pnq.tmp"
         with open(tmp, "w") as f:
             f.write(new)
         os.chmod(tmp, 0o644)
         os.replace(tmp, NETCFG_INTERFACES)
 
-    # 2. Synchronize /etc/netplan/01-azamlabs-netcfg.yaml for Native Ubuntu 24/26
-    try:
-        real_iface = _get_real_iface()
-        real_mac = ""
-        try:
-            with open("/sys/class/net/%s/address" % real_iface, "r") as f:
-                real_mac = f.read().strip()
-        except Exception:
-            pass
-        mac_yaml = "      macaddress: %s\n" % real_mac if real_mac else ""
-
-        os.makedirs("/etc/netplan", exist_ok=True)
-        # Purge conflicting legacy installer YAMLs
-        for old_np in os.listdir("/etc/netplan"):
-            if old_np.endswith((".yaml", ".yml")) and old_np != "01-azamlabs-netcfg.yaml":
-                try:
-                    os.remove(os.path.join("/etc/netplan", old_np))
-                except Exception:
-                    pass
-
-        if mode == "dhcp":
-            netplan_yaml = (
-                "network:\n"
-                "  version: 2\n"
-                "  renderer: networkd\n"
-                "  ethernets:\n"
-                "    %s:\n"
-                "      dhcp4: false\n"
-                "      dhcp6: false\n"
-                "  bridges:\n"
-                "    pnet0:\n"
-                "      interfaces: [%s]\n"
-                "%s"
-                "      dhcp4: true\n"
-                "      dhcp6: false\n"
-                "      dhcp4-overrides:\n"
-                "        dhcp-identifier: mac\n"
-                "      parameters:\n"
-                "        stp: false\n"
-                "        forward-delay: 0\n" % (real_iface, real_iface, mac_yaml)
-            )
-        else:
-            cidr = 24
-            try:
-                cidr = ipaddress.IPv4Network("0.0.0.0/%s" % netmask).prefixlen
-            except Exception:
-                pass
-            dns_block = ("      nameservers:\n        addresses: [%s]\n" % ", ".join(dns)) if dns else ""
-            if domain:
-                dns_block += "        search: [%s]\n" % domain
-            gw_line = ("      routes:\n        - to: default\n          via: %s\n" % gateway) if gateway else ""
-            netplan_yaml = (
-                "network:\n"
-                "  version: 2\n"
-                "  renderer: networkd\n"
-                "  ethernets:\n"
-                "    %s:\n"
-                "      dhcp4: false\n"
-                "      dhcp6: false\n"
-                "  bridges:\n"
-                "    pnet0:\n"
-                "      interfaces: [%s]\n"
-                "%s"
-                "      dhcp4: false\n"
-                "      dhcp6: false\n"
-                "      addresses: [%s/%s]\n"
-                "%s%s"
-                "      parameters:\n"
-                "        stp: false\n"
-                "        forward-delay: 0\n" % (real_iface, real_iface, mac_yaml, address, cidr, gw_line, dns_block)
-            )
-
-        np_tmp = "/etc/netplan/01-azamlabs-netcfg.yaml.pnq.tmp"
-        with open(np_tmp, "w") as nf:
-            nf.write(netplan_yaml)
-        os.chmod(np_tmp, 0o600)
-        os.replace(np_tmp, "/etc/netplan/01-azamlabs-netcfg.yaml")
-
-        # In static mode, purge stale DHCP leases so systemd-networkd doesn't keep old IP
-        if mode == "static":
-            for lease_dir in ("/run/systemd/netif/leases", "/var/lib/dhcp"):
-                if os.path.isdir(lease_dir):
-                    for lf in os.listdir(lease_dir):
-                        try:
-                            os.remove(os.path.join(lease_dir, lf))
-                        except Exception:
-                            pass
-    except Exception as ex:
-        log("netcfg netplan sync error: %s" % ex)
-
-    # 3. Rewrite the resolved drop-in (DNS + search domain)
+    # rewrite the resolved drop-in (DNS + search domain)
     res = "[Resolve]\n"
     if dns:
         res += "DNS=%s\n" % " ".join(dns)
@@ -2794,9 +2925,21 @@ def verb_server_netcfg(args):
 
     rebooting = False
     if iface_changed and apply_net:
+        # Applying a management-INTERFACE change reliably requires a clean boot. Every
+        # live method tried on this ifupdown bridge stranded the appliance: `ifup` no-ops
+        # on stale /run/network/ifstate; `ifup --force` rebuilds pnet0 without re-enslaving
+        # eth0; `systemctl restart networking` leaves a changed default route stale; an
+        # addr/route flush + restart drops pnet0 entirely. Only a reboot re-applies
+        # /etc/network/interfaces cleanly (bridge rebuilt, eth0 bridged, correct default
+        # route). The new config is already on disk, so it takes effect on the way up.
+        # Reboot is scheduled a few seconds out, detached, so this call's HTTP response
+        # reaches the browser before the box goes down. (DNS/domain-only changes don't
+        # set iface_changed, so they apply live via the resolved restart above — no
+        # reboot.) The pre-apply gateway-in-subnet check above already rejects the obvious
+        # typo before we get here.
         run_quiet([
             "systemd-run", "--no-block", "--collect",
-            "--unit=azamlabs-netcfg-reboot",
+            "--unit=pnet-netcfg-reboot",
             "/bin/sh", "-c", "sleep 3; systemctl reboot",
         ], timeout=15)
         rebooting = True
@@ -2809,16 +2952,16 @@ def verb_server_netcfg(args):
 
 # ---- cluster (multi-host) ----------------------------------------------------
 # Master-side verbs for the 1-master + up-to-5-satellite cluster. The PSK and
-# satellite registry live under /etc/azamlabs/cluster (root 0600) so www-data
+# satellite registry live under /etc/pnetlab/cluster (root 0600) so www-data
 # never sees them: PHP asks the broker, the broker owns the TLS+HMAC transport
-# to each satellite's azamlabs-satd (port 9050). All verbs are inert until an
+# to each satellite's pnetlab-satd (port 9050). All verbs are inert until an
 # admin generates a PSK (cluster_psk_new).
 
-CLUSTER_DIR = "/etc/azamlabs/cluster"
+CLUSTER_DIR = "/etc/pnetlab/cluster"
 CLUSTER_PSK = CLUSTER_DIR + "/psk"
 CLUSTER_HOSTS = CLUSTER_DIR + "/hosts.json"
 CLUSTER_KEY = CLUSTER_DIR + "/id_ed25519"
-CLUSTER_MYSQL_CNF = "/etc/mysql/mysql.conf.d/zz-azamlabs-cluster.cnf"
+CLUSTER_MYSQL_CNF = "/etc/mysql/mysql.conf.d/zz-pnetlab-cluster.cnf"
 SATD_PORT = 9050
 RE_CERT_FP = re.compile(r"^sha256:[0-9a-f]{64}$")
 RE_HOST_NAME = re.compile(r"^[A-Za-z0-9 ._-]{1,64}$")
@@ -2855,14 +2998,33 @@ def _cluster_save_hosts(data):
 
 
 def _mysql(sql):
-    """Root SQL on the local azamlabs_db; password via env, never argv."""
+    """Root SQL on the local pnetlab_db; password via env, never argv."""
+    _require_local_db()
     env = dict(os.environ)
-    env["MYSQL_PWD"] = "azamlabs"
-    p = subprocess.run(["mysql", "--user=root", "azamlabs_db"],
+    env["MYSQL_PWD"] = "pnetlab"
+    p = subprocess.run(["mysql", "--user=root", "pnetlab_db"],
                        input=sql.encode(), stdout=subprocess.PIPE,
                        stderr=subprocess.PIPE, env=env, timeout=30)
     if p.returncode != 0:
         raise Reject("mysql: " + p.stderr.decode(errors="replace").strip()[:200])
+
+
+def _mysql_rows(sql):
+    """Read-only root SQL on pnetlab_db; returns tab-split rows. Password via env."""
+    _require_local_db()
+    env = dict(os.environ)
+    env["MYSQL_PWD"] = "pnetlab"
+    try:
+        p = subprocess.run(["mysql", "--user=root", "--batch",
+                            "--skip-column-names", "pnetlab_db"],
+                           input=sql.encode(), stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, env=env, timeout=10)
+    except subprocess.TimeoutExpired:
+        raise Reject("mysql timeout")
+    if p.returncode != 0:
+        raise Reject("mysql: " + p.stderr.decode(errors="replace").strip()[:200])
+    return [ln.split("\t") for ln in
+            p.stdout.decode(errors="replace").splitlines() if ln]
 
 
 def verb_cluster_psk_new(args):
@@ -2896,7 +3058,7 @@ def verb_cluster_join(args):
     # first join: expose mysqld on the LAN (host-scoped grants do the gating)
     if not os.path.isfile(CLUSTER_MYSQL_CNF):
         with open(CLUSTER_MYSQL_CNF, "w") as f:
-            f.write("# azamlabs cluster: satellites connect to the master DB\n"
+            f.write("# pnetlab cluster: satellites connect to the master DB\n"
                     "[mysqld]\nbind-address = 0.0.0.0\n"
                     "mysqlx-bind-address = 127.0.0.1\n")
         run_quiet(["systemctl", "restart", "mysql"], timeout=120)
@@ -2915,16 +3077,16 @@ def verb_cluster_join(args):
     prev = data["hosts"].get(str(host_id))
     db_pass = secrets.token_urlsafe(18)
     if prev and prev.get("ip") and prev["ip"] != ip:
-        _mysql("DROP USER IF EXISTS 'azamlabs'@'%s';" % prev["ip"])
+        _mysql("DROP USER IF EXISTS 'pnetlab'@'%s';" % prev["ip"])
     _mysql(
-        "DROP USER IF EXISTS 'azamlabs'@'{ip}';"
-        "CREATE USER 'azamlabs'@'{ip}' IDENTIFIED BY '{pw}';"
-        "GRANT ALL PRIVILEGES ON azamlabs_db.* TO 'azamlabs'@'{ip}';"
+        "DROP USER IF EXISTS 'pnetlab'@'{ip}';"
+        "CREATE USER 'pnetlab'@'{ip}' IDENTIFIED BY '{pw}';"
+        "GRANT ALL PRIVILEGES ON pnetlab_db.* TO 'pnetlab'@'{ip}';"
         "FLUSH PRIVILEGES;".format(ip=ip, pw=db_pass))
 
     if not os.path.isfile(CLUSTER_KEY):
         rc, _, err = run(["ssh-keygen", "-t", "ed25519", "-N", "",
-                          "-C", "azamlabs-cluster", "-f", CLUSTER_KEY],
+                          "-C", "pnetlab-cluster", "-f", CLUSTER_KEY],
                          timeout=30)
         if rc != 0:
             raise Reject("ssh-keygen failed: " + err.strip()[:200])
@@ -2946,7 +3108,7 @@ def verb_cluster_remove(args):
     prev = data["hosts"].pop(str(host_id), None)
     if prev and prev.get("ip"):
         try:
-            _mysql("DROP USER IF EXISTS 'azamlabs'@'%s';" % prev["ip"])
+            _mysql("DROP USER IF EXISTS 'pnetlab'@'%s';" % prev["ip"])
         except Reject:
             pass  # grant cleanup is best-effort; registry removal is the point
     _cluster_save_hosts(data)
@@ -2969,42 +3131,224 @@ def _vxlan_names(args):
     return vx, "vnet%d_%d" % (s, n)
 
 
-def _ensure_lab_bridge(br):
+# ---- netlink layer (broker v2 slice 2) ------------------------------------
+# pyroute2 is imported lazily so the broker still imports and serves the other
+# verbs without it. One IPRoute per verb call; the _nl_* helpers are the only
+# kernel touchpoints so the contract tests can fake them.
+
+def _nl_ipr():
+    from pyroute2 import IPRoute   # lazy: broker imports without pyroute2
+    return IPRoute()
+
+
+def _nl_info_from_msg(msg):
+    info = {"index": msg["index"], "name": msg.get_attr("IFLA_IFNAME"),
+            "kind": None, "owner": None,
+            "master": msg.get_attr("IFLA_MASTER"),
+            "group": msg.get_attr("IFLA_GROUP") or 0,
+            "carrier": msg.get_attr("IFLA_CARRIER") or 0}
+    li = msg.get_attr("IFLA_LINKINFO")
+    if li is not None:
+        info["kind"] = li.get_attr("IFLA_INFO_KIND")
+        data = li.get_attr("IFLA_INFO_DATA")
+        if data is not None and info["kind"] == "tun":
+            info["owner"] = data.get_attr("IFLA_TUN_OWNER")
+    return info
+
+
+def _nl_link_info(ipr, name):
+    idx = ipr.link_lookup(ifname=name)
+    if not idx:
+        return None
+    msgs = ipr.get_links(idx[0])
+    return _nl_info_from_msg(msgs[0]) if msgs else None
+
+
+def _nl_links(ipr):
+    return [_nl_info_from_msg(m) for m in ipr.get_links()]
+
+
+def _nl_tuntap_add(ipr, name, uid, gid):
+    # NO_PI (tun_flags 0x1802 = TAP|NO_PI|PERSIST, as tunctl) is requested via
+    # the tuntap "ifr" flags; pyroute2's default leaves PI on (0x802).
+    ipr.link("add", ifname=name, kind="tuntap", mode="tap", uid=uid, gid=gid,
+             ifr={"no_pi": 1, "persist": 1})
+
+
+def _nl_bridge_add(ipr, name):
+    ipr.link("add", ifname=name, kind="bridge")
+
+
+def _nl_set_link(ipr, idx, **kw):
+    ipr.link("set", index=idx, **kw)
+
+
+def _nl_set_master(ipr, idx, master):
+    ipr.link("set", index=idx, master=master)     # master=0 -> nomaster
+
+
+def _nl_del_link(ipr, idx):
+    ipr.link("del", index=idx)
+
+
+def _nl_bridge_opt(ipr, idx, **kw):
+    ipr.link("set", index=idx, **kw)   # ageing_time / vlan_filtering / vlan_default_pvid
+
+
+def _nl_set_group(ipr, idx, group):
+    ipr.link("set", index=idx, group=group)
+
+
+def _nl_del_group(ipr, group):
+    ipr.link("del", group=group)      # every member in this netns (+ veth peers)
+
+
+def _sys_write(path, text):
+    try:
+        with open(path, "w") as f:
+            f.write(text)
+        return True
+    except OSError:
+        return False
+
+
+def _set_ipv6_disabled(name):
+    return _sys_write("/proc/sys/net/ipv6/conf/%s/disable_ipv6" % name, "1")
+
+
+def _nl_try(fn, *a, **kw):
+    """Best-effort step (old run_quiet semantics)."""
+    try:
+        fn(*a, **kw)
+        return True
+    except Exception:
+        return False
+
+
+def _nl_delete_result(ipr, idx):
+    try:
+        _nl_del_link(ipr, idx)
+        return 0, [], ""
+    except Exception as e:
+        return 1, [], str(e)[:200]
+
+
+# Node-session lookup: one root SQL read; positive results cached <= 10 s,
+# misses never cached. _NS_CLOCK is injectable for the contract tests.
+_NS_TTL = 10.0
+_NS_CLOCK = time.monotonic
+_NS_LOCK = threading.Lock()
+_NS_CACHE = {}
+
+
+def _node_session(n):
+    """node_sessions.node_session_lab for node session n, or None if absent."""
+    now = _NS_CLOCK()
+    with _NS_LOCK:
+        hit = _NS_CACHE.get(n)
+        if hit is not None and now < hit[1]:
+            return hit[0]
+    rows = _mysql_rows("SELECT node_session_lab FROM node_sessions "
+                       "WHERE node_session_id=%d;" % int(n))
+    if not rows or not rows[0] or not rows[0][0].isdigit():
+        return None
+    lab = int(rows[0][0])
+    with _NS_LOCK:
+        _NS_CACHE[n] = (lab, _NS_CLOCK() + _NS_TTL)
+    return lab
+
+
+def _satellite_role():
+    """True on a cluster satellite: SATELLITE_CONF is a root-owned regular
+    file (lstat, so a symlink does not count). Checked per call because a
+    join can happen while brokerd runs."""
+    try:
+        st = os.lstat(SATELLITE_CONF)
+    except OSError:
+        return False
+    return statmod.S_ISREG(st.st_mode) and st.st_uid == 0
+
+
+def _require_local_db():
+    """A satellite has no local MySQL, and brokerd never reads the master DB
+    (ruling R1). Refuse with a clear reason instead of exec'ing a missing mysql."""
+    if _satellite_role():
+        raise Reject("no lab DB on a satellite")
+
+
+def _opt_session(args):
+    """Optional lab session arg (`session`), validated; None when absent."""
+    if args.get("session") is None:
+        return None
+    s = v_int(args, "session")
+    _ifgroup(s)
+    return s
+
+
+def _node_lab(n, session):
+    """Lab session of node session n, or None when the master DB has no row.
+    Master: node_sessions is the authority; a caller-supplied session must
+    agree with it. Satellite (no DB, ruling R1): root callers only (the
+    unl_wrapper the `wrapper` verb runs, or satd relaying the master's
+    bridge_port for a per-NIC Suspend), and the caller's session counts only
+    if TMP_DIR/<session>/<n> is a real directory (O_NOFOLLOW walk).
+    Device::prepare() creates it before any tap."""
+    if not _satellite_role():
+        lab = _node_session(n)
+        if lab is not None and session is not None and session != lab:
+            raise Reject("node session not in this lab")
+        return lab
+    if _caller_uid() != 0:
+        raise Reject("satellite: root caller only")
+    if session is None:
+        raise Reject("satellite: session required")
+    _ifgroup(session)
+    os.close(_open_node_dir(session, n))
+    return session
+
+
+def _check_bridge_info(info):
+    """Require an existing Linux bridge, not merely an interface by that name."""
+    if info is None:
+        raise Reject("bridge missing")
+    if info["kind"] != "bridge":
+        raise Reject("bridge name collides with non-bridge interface")
+
+
+def _ensure_lab_bridge(br, ipr=None):
     """Create-if-missing AND (re-)configure a lab bridge: shared by the
     vxlan path (a satellite can carry only the REMOTE side of a network, so
     no local node start ever creates it) and verb_net_create (cli.php
-    addBridge — the web context has no sudo since B7 and a setcap'd
-    /bin/ip is useless because iproute2 drops file caps for everything but
-    "ip vrf exec"). The config tail runs UNCONDITIONALLY, not just on
-    create: that idempotently heals any bridge an older engine left
-    admin-DOWN with group_fwd_mask 0 (every port stuck in "state disabled"
-    — no STP/CDP/LACP forwards, both switches elect themselves root)."""
-    if link_exists(br):
-        # The name is allowlisted below, but an existing host interface can
-        # still collide with that namespace.  Never treat a non-bridge as an
-        # idempotent lab bridge: the following sysfs writes and link-up would
-        # otherwise operate on an unrelated host interface.
-        _require_bridge(br)
-    else:
-        rc, out, err = run(["brctl", "addbr", br], timeout=30)
-        if rc != 0:
-            raise Reject("brctl addbr %s: %s" % (br, err.strip()[:120]))
-    run_quiet(["sysctl", "-w", "net.ipv6.conf.%s.disable_ipv6=1" % br])
-    mask = "/sys/class/net/%s/bridge/group_fwd_mask" % br
-    for val in ("65535", "65528"):    # dkms full mask, stock-kernel fallback
+    addBridge). The config tail runs UNCONDITIONALLY, not just on create:
+    that idempotently heals any bridge an older engine left admin-DOWN with
+    group_fwd_mask 0. Returns the bridge index."""
+    if ipr is None:
+        with _nl_ipr() as own:
+            return _ensure_lab_bridge(br, own)
+    info = _nl_link_info(ipr, br)
+    if info is None:
         try:
-            with open(mask, "w") as f:
-                f.write(val)
+            _nl_bridge_add(ipr, br)
+        except Exception as e:
+            raise Reject("bridge add %s: %s" % (br, str(e)[:120]))
+        info = _nl_link_info(ipr, br)
+        if info is None:
+            raise Reject("bridge add %s: not visible after create" % br)
+    else:
+        # An existing host interface can collide with the lab namespace:
+        # never treat a non-bridge as an idempotent lab bridge.
+        _check_bridge_info(info)
+    # slice 4: per-lab vnet bridges carry G(L); shared internal*/private* stay 0
+    m = re.fullmatch(r"vnet([0-9]{1,6})_[0-9]{1,6}", br)
+    if m and not info.get("group"):
+        _tag(ipr, info["index"], int(m.group(1)))
+    _set_ipv6_disabled(br)
+    for val in ("65535", "65528"):    # dkms full mask, stock-kernel fallback
+        if _sys_write("/sys/class/net/%s/bridge/group_fwd_mask" % br, val):
             break
-        except OSError:
-            continue
-    try:
-        with open("/sys/devices/virtual/net/%s/bridge/multicast_snooping" % br,
-                  "w") as f:
-            f.write("0")
-    except OSError:
-        pass
-    run_quiet(["ip", "link", "set", "dev", br, "up"])
+    _sys_write("/sys/devices/virtual/net/%s/bridge/multicast_snooping" % br, "0")
+    _nl_try(_nl_set_link, ipr, info["index"], state="up")
+    return info["index"]
 
 
 # Names emitted by __network.php::getSysName().  The vnet form is per-lab;
@@ -3013,28 +3357,427 @@ def _ensure_lab_bridge(br):
 # closed, use ASCII digits, and enforce Linux IFNAMSIZ (15 visible chars).
 LAB_BRIDGE_RE = re.compile(
     r"^(?=.{1,15}$)(?:"
-    r"vnet[0-9]{0,6}_[0-9]{1,6}|"
+    r"vnet[0-9]{1,6}_[0-9]{1,6}|"
     r"(?:internal|internal2|internal3|private|private2|private3)_[0-9]{1,6}"
     r")$"
 )
 # Shared internal/private bridges must not be removed by the generic lab
 # teardown path.  Their PHP caller intentionally keeps them alive; only
 # per-lab vnet bridges are eligible for net_delete.
-LAB_BRIDGE_DELETE_RE = re.compile(r"^(?=.{1,15}$)vnet[0-9]{0,6}_[0-9]{1,6}$")
-LAB_TAP_RE = re.compile(r"^(vunl|ser)\d{1,6}_\d{1,6}(_\d{1,6})?$")
+LAB_BRIDGE_DELETE_RE = re.compile(r"^(?=.{1,15}$)vnet[0-9]{1,6}_[0-9]{1,6}$")
+# bridge_port may also ATTACH to a cloud (pnetN / natN): an existing host
+# bridge a lab network maps to. Clouds are never created or deleted by a verb
+# (net_create / net_delete keep LAB_BRIDGE_RE). Owner ruling 2026-10-13: the
+# slice 2 refusal broke every VPCS/IOL/QEMU node wired to a cloud network.
+ATTACH_BRIDGE_RE = re.compile(
+    r"^(?=.{1,15}$)(?:"
+    r"vnet[0-9]{1,6}_[0-9]{1,6}|"
+    r"(?:internal|internal2|internal3|private|private2|private3)_[0-9]{1,6}|"
+    r"pnet[0-9]{1,2}|nat[0-9]{1,2}"
+    r")$"
+)
+LAB_TAP_RE = re.compile(r"^(?=.{1,15}\Z)vunl[0-9]{1,6}_[0-9]{1,6}(_[0-9]{1,6})?\Z")
+# Contract TAP_NAME (tap_create): vunl|ser <N>_<i>, ASCII digits, IFNAMSIZ 15.
+RE_TAP_NAME = re.compile(r"(?=.{1,15}\Z)(?:vunl|ser)([0-9]{1,6})_[0-9]{1,6}")
+# bridge_port ports: the vunl form of TAP_NAME only.
+RE_BRIDGE_PORT = re.compile(r"(?=.{1,15}\Z)vunl([0-9]{1,6})_[0-9]{1,6}")
+# tap_delete also takes IOL serial taps (ser<session>_<if>): addTap creates
+# them persistent, so device_iol.php prepare deletes them before re-adding on
+# every start after the first. The netem/linkstate/vlan verbs stay vunl-only.
+LAB_TAP_DELETE_RE = re.compile(
+    r"^(?=.{1,15}\Z)(?:vunl[0-9]{1,6}_[0-9]{1,6}(_[0-9]{1,6})?|ser[0-9]{1,6}_[0-9]{1,6})\Z")
+
+
+# ---- per-session interface tags (broker v2 slice 4) -----------------------
+# Every host link a lab session creates carries IFLA_GROUP G(L) = 0x5E000000|L
+# (L = lab session). The tag lives in the kernel, so it survives a broker
+# crash and needs no registry; cleanup is a group delete plus exact-name
+# checks, never a substring sweep. Group 0 = untagged (created before slice 4).
+IFGROUP_BASE = 0x5E000000
+IFGROUP_MASK = 0xFF000000
+LAB_SESSION_MAX = 999999
+IN_USE_WAIT = 1.0
+_IU_CLOCK = time.monotonic          # injectable for the contract tests
+_IU_SLEEP = time.sleep
+
+# Lab vocabulary: (regex, kinds, owner) — owner "node" = group 1 is a node
+# session, "lab" = group 1 is the lab session, "cap" = groups 1, 2 = lab, node.
+_VOCAB = (
+    (re.compile(r"(?=.{1,15}\Z)vunl([0-9]{1,6})_[0-9]{1,6}(?:_[0-9]{1,6})?"),
+     ("tun", "veth"), "node"),
+    (re.compile(r"(?=.{1,15}\Z)ser([0-9]{1,6})_[0-9]{1,6}"), ("tun",), "node"),
+    (re.compile(r"(?=.{1,15}\Z)docker([0-9]{1,6})_[0-9]{1,6}"), ("veth",), "node"),
+    (re.compile(r"(?=.{1,15}\Z)vnet([0-9]{1,6})_[0-9]{1,6}"), ("bridge",), "lab"),
+    (re.compile(r"(?=.{1,15}\Z)vx([0-9]{1,6})_[0-9]{1,6}"), ("vxlan",), "lab"),
+    (re.compile(r"(?=.{1,15}\Z)r[lw]([0-9]{1,6})_[0-9]{1,6}"), ("veth",), "lab"),
+    (re.compile(r"(?=.{1,15}\Z)(?:cap|rdp|span)[0-9]{1,6}_([0-9]{1,6})_([0-9]{1,6})_[0-9]{1,6}"),
+     ("veth",), "cap"),
+)
+RE_ROUTER_NETNS = re.compile(r"pnr([0-9]{1,6})_([0-9]{1,6})")
+RE_ROUTER_LINK = re.compile(r"r[lw]([0-9]{1,6})_([0-9]{1,6})")
+
+_REQ = threading.local()            # per-request caller uid (Handler sets it)
+
+
+def _caller_uid():
+    return getattr(_REQ, "uid", None)
+
+
+def _ifgroup(lab):
+    lab = int(lab)
+    if not 1 <= lab <= LAB_SESSION_MAX:
+        raise Reject("lab session out of range")
+    return IFGROUP_BASE | lab
+
+
+def _group_args(lab):
+    """['group', G] for a forked `ip link add NAME ...`, [] if L is out of range."""
+    try:
+        return ["group", str(_ifgroup(lab))]
+    except (Reject, TypeError, ValueError):
+        return []
+
+
+def _group_lab(group):
+    """Lab session encoded in one of our groups, else None."""
+    if not group or (group & IFGROUP_MASK) != IFGROUP_BASE:
+        return None
+    lab = group & ~IFGROUP_MASK
+    return lab if 1 <= lab <= LAB_SESSION_MAX else None
+
+
+def _vocab(ln):
+    """('node', N) / ('lab', L) / ('cap', L, N) for a link in the lab vocabulary
+    (name AND kind must match), else None."""
+    name = ln.get("name") or ""
+    for rx, kinds, owner in _VOCAB:
+        m = rx.fullmatch(name)
+        if m and ln.get("kind") in kinds:
+            if owner == "cap":
+                return ("cap", int(m.group(1)), int(m.group(2)))
+            return (owner, int(m.group(1)))
+    return None
+
+
+def _vocab_lab(v, nodes):
+    """Lab session owning vocabulary entry v; nodes = {node_session: lab}.
+    None when a node session is not in the map."""
+    if v is None:
+        return None
+    if v[0] == "node":
+        return nodes.get(v[1])
+    return v[1]
+
+
+def _tag(ipr, idx, lab):
+    """Best-effort: tag a link with G(lab); never fails the calling verb."""
+    try:
+        _nl_set_group(ipr, idx, _ifgroup(lab))
+        return True
+    except Exception as e:
+        log("tag idx=%s lab=%s: %s" % (idx, lab, str(e)[:120]))
+        return False
+
+
+def _in_use_kind(ln):
+    return ln.get("kind") == "tun" or (
+        ln.get("kind") == "veth" and (ln.get("name") or "").startswith("vunl"))
+
+
+def _wait_free(ipr, names):
+    """Names whose carrier is still up after IN_USE_WAIT. A tap has carrier
+    only while a process holds it open; a node veth while its peer is up."""
+    busy = set(names)
+    deadline = _IU_CLOCK() + IN_USE_WAIT
+    while busy:
+        for name in list(busy):
+            info = _nl_link_info(ipr, name)
+            if info is None or not info.get("carrier"):
+                busy.discard(name)
+        if not busy or _IU_CLOCK() >= deadline:
+            break
+        _IU_SLEEP(0.05)
+    return busy
+
+
+def _new_summary():
+    return {"deleted": 0, "skipped_in_use": 0, "foreign": 0,
+            "bridges": 0, "routers": 0}
+
+
+def _del_links(ipr, links, summary, warnings):
+    """Per-name delete with the in-use guard (bridges go down first)."""
+    busy = _wait_free(ipr, [ln["name"] for ln in links if _in_use_kind(ln)])
+    for ln in links:
+        if ln["name"] in busy:
+            summary["skipped_in_use"] += 1
+            warnings.append("in use, kept: %s" % ln["name"])
+            continue
+        if ln.get("kind") == "bridge":
+            _nl_try(_nl_set_link, ipr, ln["index"], state="down")
+        if _nl_try(_nl_del_link, ipr, ln["index"]):
+            summary["deleted"] += 1
+
+
+def _netns_list():
+    found = set()
+    for d in ("/run/netns", "/var/run/netns"):
+        try:
+            found.update(os.listdir(d))
+        except OSError:
+            pass
+    return sorted(found)
+
+
+def _node_map():
+    """{node_session: lab_session} from the DB, {} if it cannot be read or
+    this is a satellite (no DB; tap_create tags taps there, so G(L) covers
+    them at lab destroy)."""
+    if _satellite_role():
+        return {}
+    try:
+        rows = _mysql_rows("SELECT node_session_id, node_session_lab "
+                           "FROM node_sessions;")
+    except Exception as e:
+        log("links: node_sessions unreadable: %s" % str(e)[:120])
+        return {}
+    return {int(r[0]): int(r[1]) for r in rows
+            if len(r) >= 2 and r[0].isdigit() and r[1].isdigit()}
+
+
+def _cleanup_node(ipr, lab, n, summary, warnings):
+    """Node stop: N's taps/serials/docker veths/capture mirror veth that are
+    untagged or in G(lab), then lab L's vnet bridges left without ports."""
+    g = _ifgroup(lab)
+    mine = []
+    for ln in _nl_links(ipr):
+        if ln.get("group", 0) not in (0, g):
+            continue
+        v = _vocab(ln)
+        if v is None:
+            continue
+        if v[0] == "node" and v[1] == n:
+            mine.append(ln)
+        elif v[0] == "cap" and v[1:] == (lab, n) and ln["name"].startswith("cap"):
+            mine.append(ln)
+    _del_links(ipr, mine, summary, warnings)
+    links = _nl_links(ipr)
+    masters = {ln.get("master") for ln in links if ln.get("master")}
+    for ln in links:
+        if ln.get("group", 0) in (0, g) and _vocab(ln) == ("lab", lab) and \
+                ln["name"].startswith("vnet") and ln["index"] not in masters:
+            _nl_try(_nl_set_link, ipr, ln["index"], state="down")
+            if _nl_try(_nl_del_link, ipr, ln["index"]):
+                summary["bridges"] += 1
+
+
+def _router_ids(lab, links):
+    """Router nets of lab L seen as a pnr<L>_<n> netns or an rl/rw<L>_<n> veth."""
+    nets = set()
+    for ns in _netns_list():
+        m = RE_ROUTER_NETNS.fullmatch(ns)
+        if m and (lab is None or int(m.group(1)) == lab):
+            nets.add((int(m.group(1)), int(m.group(2))))
+    for ln in links:
+        m = RE_ROUTER_LINK.fullmatch(ln.get("name") or "")
+        if m and ln.get("kind") == "veth" and (lab is None or int(m.group(1)) == lab):
+            nets.add((int(m.group(1)), int(m.group(2))))
+    return sorted(nets)
+
+
+def _cleanup_lab(lab, summary, warnings):
+    """Lab destroy: everything in G(L) plus untagged vocabulary links of L, in
+    one group delete when every member is ours and idle (D3), else per name
+    (a foreign member of G(L) is left and reported); router nets torn down."""
+    g = _ifgroup(lab)
+    nodes = _node_map()
+    with _nl_ipr() as ipr:
+        for s, n in _router_ids(lab, _nl_links(ipr)):
+            _router_teardown(s, n)
+            summary["routers"] += 1
+        members, extra = [], []
+        for ln in _nl_links(ipr):
+            v = _vocab(ln)
+            owner = _vocab_lab(v, nodes)
+            grp = ln.get("group", 0)
+            if grp == g:
+                if v is not None and (owner == lab or
+                                      (v[0] == "node" and v[1] not in nodes)):
+                    members.append(ln)
+                else:
+                    summary["foreign"] += 1
+                    warnings.append("foreign link in group %d kept: %s" %
+                                    (g, ln.get("name")))
+            elif grp == 0 and v is not None and owner == lab:
+                extra.append(ln)
+        busy = _wait_free(ipr, [ln["name"] for ln in members if _in_use_kind(ln)])
+        if members and not busy and not summary["foreign"]:
+            if _nl_try(_nl_del_group, ipr, g):
+                summary["deleted"] += len(members)
+                members = []
+        _del_links(ipr, members + extra, summary, warnings)
+
+
+def _cleanup_all(summary, warnings):
+    """stopall: every vocabulary link that is untagged or in one of our groups,
+    every router netns. Our-group links outside the vocabulary are foreign."""
+    with _nl_ipr() as ipr:
+        for s, n in _router_ids(None, _nl_links(ipr)):
+            _router_teardown(s, n)
+            summary["routers"] += 1
+        doomed = []
+        for ln in _nl_links(ipr):
+            grp = ln.get("group", 0)
+            v = _vocab(ln)
+            if v is not None and (grp == 0 or _group_lab(grp) is not None):
+                doomed.append(ln)
+            elif v is None and _group_lab(grp) is not None:
+                summary["foreign"] += 1
+                warnings.append("foreign link in group %d kept: %s" %
+                                (grp, ln.get("name")))
+        _del_links(ipr, doomed, summary, warnings)
+
+
+def verb_links_cleanup(args):
+    """Contract links_cleanup: {session, node_session} = node stop,
+    {session} = lab destroy, {all: true} = stopall (root only).
+    out = one JSON summary line; in-use / foreign links come back as warnings."""
+    summary, warnings = _new_summary(), []
+    if args.get("all") is True:
+        if _caller_uid() != 0:
+            raise Reject("links_cleanup all: root only")
+        _cleanup_all(summary, warnings)
+    else:
+        lab = v_int(args, "session")
+        _ifgroup(lab)
+        if args.get("node_session") is not None:
+            n = v_int(args, "node_session")
+            if _node_lab(n, lab) != lab:
+                raise Reject("node session not in this lab")
+            with _nl_ipr() as ipr:
+                _cleanup_node(ipr, lab, n, summary, warnings)
+        else:
+            _cleanup_lab(lab, summary, warnings)
+    return 0, [json.dumps(summary, sort_keys=True)], "", warnings
+
+
+def _links_reconcile():
+    """Broker start (and verb links_reconcile): tag untagged links of live
+    sessions, delete links/netns of sessions that are gone. Any DB error ->
+    change nothing (a satellite has no lab DB)."""
+    if _satellite_role():
+        log("links_reconcile: satellite, no lab DB, nothing changed")
+        return None
+    try:
+        labs = {int(r[0]) for r in _mysql_rows(
+            "SELECT lab_session_id FROM lab_sessions;") if r and r[0].isdigit()}
+        rows = _mysql_rows("SELECT node_session_id, node_session_lab "
+                           "FROM node_sessions;")
+    except Exception as e:
+        log("links_reconcile: DB unavailable, nothing changed: %s" % str(e)[:120])
+        return None
+    nodes = {int(r[0]): int(r[1]) for r in rows
+             if len(r) >= 2 and r[0].isdigit() and r[1].isdigit()}
+    summary = {"tagged": 0, "deleted": 0, "skipped_in_use": 0, "foreign": 0,
+               "netns": 0, "bridges": 0, "routers": 0}
+    warnings = []
+    with _nl_ipr() as ipr:
+        links = _nl_links(ipr)
+        for s, n in _router_ids(None, links):
+            if s not in labs:
+                _router_teardown(s, n)
+                summary["netns"] += 1
+        dead = []
+        for ln in _nl_links(ipr):
+            grp = ln.get("group", 0)
+            glab = _group_lab(grp)
+            v = _vocab(ln)
+            if v is None:
+                if glab is not None:
+                    summary["foreign"] += 1
+                continue
+            if grp and glab is None:
+                summary["foreign"] += 1          # someone else's group
+                continue
+            owner = _vocab_lab(v, nodes)
+            if owner is None or owner not in labs:
+                dead.append(ln)
+            elif glab is not None and glab != owner:
+                summary["foreign"] += 1
+            elif grp == 0 and _tag(ipr, ln["index"], owner):
+                summary["tagged"] += 1
+        _del_links(ipr, dead, summary, warnings)
+    log("links_reconcile: tagged=%d deleted=%d skipped_in_use=%d foreign=%d "
+        "netns=%d" % (summary["tagged"], summary["deleted"],
+                      summary["skipped_in_use"], summary["foreign"],
+                      summary["netns"]))
+    for w in warnings:
+        log("links_reconcile: " + w)
+    return summary
+
+
+def _links_reconcile_bg():
+    try:
+        _links_reconcile()
+    except Exception as e:
+        log("links_reconcile failed: %r" % e)
+
+
+
+def _get_real_iface():
+    """Discover real physical uplink network interface."""
+    brif = "/sys/class/net/pnet0/brif"
+    if os.path.isdir(brif):
+        for slave in sorted(os.listdir(brif)):
+            if os.path.exists("/sys/class/net/%s/device" % slave):
+                return slave
+    net_dir = "/sys/class/net"
+    if os.path.isdir(net_dir):
+        for dev in sorted(os.listdir(net_dir)):
+            if dev == "lo" or dev.startswith(("pnet", "docker", "veth", "virbr", "tun", "tap", "br-", "dummy", "wg", "zt")):
+                continue
+            if os.path.exists(os.path.join(net_dir, dev, "device")):
+                return dev
+    try:
+        res = subprocess.run(["ip", "-o", "link", "show"], capture_output=True, text=True, timeout=5)
+        for line in res.stdout.splitlines():
+            parts = line.split(":")
+            if len(parts) >= 2:
+                name = parts[1].strip().split("@")[0]
+                if name.startswith(("ens", "enp", "eno", "eth")) and not name.startswith("pnet"):
+                    return name
+    except Exception:
+        pass
+    return "eth0"
+
+def _docker0_offload_once():
+    """SR Linux needs tx offload off on the host's docker0. It used to be a
+    `sudo ethtool` on every SR Linux start; owner ruling (c) 2026-10-13: once,
+    idempotently, at broker start. No docker0 = nothing to do."""
+    if not os.path.isdir("/sys/class/net/docker0"):
+        log("docker0 offload: no docker0, skipped")
+        return
+    rc = run_quiet(["ethtool", "--offload", "docker0", "tx", "off"])
+    log("docker0 offload: tx off rc=%d" % rc)
+
+
+def verb_links_reconcile(args):
+    if _caller_uid() != 0:
+        raise Reject("links_reconcile: root only")
+    summary = _links_reconcile()
+    if summary is None:
+        return 1, [], "DB unavailable"
+    return 0, [json.dumps(summary, sort_keys=True)], ""
 
 
 def _require_bridge(br):
-    """Require an existing Linux bridge, not merely an interface by that name."""
-    if not link_exists(br):
-        raise Reject("bridge missing")
-    if not os.path.isdir("/sys/class/net/%s/bridge" % br):
-        raise Reject("bridge name collides with non-bridge interface")
+    with _nl_ipr() as ipr:
+        _check_bridge_info(_nl_link_info(ipr, br))
 
 
 def _v_name(args, rx, what):
     name = args.get("name")
-    if not isinstance(name, str) or not rx.match(name):
+    if not isinstance(name, str) or not rx.fullmatch(name):
         raise Reject("bad %s name" % what)
     return name
 
@@ -3045,23 +3788,34 @@ def verb_net_create(args):
     vlan_filtering=1 turns the bridge into a dot1q switch (per-port VLANs
     via verb_iface_vlan); default_pvid sets the bridge's default PVID."""
     br = _v_name(args, LAB_BRIDGE_RE, "bridge")
-    _ensure_lab_bridge(br)
-    if args.get("ageing0"):
-        run_quiet(["brctl", "setageing", br, "0"])
-        try:
-            with open("/sys/class/net/%s/bridge/multicast_router" % br,
-                      "w") as f:
-                f.write("2")
-        except OSError:
-            pass
-    if args.get("vlan_filtering"):
-        run_quiet(["ip", "link", "set", br, "type", "bridge",
-                   "vlan_filtering", "1"])
-        if args.get("default_pvid") is not None:
-            pvid = v_int(args, "default_pvid")
-            if 1 <= pvid <= 4094:
-                run_quiet(["ip", "link", "set", br, "type", "bridge",
-                           "vlan_default_pvid", str(pvid)])
+    with _nl_ipr() as ipr:
+        idx = _ensure_lab_bridge(br, ipr)
+        if args.get("ageing0"):
+            _nl_try(_nl_bridge_opt, ipr, idx, ageing_time=0)
+            _sys_write("/sys/class/net/%s/bridge/multicast_router" % br, "2")
+        if args.get("vlan_filtering"):
+            _nl_try(_nl_bridge_opt, ipr, idx, vlan_filtering=1)
+            if args.get("default_pvid") is not None:
+                pvid = v_int(args, "default_pvid")
+                if 1 <= pvid <= 4094:
+                    _nl_try(_nl_bridge_opt, ipr, idx, vlan_default_pvid=pvid)
+    return 0, [], ""
+
+
+BRIDGE_VLAN_PROTOCOLS = {"802.1Q": "0x8100", "802.1ad": "0x88a8"}
+
+
+def verb_bridge_vlan_protocol(args):
+    """interfc.php set/unsetvlan8021ad(): a lab bridge's VLAN protocol (QinQ
+    smart networks). Was `sudo ip link set <br> type bridge vlan_protocol`, a
+    silent no-op from the web context; now one root sysfs write."""
+    br = _v_name({"name": args.get("bridge")}, LAB_BRIDGE_RE, "bridge")
+    proto = v_enum(args, "protocol", tuple(BRIDGE_VLAN_PROTOCOLS))
+    with _nl_ipr() as ipr:
+        _check_bridge_info(_nl_link_info(ipr, br))
+    if not _sys_write("/sys/class/net/%s/bridge/vlan_protocol" % br,
+                      BRIDGE_VLAN_PROTOCOLS[proto]):
+        return 1, [], "vlan_protocol write failed"
     return 0, [], ""
 
 
@@ -3069,18 +3823,98 @@ def verb_net_delete(args):
     """cli.php delBridge(): cloud bridges (pnet*/nat*) never match the
     vnet regex, so they cannot be deleted through this verb."""
     br = _v_name(args, LAB_BRIDGE_DELETE_RE, "bridge")
-    if link_exists(br):
-        _require_bridge(br)
-        return run(["ip", "link", "del", br], timeout=30)
-    return 0, [], ""
+    with _nl_ipr() as ipr:
+        info = _nl_link_info(ipr, br)
+        if info is None:
+            return 0, [], ""
+        _check_bridge_info(info)
+        return _nl_delete_result(ipr, info["index"])
 
 
 def verb_tap_delete(args):
     """cli.php delTap(): web-context tap teardown (tunctl is gone and ip
     drops file caps; both legacy paths silently no-oped as www-data)."""
-    tap = _v_name(args, LAB_TAP_RE, "tap")
-    if link_exists(tap):
-        return run(["ip", "link", "del", tap], timeout=30)
+    tap = _v_name(args, LAB_TAP_DELETE_RE, "tap")
+    with _nl_ipr() as ipr:
+        info = _nl_link_info(ipr, tap)
+        if info is None:
+            return 0, [], ""
+        # A tap has carrier only while a process holds it. Deleting it then
+        # leaves that qemu running on a detached fd (fdinfo iff: empty) with
+        # the node silently cut off; refuse instead (a start racing a qemu
+        # that is still alive in the workspace).
+        if info.get("kind") == "tun" and _wait_free(ipr, [tap]):
+            raise Reject("tap %s in use: a process still holds it" % tap)
+        return _nl_delete_result(ipr, info["index"])
+
+
+def verb_tap_create(args):
+    """Contract tap_create {name, mtu, session?}: persistent NO_PI tap owned
+    by unl<N>, gid 0, ipv6 off, mtu, up. The owner is DERIVED from the name;
+    any other caller-supplied owner/uid argument is ignored. session (the
+    lab) must match the DB on a master and is required on a satellite
+    (_node_lab)."""
+    tap = _v_name(args, RE_TAP_NAME, "tap")
+    n = int(RE_TAP_NAME.fullmatch(tap).group(1))
+    mtu = v_int(args, "mtu")
+    if not 576 <= mtu <= 9216:
+        raise Reject("bad arg mtu")
+    lab = _node_lab(n, _opt_session(args))
+    if lab is None:
+        raise Reject("node session missing")
+    try:
+        uid = pwd.getpwnam("unl%d" % n).pw_uid
+    except KeyError:
+        raise Reject("owner account unl%d missing" % n)
+    with _nl_ipr() as ipr:
+        info = _nl_link_info(ipr, tap)
+        if info is None:
+            try:
+                _nl_tuntap_add(ipr, tap, uid, 0)
+            except Exception as e:
+                raise Reject("tuntap add %s: %s" % (tap, str(e)[:120]))
+            info = _nl_link_info(ipr, tap)
+            if info is None:
+                raise Reject("tap add %s: not visible after create" % tap)
+        elif info["kind"] != "tun" or info["owner"] != uid:
+            raise Reject("tap name collision")
+        # slice 4: tuntap is created in group 0 (ioctl path), so tag it here;
+        # the reuse path re-tags a tap left untagged by an older engine
+        _tag(ipr, info["index"], lab)
+        _set_ipv6_disabled(tap)
+        _nl_set_link(ipr, info["index"], mtu=mtu, state="up")
+    return 0, [], ""
+
+
+def verb_bridge_port(args):
+    """Contract bridge_port {bridge, port, op, session?}: attach/detach an
+    ethernet tap (vunl form) to/from a lab bridge. del only clears a port
+    whose master is this bridge. The port's node session must exist; for
+    vnet<L>_<n> bridges its lab must equal L (internal*/private* skip the
+    lab check). session defaults to L for a vnet bridge (_node_lab)."""
+    br = _v_name({"name": args.get("bridge")}, ATTACH_BRIDGE_RE, "bridge")
+    port = _v_name({"name": args.get("port")}, RE_BRIDGE_PORT, "port")
+    op = v_enum(args, "op", ("add", "del"))
+    pn = int(RE_BRIDGE_PORT.fullmatch(port).group(1))
+    m = re.fullmatch(r"vnet([0-9]{1,6})_[0-9]{1,6}", br)
+    session = _opt_session(args)
+    if session is None and m:
+        session = int(m.group(1))
+    lab = _node_lab(pn, session)
+    if lab is None:
+        raise Reject("node session missing")
+    if m and lab != int(m.group(1)):
+        raise Reject("port belongs to another lab")
+    with _nl_ipr() as ipr:
+        binfo = _nl_link_info(ipr, br)
+        _check_bridge_info(binfo)
+        pinfo = _nl_link_info(ipr, port)
+        if pinfo is None:
+            raise Reject("port missing")
+        if op == "add":
+            _nl_set_master(ipr, pinfo["index"], binfo["index"])
+        elif pinfo["master"] == binfo["index"]:
+            _nl_set_master(ipr, pinfo["index"], 0)
     return 0, [], ""
 
 
@@ -3391,7 +4225,7 @@ def verb_netem_set(args):
 
 
 def verb_netem_del(args):
-    """Delete only AzamLabs's exact netem root and verify kernel default."""
+    """Delete only PNetLab's exact netem root and verify kernel default."""
     tap = _v_name(args, LAB_TAP_RE, "tap")
     if not link_exists(tap):
         return 0, [], ""
@@ -3447,22 +4281,27 @@ def verb_qemu_setlink(args):
 
 
 def verb_iol_keepalive(args):
-    """interfc.php setLinkState() iol branch (only when L1 keepalive is on):
-    was `sudo php .../wrapper 32768 <uid> 'perl keepalive.pl ...'` to start the
-    per-interface keepalive and `sudo kill -9` to stop it — both silent no-ops
-    as www-data post-B7. The start lane is now intentionally DISABLED (user
-    decision 2026-07-04): keepalive.pl pins IOL at 100% CPU (same pathology as
-    the removed `-l` wrapper flag), and its store-side setuid shim was retired
-    with the Laravel store. The "down" lane still reaps stray keepalive.pl
-    processes from older installs."""
+    """interfc.php setLinkState() iol branch (only when L1 keepalive is on).
+    iol_wrapper feeds IOL's layer-1 keepalives; a GUI link suspend marks the
+    interface in IOL_L1_STATE_DIR so the wrapper drops its TAP carrier and
+    stops feeding it (IOL then drops the link within ~10 s) and resume clears
+    the mark (the wrapper then wakes the interface). "down" also
+    reaps stray keepalive.pl helpers left by older installs."""
     runpath = v_re(args, "runpath", RE_RUNPATH)
     state = v_enum(args, "state", {"up", "down"})
     session = v_int(args, "session")
     if_id = v_int(args, "if_id")
     tag = "%d_%d" % (session, if_id)
+    mark = os.path.join(IOL_L1_STATE_DIR, tag)
     if state == "up":
-        pass  # intentionally no-op — see docstring
+        try:
+            os.unlink(mark)
+        except FileNotFoundError:
+            pass
     else:
+        os.makedirs(IOL_L1_STATE_DIR, mode=0o755, exist_ok=True)
+        with open(mark, "w"):
+            pass
         rc, out, _ = run(["pgrep", "-f", "keepalive.*-n %s" % tag],
                          timeout=10, check_rc=False)
         for pid in out:
@@ -3553,7 +4392,7 @@ def verb_iface_vlan(args):
 # All host-side state is keyed by session/net_id so every verb is idempotent
 # and verb_router_delete tears it down with no leak across lab restarts.
 
-RUN_DIR = "/run/azamlabs"
+RUN_DIR = "/run/pnetlab"
 
 
 def _router_names(args):
@@ -3632,6 +4471,19 @@ def _router_load_state(s, n):
         return None
 
 
+# Out-of-the-box soft-router config (mirrored by the Configure dialog defaults
+# in forms/print.js); used when no config has ever been saved for the router.
+ROUTER_DEFAULT_CFG = {
+    "gw_cidr": "10.10.10.1/24",
+    "uplink": "host",
+    "nat": 1,
+    "dhcp": 1,
+    "dhcp_start": "10.10.10.50",
+    "dhcp_end": "10.10.10.150",
+    "routes": [],
+}
+
+
 def _router_normalize(args):
     """Validate a Configure-dialog payload into a JSON-safe, fully-checked cfg
     dict. Every field passes through ipaddress/enum validators here, so the
@@ -3690,8 +4542,8 @@ def _apply_router(s, n, cfg):
         # the ns via the host end; root MASQUERADEs the /30 out the egress
         # iface (mirrors ovfstartup.sh's 10.0.137.0/24 rule).
         if not link_exists(h_wan):
-            run_quiet(["ip", "link", "add", h_wan, "type", "veth",
-                       "peer", "name", "wan", "netns", ns])
+            run_quiet(["ip", "link", "add", h_wan] + _group_args(s) +
+                      ["type", "veth", "peer", "name", "wan", "netns", ns])
         run_quiet(["ip", "addr", "flush", "dev", h_wan])
         run_quiet(["ip", "addr", "add", "%s/%d" % (h_ip, plen), "dev", h_wan])
         run_quiet(["ip", "link", "set", h_wan, "up"])
@@ -3710,8 +4562,8 @@ def _apply_router(s, n, cfg):
     elif uplink == "net":
         up_br = "vnet%d_%d" % (s, cfg["uplink_net_id"])
         if not link_exists(h_wan):
-            run_quiet(["ip", "link", "add", h_wan, "type", "veth",
-                       "peer", "name", "wan", "netns", ns])
+            run_quiet(["ip", "link", "add", h_wan] + _group_args(s) +
+                      ["type", "veth", "peer", "name", "wan", "netns", ns])
         run_quiet(["ip", "link", "set", h_wan, "master", up_br])
         run_quiet(["ip", "link", "set", h_wan, "up"])
         _ns_exec(ns, ["ip", "addr", "flush", "dev", "wan"])
@@ -3737,7 +4589,7 @@ def _apply_router(s, n, cfg):
     if cfg["dhcp"] and shutil.which("dnsmasq"):
         os.makedirs(RUN_DIR, exist_ok=True)
         dns = cfg.get("dhcp_dns") or str(iface.ip)
-        run_quiet(["ip", "netns", "exec", ns, "dnsmasq",
+        dnsmasq_argv = ["ip", "netns", "exec", ns, "dnsmasq",
                    "--interface=lan", "--bind-interfaces",
                    "--except-interface=lo",
                    "--dhcp-range=%s,%s,%s,12h" % (cfg["dhcp_start"],
@@ -3746,7 +4598,9 @@ def _apply_router(s, n, cfg):
                    "--dhcp-option=3,%s" % iface.ip,
                    "--dhcp-option=6,%s" % dns,
                    "--pid-file=%s" % _dnsmasq_pidfile(ns),
-                   "--leasefile-ro", "--no-resolv", "--no-hosts"])
+                   "--leasefile-ro", "--no-resolv", "--no-hosts"]
+        run_quiet(scope_argv(scope_unit_name("pnetlab-router", s, n),
+                             dnsmasq_argv, "dnsmasq " + ns))
 
 
 def verb_router_create(args):
@@ -3764,30 +4618,19 @@ def verb_router_create(args):
     _ns_exec(ns, ["ip", "link", "set", "lo", "up"])
     # downlink veth: host end enslaved to the lab bridge, ns end renamed 'lan'
     if not link_exists(h_lan):
-        run_quiet(["ip", "link", "add", h_lan, "type", "veth",
-                   "peer", "name", "lan", "netns", ns])
+        run_quiet(["ip", "link", "add", h_lan] + _group_args(s) +
+                  ["type", "veth", "peer", "name", "lan", "netns", ns])
     run_quiet(["ip", "link", "set", h_lan, "master", br])
     run_quiet(["ip", "link", "set", h_lan, "up"])
     _ns_exec(ns, ["ip", "link", "set", "lan", "up"])
     cfg = _router_load_state(s, n)
-    if cfg:
-        # re-validate persisted state through the same checks before any argv
-        _apply_router(s, n, _router_normalize(cfg))
-    else:
-        # 6.8.93 Parity: Out-of-the-Box Router (NAT) Node
-        # An unconfigured router acts as a NAT gateway out of the box:
-        # 10.10.10.1/24, DHCP from .50 to .150, host uplink and NAT enabled.
-        default_cfg = {
-            "gw_cidr": "10.10.10.1/24",
-            "nat": 1,
-            "uplink": "host",
-            "routes": [],
-            "dhcp": 1,
-            "dhcp_start": "10.10.10.50",
-            "dhcp_end": "10.10.10.150",
-            "dhcp_dns": "10.10.10.1"
-        }
-        _apply_router(s, n, _router_normalize(default_cfg))
+    if not cfg:
+        # never configured: work out of the box as a NAT router (host uplink,
+        # masquerade, DHCP). Persisted so the dialog shows it and edits stick.
+        cfg = _router_normalize(ROUTER_DEFAULT_CFG)
+        _router_save_state(s, n, cfg)
+    # re-validate persisted state through the same checks before any argv
+    _apply_router(s, n, _router_normalize(cfg))
     return 0, [], ""
 
 
@@ -3805,23 +4648,11 @@ def verb_router_apply(args):
 
 def verb_router_get(args):
     """api_networks.php manage response: return the saved router cfg as one
-    JSON line so the Configure dialog round-trips the saved values.
-    Returns out-of-the-box defaults if not configured yet."""
+    JSON line so the Configure dialog round-trips the saved values. '{}' when
+    nothing is persisted yet."""
     s, n = v_int(args, "session"), v_int(args, "net_id")
     _router_names(args)
-    cfg = _router_load_state(s, n)
-    if not cfg:
-        # 6.8.93 Parity: Show default out-of-the-box NAT values in Configure dialog
-        cfg = {
-            "gw_cidr": "10.10.10.1/24",
-            "nat": 1,
-            "uplink": "host",
-            "routes": [],
-            "dhcp": 1,
-            "dhcp_start": "10.10.10.50",
-            "dhcp_end": "10.10.10.150",
-            "dhcp_dns": "10.10.10.1"
-        }
+    cfg = _router_load_state(s, n) or {}
     return 0, [json.dumps(cfg)], ""
 
 
@@ -3830,7 +4661,14 @@ def verb_router_delete(args):
     veths, the root-ns MASQUERADE, and the namespace itself. No-op if absent.
     Deleting the netns removes its 'lan'/'wan' ends; deleting a host-side veth
     removes its peer — so either path leaves nothing behind."""
-    s, n, br, ns, h_lan, h_wan = _router_names(args)
+    s, n, _, _, _, _ = _router_names(args)
+    _router_teardown(s, n)
+    return 0, [], ""
+
+
+def _router_teardown(s, n):
+    """router_delete body; also used by links_cleanup / reconcile (slice 4)."""
+    s, n, br, ns, h_lan, h_wan = _router_names({"session": s, "net_id": n})
     _kill_dnsmasq(ns)
     egress = _host_egress_iface()
     _, _, _, wan_net = _wan_link(n)
@@ -3842,13 +4680,12 @@ def verb_router_delete(args):
             run_quiet(["ip", "link", "del", dev])
     if _netns_exists(ns):
         run_quiet(["ip", "netns", "del", ns])
-    # config is per-run: drop the persisted state so a reused net_id (AzamLabs
+    # config is per-run: drop the persisted state so a reused net_id (PNetLab
     # recycles the lowest free id) never inherits a previous router's config.
     try:
         os.unlink(_router_state_path(s, n))
     except OSError:
         pass
-    return 0, [], ""
 
 
 # ---- wireless cell WLAN list (VLAN-trunk multi-SSID) -----------------------
@@ -3917,7 +4754,7 @@ def _wificell_normalize(args):
         if sec == "wpa-eap":
             entry["radius_server"] = (v_ip_list(w, "radius_server")
                                       if w.get("radius_server") else "")
-            rs = w.get("radius_secret", "azamlabs-radius")
+            rs = w.get("radius_secret", "pnetlab-radius")
             if not isinstance(rs, str) or not (1 <= len(rs) <= 64):
                 raise Reject("bad radius secret")
             entry["radius_secret"] = rs
@@ -3985,6 +4822,7 @@ def verb_vxlan_attach(args):
     satellites (the master calls it locally via broker_call and remotely via
     cluster_call -> satd)."""
     vx, br = _vxlan_names(args)
+    lab = v_int(args, "session")
     vni = v_int(args, "vni")
     if vni <= 0 or vni >= 1 << 24:
         raise Reject("bad vni")
@@ -4002,7 +4840,8 @@ def verb_vxlan_attach(args):
     _ensure_lab_bridge(br)
     if not link_exists(vx):
         rc, out, err = run(
-            ["ip", "link", "add", vx, "type", "vxlan", "id", str(vni),
+            ["ip", "link", "add", vx] + _group_args(lab) +
+            ["type", "vxlan", "id", str(vni),
              "dstport", "4789", "local", local_ip, "ttl", "16"],
             timeout=30)
         if rc != 0:
@@ -4131,7 +4970,7 @@ def verb_cluster_sync_manifest(args):
     (/opt/unetlab/scripts/docker-template-manifest.sha256) master->satellite.
     The satellite's broker gates dangerous/free-form docker templates on this
     root-owned manifest (_manifest_trusted/_manifest_hashes): it ships inside
-    the azamlabs-satellite deb but is REGENERATED on the master by
+    the pnetlab-satellite deb but is REGENERATED on the master by
     gen-template-manifest.sh whenever a shipped template's bytes change, so a
     joined satellite would otherwise fail-closed on those templates. Same
     join-time ssh key + rrsync jail (/opt/unetlab) as cluster_sync_lab; rsync
@@ -4140,27 +4979,32 @@ def verb_cluster_sync_manifest(args):
     the satellite's _manifest_trusted not-group/other-writable check passes.
     Missing/empty master manifest -> graceful no-op (the satellite keeps its
     deb-shipped copy; pushing an empty file would fail-closed EVERY dangerous
-    template there)."""
+    template there). The privileged-image allowlist (PRIV_IMAGES, same trust
+    gate, also admin-extended on the master) rides along under the same rule."""
     host_id = v_enum(args, "host", {1, 2, 3, 4, 5})
     data = _cluster_load_hosts()
     h = data["hosts"].get(str(host_id))
     if not h:
         raise Reject("host %d not joined" % host_id)
-    try:
-        if os.path.getsize(SHIPPED_MANIFEST) == 0:
-            log("cluster_sync_manifest: manifest empty on master — skipped")
-            return 0, ["manifest empty on master — skipped"], ""
-    except OSError:
-        log("cluster_sync_manifest: manifest missing on master — skipped")
-        return 0, ["manifest missing on master — skipped"], ""
+    srcs = []
+    for path in (SHIPPED_MANIFEST, PRIV_IMAGES):
+        try:
+            if os.path.getsize(path) == 0:
+                log("cluster_sync_manifest: %s empty on master — skipped" % path)
+                continue
+        except OSError:
+            log("cluster_sync_manifest: %s missing on master — skipped" % path)
+            continue
+        # /./ marker: -R lands the file at <jail>/scripts/<name>
+        # (scripts/ is deb-owned and already root:root there).
+        srcs.append(BASE + "/./" + os.path.relpath(path, BASE))
+    if not srcs:
+        return 0, ["manifest missing/empty on master — skipped"], ""
     ssh = ("ssh -i %s -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
            % CLUSTER_KEY)
-    rel = os.path.relpath(SHIPPED_MANIFEST, BASE)
-    # /./ marker: -R lands the file at <jail>/scripts/docker-template-
-    # manifest.sha256 (scripts/ is deb-owned and already root:root there).
     rc, out, err = run(
-        ["rsync", "-a", "-R", "--chmod=F0644", "-e", ssh,
-         BASE + "/./" + rel, "root@%s:." % h["ip"]],
+        ["rsync", "-a", "-R", "--chmod=F0644", "-e", ssh]
+        + srcs + ["root@%s:." % h["ip"]],
         timeout=60, check_rc=False)
     return rc, out, err
 
@@ -4221,37 +5065,16 @@ def verb_cluster_deploy(args):
 
 # verbs that stay usable across an engine version skew (monitoring + the
 # image probe), so the Cluster page can still show what's wrong
-SKEW_SAFE_VERBS = {"ping", "sysinfo", "image_check", "image_list"}
+# satellite_self_update is how a skewed satellite is brought back in line.
+SKEW_SAFE_VERBS = {"ping", "sysinfo", "image_check", "image_list",
+                   "satellite_self_update"}
 _MASTER_VERSION = None
 
 
 def _master_version():
     global _MASTER_VERSION
     if _MASTER_VERSION is None:
-        # AzamLabs authoritative dynamic version resolution
-        base_ver = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "VERSION")
-        local_ver = os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")
-        for v_path in ("/opt/unetlab/VERSION", "/opt/azambasha/VERSION", "/etc/azamlabs-version", base_ver, local_ver):
-            try:
-                if os.path.isfile(v_path):
-                    with open(v_path, "r", encoding="utf-8") as f:
-                        p_ver = ""
-                        v_ver = ""
-                        for line in f:
-                            line = line.strip()
-                            if line.startswith("PACKAGE_VERSION="):
-                                p_ver = line.split("=", 1)[1].strip()
-                            elif line.startswith("VERSION="):
-                                v_ver = line.split("=", 1)[1].strip()
-                        if p_ver:
-                            _MASTER_VERSION = p_ver
-                            return _MASTER_VERSION
-                        if v_ver:
-                            _MASTER_VERSION = v_ver
-                            return _MASTER_VERSION
-            except Exception:
-                pass
-        rc, out, _ = run(["dpkg-query", "-W", "-f", "${Version}", "azamlabs"],
+        rc, out, _ = run(["dpkg-query", "-W", "-f", "${Version}", "pnetlab"],
                          timeout=15)
         _MASTER_VERSION = out[0].strip() if rc == 0 and out else ""
     return _MASTER_VERSION
@@ -4260,6 +5083,18 @@ def _master_version():
 def _ver_core(v):
     m = re.match(r"(\d+\.\d+\.\d+)", v or "")
     return m.group(1) if m else (v or "")
+
+
+# Dead-satellite negative cache. A powered-off satellite costs every
+# cluster_call ~3 s of ARP wait (EHOSTUNREACH), and the Cluster page polls
+# sysinfo every 8 s. After a failed connect, the polling verbs below answer
+# "unreachable (cached)" at once for SAT_DOWN_TTL s; every other verb (node
+# lifecycle, ping, image ops) always dials, and any successful connect clears
+# the entry.
+SAT_DOWN_TTL = 30
+SAT_DOWN_CACHED_VERBS = {"sysinfo", "linkstats"}
+_SAT_DOWN = {}                  # (host_id, ip) -> (monotonic until, err)
+_SAT_DOWN_LOCK = threading.Lock()
 
 
 def verb_cluster_call(args):
@@ -4277,11 +5112,24 @@ def verb_cluster_call(args):
     if not h:
         raise Reject("host %d not joined" % host_id)
 
+    key = (host_id, h["ip"])
+    if verb in SAT_DOWN_CACHED_VERBS:
+        with _SAT_DOWN_LOCK:
+            down = _SAT_DOWN.get(key)
+        left = down[0] - time.monotonic() if down else 0
+        if left > 0:
+            return 255, [], ("satellite %d (%s) unreachable (cached, retry in "
+                             "%ds): %s" % (host_id, h["ip"], math.ceil(left),
+                                           down[1]))
     try:
         raw = socket.create_connection((h["ip"], SATD_PORT), timeout=10)
     except OSError as e:
+        with _SAT_DOWN_LOCK:
+            _SAT_DOWN[key] = (time.monotonic() + SAT_DOWN_TTL, str(e))
         return 255, [], "satellite %d (%s) unreachable: %s" % (
             host_id, h["ip"], e)
+    with _SAT_DOWN_LOCK:
+        _SAT_DOWN.pop(key, None)
     try:
         ctx = ssl._create_unverified_context()
         tls = ctx.wrap_socket(raw)
@@ -5031,7 +5879,7 @@ def verb_roce_agent_health(args):
 
 def verb_node_kill_orphan_qemu(args):
     """Kill any leftover qemu still bound to this node's running path BEFORE the
-    node (re)starts. AzamLabs can leave an orphaned qemu when a node is deleted/
+    node (re)starts. PNetLab can leave an orphaned qemu when a node is deleted/
     recreated or restarted; for a Wireless node that orphan keeps its radio on the
     shared vwifi medium and beacons a STALE SSID (ghost network) even after the
     config is fixed. Called only from a wireless node's prepare() — i.e. before
@@ -5246,33 +6094,34 @@ def _ai_load_config():
 
 
 def _ai_apply_owner(path, group, mode):
-    """chmod + chown root:<group>, tolerating a not-yet-created group."""
+    """chmod + chown root:<group>, tolerating a not-yet-created group. If a config
+    write ever races ahead of the postinst that creates the pnetlab-mcp user (or on
+    an old box mid-upgrade), this degrades to root:root instead of crashing the
+    broker — the MCP service just can't read until the user exists, and the next
+    save (post-upgrade) fixes the owner."""
     os.chmod(path, mode)
-    for g in ["pnetlab-mcp", "azamlabs-mcp", group]:
-        try:
-            shutil.chown(path, "root", g)
-            return
-        except (LookupError, PermissionError, OSError):
-            pass
     try:
-        shutil.chown(path, "root", "root")
-    except OSError:
-        pass
+        shutil.chown(path, "root", group)
+    except (LookupError, PermissionError, OSError):
+        try:
+            shutil.chown(path, "root", "root")
+        except OSError:
+            pass
 
 
 def _ai_save_config(cfg):
     os.makedirs(AI_DIR, exist_ok=True)
     # 0751 root:www-data — BOTH readers must TRAVERSE this dir: www-data (the engine
-    # shim) reads the 0640 bridge.secret via its group, and azamlabs-mcp (the
+    # shim) reads the 0640 bridge.secret via its group, and pnetlab-mcp (the
     # unprivileged MCP service) reads the 0640 config.json/usage.json. www-data keeps
-    # group traversal; azamlabs-mcp traverses via the other-execute bit. No secret
+    # group traversal; pnetlab-mcp traverses via the other-execute bit. No secret
     # leaks — the dir is NOT other-readable (no listing) and every file inside is
     # individually group-locked 0640. MUST re-apply on every rewrite: the chmod is
     # what keeps traversal working after an os.replace resets nothing here (the dir
     # is not replaced, but re-asserting is cheap and self-heals an old 0750 box).
     os.chmod(AI_DIR, 0o751)
     shutil.chown(AI_DIR, "root", "www-data")
-    # config.json: 0640 root:azamlabs-mcp so the unprivileged MCP service can READ
+    # config.json: 0640 root:pnetlab-mcp so the unprivileged MCP service can READ
     # the token hashes / bridge secret / LLM key it needs, without those secrets
     # becoming readable to www-data or the world. MUST re-apply owner+mode on EVERY
     # rewrite (set on the temp file so the published inode is correct atomically):
@@ -5281,10 +6130,10 @@ def _ai_save_config(cfg):
     tmp = AI_CONFIG + ".tmp"
     with open(tmp, "w") as fh:
         json.dump(cfg, fh, indent=2)
-    _ai_apply_owner(tmp, "azamlabs-mcp", 0o640)
+    _ai_apply_owner(tmp, "pnetlab-mcp", 0o640)
     os.replace(tmp, AI_CONFIG)
     # mirror the bridge secret for the www-data engine shim (0640 root:www-data).
-    # azamlabs-mcp does NOT read this file — it takes bridge_secret from config.json —
+    # pnetlab-mcp does NOT read this file — it takes bridge_secret from config.json —
     # so it stays www-data-only (least privilege: the service never touches it).
     secret = cfg.get("mcp", {}).get("bridge_secret", "")
     tmp2 = AI_BRIDGE_SECRET + ".tmp"
@@ -5331,14 +6180,8 @@ def _mcp_ensure_unit():
     """Install / refresh the unit into /etc/systemd/system on demand (it ships as
     a data file so it is NOT auto-enabled at deb install). daemon-reload only when
     the file actually changed. Returns True if a reload happened."""
-    src = MCP_UNIT_SRC
-    if not os.path.isfile(src):
-        for _c in [BASE + "/scripts/mcp/pnet-mcp.service", BASE + "/scripts/mcp/pnetlab-mcp.service", BASE + "/scripts/mcp/azamlabs-mcp.service"]:
-            if os.path.isfile(_c):
-                src = _c
-                break
     try:
-        want = open(src).read()
+        want = open(MCP_UNIT_SRC).read()
     except OSError:
         raise Reject("mcp unit source missing")
     have = ""
@@ -5353,18 +6196,12 @@ def _mcp_ensure_unit():
         fh.write(want)
     os.chmod(tmp, 0o644)
     os.replace(tmp, MCP_UNIT_DST)
-    for alt in ["/etc/systemd/system/pnet-mcp.service", "/etc/systemd/system/azamlabs-mcp.service"]:
-        try:
-            if not os.path.exists(alt):
-                os.symlink(MCP_UNIT_DST, alt)
-        except OSError:
-            pass
     run_quiet(["systemctl", "daemon-reload"])
     return True
 
 
 def verb_mcp_service(args):
-    """systemctl toggle for the (toggleable) azamlabs-mcp.service — modelled on the
+    """systemctl toggle for the (toggleable) pnetlab-mcp.service — modelled on the
     status page's ksm|uksm|cpulimit broker hops. The unit is installed on the
     first enable/start (ships disabled by default). `status` returns a JSON line."""
     op = v_enum(args, "op", MCP_SERVICE_OPS)
@@ -5478,9 +6315,9 @@ def verb_ai_settings_write(args):
 
 def verb_mcp_token_new(args):
     """Generate a bearer access token for an external MCP client. The plaintext
-    is returned ONCE; only its sha256 is stored. Bound to a AzamLabs pod/tenant."""
+    is returned ONCE; only its sha256 is stored. Bound to a PNetLab pod/tenant."""
     name = v_re(args, "name", RE_TOKEN_NAME)
-    # pod == a AzamLabs user id (the users PK). The dashboard (mcp/api.php) supplies
+    # pod == a PNetLab user id (the users PK). The dashboard (mcp/api.php) supplies
     # the minting admin's own pod when the request omits one; a literal 0 here is a
     # non-user and the bridge will reject it ("unknown pod"), so callers should
     # always pass a real pod.
@@ -5515,7 +6352,7 @@ def verb_mcp_token_del(args):
 
 
 def _ai_ledger():
-    return UsageLedger(AI_USAGE, lambda path: _ai_apply_owner(path, "azamlabs-mcp", 0o640))
+    return UsageLedger(AI_USAGE, lambda path: _ai_apply_owner(path, "pnetlab-mcp", 0o640))
 
 
 def _ai_usage_today(pod):
@@ -6111,22 +6948,26 @@ def verb_disk_expand(args):
 
 
 def verb_cluster_sync_satellite(args):
-    """Detach a pnet-satdeb worker pushing a matching satellite/bridge pair.
+    """Detach a pnet-satdeb worker pushing the matching satellite package set.
 
-    The PHP caller selects the pair from root-owned, read-only staging paths;
-    the broker repeats the path jail before passing either path to the root
-    worker.  This keeps the compatibility fallback useful for old masters
-    without turning the new bridge argument into a root path primitive.
+    The set is satellite, bridge, docker, qemu and vpcs at one version.  The
+    PHP caller selects it from root-owned, read-only staging paths; the broker
+    repeats the path jail before passing any path to the root worker.  This
+    keeps the compatibility fallback useful for old masters without turning a
+    package argument into a root path primitive.
     """
     host_id = v_enum(args, "host", {1, 2, 3, 4, 5})
     job = v_re(args, "job", RE_JOB)
     sync_deb_roots = (
         "/opt/unetlab/data/satellite",
         "/opt/unetlab/cluster-bundle",
-        "/var/cache/azamlabs/debs",
+        "/var/cache/pnetlab/debs",
     )
     deb_source = v_path_under_any(args, "deb_source", sync_deb_roots)
     bridge_deb_source = v_path_under_any(args, "bridge_deb_source", sync_deb_roots)
+    docker_deb_source = v_path_under_any(args, "docker_deb_source", sync_deb_roots)
+    qemu_deb_source = v_path_under_any(args, "qemu_deb_source", sync_deb_roots)
+    vpcs_deb_source = v_path_under_any(args, "vpcs_deb_source", sync_deb_roots)
     data = _cluster_load_hosts()
     h = data["hosts"].get(str(host_id))
     if not h:
@@ -6135,8 +6976,37 @@ def verb_cluster_sync_satellite(args):
     unit = spawn_unit(
         "pnet-satdeb-" + job,
         ["/bin/bash", BASE + "/scripts/pnet-satdeb-push.sh",
-         sat_ip, deb_source, bridge_deb_source, job],
+         sat_ip, str(host_id), deb_source, bridge_deb_source,
+         docker_deb_source, qemu_deb_source, vpcs_deb_source, job],
         props=("IOWeight=50",))
+    return 0, ["unit " + unit], ""
+
+
+RE_DEB_VERSION = re.compile(r"^[0-9][A-Za-z0-9.+~]{0,63}\Z")
+# RE_JOB's "$" would also accept a trailing newline.
+RE_SATDEB_JOB = re.compile(r"^[0-9a-f]{16}\Z")
+
+
+def verb_satellite_self_update(args):
+    """Satellite side of Sync Satellite: install the package set the master
+    staged under /opt/unetlab/satdeb (over its rrsync-jailed cluster key).
+
+    Root only (satd relays it from the master after the PSK HMAC check) and
+    satellite only. No paths: pnet-satdeb-install.sh derives the five
+    filenames from the version and checks each file before one apt
+    transaction. It runs as its own transient unit because the satellite
+    deb's postinst restarts brokerd and satd; the fixed unit name keeps one
+    install at a time.
+    """
+    if _caller_uid() != 0:
+        raise Reject("satellite_self_update: root only")
+    if not _satellite_role():
+        raise Reject("satellite_self_update: not a satellite")
+    version = v_re(args, "version", RE_DEB_VERSION)
+    job = v_re(args, "job", RE_SATDEB_JOB)
+    unit = spawn_unit(
+        "pnet-satself-update",
+        ["/bin/bash", BASE + "/scripts/pnet-satdeb-install.sh", version, job])
     return 0, ["unit " + unit], ""
 
 
@@ -6149,7 +7019,7 @@ def verb_cluster_sync_satellite(args):
 # be accepted); the legacy shared per-lab capture container is
 # Capture_<tenant>_<lab_session>. RE_CTR covers all three shapes for any later
 # verb that receives a name (e.g. echoed back from `docker ps`) instead of ids.
-# Stage 7: the tcp://127.0.0.1:4243 endpoint is GONE (azamlabs-docker 6.0.0-31
+# Stage 7: the tcp://127.0.0.1:4243 endpoint is GONE (pnetlab-docker 6.0.0-31
 # binds unix:///var/run/docker.sock only). The broker runs as root, so it dials
 # the unix socket directly; every verb below inherits this single constant.
 DOCKER_HOST = "unix:///var/run/docker.sock"
@@ -6168,6 +7038,7 @@ DOCKER_INSPECT_FORMATS = {
     "{{ .Config.Image }}",
     "{{json .Config.Image}}",
     "{{ .Image }}",
+    "{{ .ResolvConfPath }}",                # legacy root udhcpc (device_docker/ceos)
 }
 
 
@@ -6256,6 +7127,7 @@ RE_TEMPLATE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 RE_DEV = re.compile(r"^/dev/[a-z0-9/_-]+$")
 RE_ENVKEY = re.compile(r"^[A-Z0-9_]+$")
 RE_SHM = re.compile(r"^[0-9]+[kKmMgG]?$")
+RE_TMPFS_SHMEM = re.compile(r"^/dev/shmem:size=([0-9]{1,6}[kKmMgG]?)$")
 RE_USER = re.compile(r"^[0-9]+(:[0-9]+)?$")
 RE_LEAF = re.compile(r"^[A-Za-z0-9_.-]+$")          # ETBA / EOS_PLATFORM / Card_Type
 RE_MOUNT_TARGET = re.compile(r"^/[A-Za-z0-9_./-]+$")
@@ -6383,6 +7255,99 @@ def _manifest_hashes():
     return hashes
 
 
+# ---- privileged-image allowlist (security fix, owner ruling 2026-10-14) -----
+# The manifest signs a TEMPLATE's bytes, never the IMAGE. A lab editor picks a
+# node's image from every image on the box, so a signed privileged template (or
+# the ceos/srlinux driver profiles) handed host-root-equivalent flags to
+# whatever image the editor chose. A host-root-equivalent create now ALSO needs
+# the image's repository listed for that template / family in this root-owned
+# file (same _manifest_trusted gate: root-owned, not g/o-writable, root dir).
+# Missing or untrusted file -> no rules -> every host-root-equivalent create is
+# refused (fail closed). Benign creates are unaffected.
+#   <key> <repository pattern>     key = template:<name> | family:ceos|srlinux
+# The pattern matches the repository only (tag/digest stripped), fnmatch-style.
+# Admins add entries with: pnetlab-template-sign --allow-image <key> <pattern>
+PRIV_IMAGES = BASE + "/scripts/docker-privileged-images"
+RE_PRIV_KEY = re.compile(
+    r"^(template:[A-Za-z0-9][A-Za-z0-9_.-]{0,63}|family:(ceos|srlinux))$")
+RE_PRIV_PAT = re.compile(r"^[a-z0-9*][a-z0-9._/:*-]{0,255}$")
+
+
+def _priv_image_rules():
+    """{key: [pattern, ...]} from the trusted allowlist; {} when untrusted."""
+    rules = {}
+    if not _manifest_trusted(PRIV_IMAGES):
+        return rules
+    try:
+        with open(PRIV_IMAGES) as f:
+            for line in f:
+                line = line.split("#", 1)[0].strip()
+                if not line:
+                    continue
+                bits = line.split()
+                if (len(bits) != 2 or not RE_PRIV_KEY.match(bits[0])
+                        or not RE_PRIV_PAT.match(bits[1])):
+                    log("priv-images: ignoring malformed line %r" % line)
+                    continue
+                rules.setdefault(bits[0], []).append(bits[1])
+    except Exception as e:
+        log("priv-images: unreadable %s (%s)" % (PRIV_IMAGES, e))
+        return {}
+    return rules
+
+
+def _image_repository(image):
+    """Repository part of an image ref: drop @digest, then a :tag that follows
+    the last '/' (a registry :port before a '/' is kept)."""
+    ref = image.split("@", 1)[0]
+    colon = ref.rfind(":")
+    if colon > ref.rfind("/"):
+        ref = ref[:colon]
+    return ref
+
+
+def _host_root_equiv(opts, runpath):
+    """Name the first host-root-equivalent option in a docker create option
+    list (everything before --name), or None. Mirrors the signed-only tier of
+    _docker_build_typed: privileged, cap SYS_ADMIN, any --device, net=host, a
+    -v host bind outside the runningPath jail and SHIPPED_VOL_ALLOW."""
+    jail = runpath.rstrip("/") + "/"
+    i = 0
+    while i < len(opts):
+        t = opts[i]
+        if t == "--privileged":
+            return t
+        if t.startswith("--cap-add=") and t.split("=", 1)[1] in CAP_DANGEROUS:
+            return t
+        if t == "--device" or t.startswith("--device="):
+            return "--device"
+        if t in ("--net=host", "--network=host"):
+            return t
+        if t in ("-v", "--volume") and i + 1 < len(opts):
+            src = opts[i + 1].split(":", 1)[0]
+            if src not in SHIPPED_VOL_ALLOW and not src.startswith(jail):
+                return "host bind " + src
+            i += 1
+        i += 1
+    return None
+
+
+def _require_priv_image(key, image, opts, runpath):
+    """Refuse a host-root-equivalent create unless `image`'s repository is
+    allowlisted for `key`."""
+    why = _host_root_equiv(opts, runpath)
+    if why is None:
+        return
+    repo = _image_repository(image)
+    for pat in _priv_image_rules().get(key, []):
+        if fnmatch.fnmatchcase(repo, pat):
+            return
+    raise Reject(
+        "image %s is not allowed for %s (it runs with %s); an admin must allow "
+        "it: sudo pnetlab-template-sign --allow-image %s <repository>"
+        % (image, key, why, key))
+
+
 def _resolve_runpath_file(runpath, spec):
     """Resolve a template-supplied bind/env-file SOURCE to a path under the
     node runningPath jail. Only the basename is honoured (template writes
@@ -6495,6 +7460,18 @@ def _parse_freeform(text, runpath, allow_publish_net):
             if not RE_SHM.match(v):
                 raise Reject("template: bad --shm-size %r" % v)
             out += ["--shm-size", v]
+        elif t == "--tmpfs" or t.startswith("--tmpfs="):
+            # XRd only: its own tmpfs at /dev/shmem. On a container restart XR
+            # does not re-link /dev/shmem -> /dev/shm, so the dir lands on the
+            # 64 MB /dev tmpfs, fills, and XR crash-loops. Target pinned, only
+            # a size option (docker's default noexec,nosuid opts kept; pages
+            # are charged to the container's memory cgroup).
+            v, i = _ff_take(tokens, i, t)
+            m = RE_TMPFS_SHMEM.match(v)
+            if not m:
+                raise Reject("template: --tmpfs %r not allowed (only "
+                             "/dev/shmem:size=<n>)" % v)
+            out += ["--tmpfs", "/dev/shmem:size=" + m.group(1)]
         elif t in ("-u", "--user") or t.startswith("--user="):
             v, i = _ff_take(tokens, i, t)
             if not RE_USER.match(v):
@@ -6533,7 +7510,7 @@ def _parse_freeform(text, runpath, allow_publish_net):
         else:
             raise Reject(
                 "template: unsupported docker flag %r — convert the template to "
-                "the typed docker: schema or sign it with azamlabs-template-sign" % t)
+                "the typed docker: schema or sign it with pnetlab-template-sign" % t)
         i += 1
     return out
 
@@ -6574,7 +7551,7 @@ def _docker_build_typed(block, runpath, signed):
             raise Reject(
                 "template requests %s but its bytes are not in the shipped "
                 "manifest; convert to the safe subset or have an admin sign it: "
-                "sudo azamlabs-template-sign" % feature)
+                "sudo pnetlab-template-sign" % feature)
 
     out = []
     if block.get("privileged") is True:
@@ -6646,7 +7623,39 @@ def _docker_build_typed(block, runpath, signed):
     return out, list(block.get("entrypoint") or [])
 
 
+# Capabilities a template may request through its top-level `cap_add:` list.
+# Deliberately narrower than CAP_ALLOW: only the network-service tier that needs
+# no signature (dnsmasq DHCP needs NET_ADMIN to program ARP/neighbour entries
+# for leased clients). SYS_ADMIN and --privileged stay on the signed-only typed
+# `docker:` path.
+TEMPLATE_CAP_ALLOW = {"NET_ADMIN", "NET_RAW"}
+
+
+def _template_cap_add(tpl):
+    """Validated `--cap-add=` tokens from the template's top-level `cap_add:`
+    list. The value comes from the root-read template file only (never from the
+    caller) and every entry must be in TEMPLATE_CAP_ALLOW."""
+    caps = tpl.get("cap_add")
+    if caps is None:
+        return []
+    if not isinstance(caps, list) or len(caps) > len(TEMPLATE_CAP_ALLOW):
+        raise Reject("template: cap_add must be a short list")
+    out = []
+    for c in caps:
+        if not isinstance(c, str) or c not in TEMPLATE_CAP_ALLOW:
+            raise Reject("template: cap %r not allowed in cap_add" % (c,))
+        tok = "--cap-add=" + c
+        if tok not in out:
+            out.append(tok)
+    return out
+
+
 def _docker_capabilities(tpl, raw, runpath, allow_publish_net):
+    caps, entry = _docker_capabilities_base(tpl, raw, runpath, allow_publish_net)
+    return _template_cap_add(tpl) + caps, entry
+
+
+def _docker_capabilities_base(tpl, raw, runpath, allow_publish_net):
     """Return (cap_argv, entrypoint_argv) sourced from the template. BOTH the
     typed docker: block and the legacy free-form strings are gated on the shipped
     manifest for the host-root-equivalent capability tier: `signed` is a sha256
@@ -6670,7 +7679,7 @@ def _docker_capabilities(tpl, raw, runpath, allow_publish_net):
         raise Reject(
             "template not in shipped manifest (sha256=%s): convert its "
             "dock_args/docker_options to the typed docker: schema, or an admin "
-            "must sign it with /opt/unetlab/scripts/azamlabs-template-sign" % digest)
+            "must sign it with /opt/unetlab/scripts/pnetlab-template-sign" % digest)
     return _parse_freeform(free, runpath, allow_publish_net), entry
 
 
@@ -6717,6 +7726,63 @@ def _docker_hostname(args):
     return v
 
 
+DOCKER_MANAGED_CATALOG = BASE + "/scripts/pnetlab-docker-managed.json"
+RE_MANAGED_ALIAS = re.compile(r"^(pnet-[a-z0-9-]+):([0-9]+\.[0-9]+)$")
+RE_MANAGED_TAG = re.compile(r"^pnet-[a-z0-9-]+:[0-9]+\.[0-9]+(\.[0-9]+)?$")
+DOCKER_PULL_TIMEOUT = 540
+
+
+def _managed_families():
+    """pnet-* image families the shipped (root-owned) catalog maps to
+    rspnet/<family>. This is the only set docker_create will pull on demand."""
+    if not _manifest_trusted(DOCKER_MANAGED_CATALOG):
+        return set()
+    try:
+        with open(DOCKER_MANAGED_CATALOG) as f:
+            rows = json.load(f).get("nodes", [])
+    except Exception:
+        return set()
+    fams = set()
+    for row in rows:
+        m = RE_MANAGED_ALIAS.match(str(row.get("device_version", "")))
+        if (m and row.get("managed_repository") == "rspnet/" + m.group(1)
+                and row.get("managed_platform") == "linux/amd64"):
+            fams.add(m.group(1))
+    return fams
+
+
+def _docker_ensure_image(image):
+    """If a managed pnet-* image is absent locally, pull rspnet/<family>:<tag>
+    and tag it with the name the node uses. Anything outside the shipped
+    catalog is left alone (docker create then fails as before). A failed pull
+    raises Reject carrying the image_pull_failed marker the PHP driver maps to
+    a node-start message."""
+    if not RE_MANAGED_TAG.match(image):
+        return
+    rc, _, _ = run(["docker", "-H=" + DOCKER_HOST, "image", "inspect",
+                    "--format", "{{.Id}}", image], timeout=30)
+    if rc == 0:
+        return
+    family, _, tag = image.partition(":")
+    if family not in _managed_families():
+        return
+    remote = "rspnet/%s:%s" % (family, tag)
+    log("docker_create: %s absent locally, pulling %s" % (image, remote))
+    try:
+        rc, _, err = run(["docker", "-H=" + DOCKER_HOST, "pull",
+                          "--platform=linux/amd64", remote],
+                         timeout=DOCKER_PULL_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise Reject("image_pull_failed: timed out pulling %s" % remote)
+    if rc != 0:
+        detail = (err.strip().splitlines() or ["pull failed"])[-1][:200]
+        raise Reject("image_pull_failed: cannot pull %s (%s)" % (remote, detail))
+    rc, _, err = run(["docker", "-H=" + DOCKER_HOST, "tag", remote, image],
+                     timeout=30)
+    if rc != 0:
+        raise Reject("image_pull_failed: cannot tag %s as %s" % (remote, image))
+
+
 def verb_docker_create(args):
     """Build a `docker create` argv from typed leaf values + the ROOT-READ
     template capability set, and execute it as an array (never a shell string).
@@ -6747,6 +7813,7 @@ def verb_docker_create(args):
 
     if family == "docker":
         raw, tpl, _ = _docker_read_template(template)
+        _docker_ensure_image(image)
         dock_args = (tpl.get("dock_args") or "").strip()
         gui = not dock_args and not isinstance(tpl.get("docker"), dict)
         caps, entry = _docker_capabilities(tpl, raw, runpath, allow_publish_net=gui)
@@ -6807,7 +7874,10 @@ def verb_docker_create(args):
                   "net.ipv6.conf.all.autoconf=0",
                   "net.ipv6.conf.default.autoconf=0"):
             argv += ["--sysctl", k]
-        argv += ["--net=none", "-u", "0:0"]
+        # --privileged: srlinux.yml's docker_options (dropped by the
+        # re-broker; SR Linux does not boot without it). Gated below by the
+        # privileged-image allowlist like every host-root-equivalent create.
+        argv += ["--net=none", "-u", "0:0", "--privileged"]
         topo = _resolve_runpath_file(runpath, card_type + ".yml")
         argv += ["--mount",
                  "type=bind,source=%s,target=/tmp/topology.yml,readonly" % topo]
@@ -6819,6 +7889,8 @@ def verb_docker_create(args):
         argv += ["--name=" + cname, "-h", name, image]
         argv += ["sudo", "bash", "/opt/srlinux/bin/sr_linux"]
 
+    key = ("template:%s" % template) if family == "docker" else ("family:%s" % family)
+    _require_priv_image(key, image, argv[:argv.index("--name=" + cname)], runpath)
     log("docker_create %s family=%s image=%s" % (cname, family, image))
     return run(argv, timeout=120)
 
@@ -6868,8 +7940,18 @@ DOCKER_EXEC_CMDS = {
     # ethtool_offload_e1 is parameterised on a typed interface_id int — see verb.
     "sr_cli_source_startup": ([], ["sr_cli", "source", "startup-config",
                                    "auto-commit"]),
+    # SR Linux boots from its saved config.json: persist the imported config
+    # so it survives a container stop/start (a wipe re-imports).
+    "sr_cli_save_startup": ([], ["sr_cli", "save", "startup"]),
+    # Read-only readiness probe: rc != 0 until SR Linux has finished loading
+    # its initial config ("show version" answers earlier, while `source` still
+    # fails with "Server is starting").
+    "sr_cli_ready": ([], ["sr_cli", "-d", "info from running system name"]),
+    # Export only the delta from factory (insert/delete lines). A full
+    # `info flat from running` dump replays reserved factory objects and its
+    # re-import fails the commit; `from state` dumped operational state.
     "sr_cli_export": (["-u", "root"], ["bash", "-c",
-                                       "sr_cli info flat from state  | more > "
+                                       "sr_cli -d 'diff flat factory running' > "
                                        "export-config"]),
     # interactive console-attach commands (per family)
     "attach_node_shell": (["-it"], ["/node_shell.sh"]),   # docker_shell templates (XRd etc.)
@@ -7063,10 +8145,22 @@ def verb_docker_start(args):
 
 
 def verb_docker_stop(args):
-    """`docker stop <derived-name>` — name derived from the typed ids."""
+    """`docker stop [--time N] <derived-name>` — name derived from the typed ids.
+    Optional `grace` (int 1..30 s) shortens docker's SIGTERM-to-SIGKILL wait
+    for containers whose PID 1 ignores SIGTERM (cEOS: systemd), which end in
+    SIGKILL either way. Absent = docker's default (10 s), unchanged."""
     name = _docker_target_name(args)
-    return run(["docker", "-H=" + DOCKER_HOST, "stop", name],
-               timeout=60, check_rc=False)
+    argv = ["docker", "-H=" + DOCKER_HOST, "stop"]
+    if args.get("grace") is not None:
+        grace = v_int(args, "grace")
+        if not 1 <= grace <= 30:
+            raise Reject("bad arg grace")
+        argv += ["--time", str(grace)]
+    argv.append(name)
+    res = run(argv, timeout=60, check_rc=False)
+    if name.startswith("docker"):
+        _stop_dhcp_scopes(v_int(args, "node_session"))
+    return res
 
 
 def verb_docker_rm(args):
@@ -7076,7 +8170,10 @@ def verb_docker_rm(args):
     if v_bool(args, "force"):
         argv.append("--force")
     argv.append(name)
-    return run(argv, timeout=60, check_rc=False)
+    res = run(argv, timeout=60, check_rc=False)
+    if name.startswith("docker"):     # wipe/delete may skip docker_stop
+        _stop_dhcp_scopes(v_int(args, "node_session"))
+    return res
 
 
 # ---- docker rebroker (Stage 4): image lifecycle ------------------------------
@@ -7131,7 +8228,7 @@ def verb_docker_image_pull(args):
             "docker -H=%s pull %s; RC=$?; "
             "if [ \"$RC\" = \"0\" ]; then echo \"Done. %s is ready.\"; "
             "else echo \"FAILED to pull %s (rc=$RC)\"; fi; "
-            "mysql azamlabs_db -e \"DELETE FROM process_device WHERE "
+            "mysql pnetlab_db -e \"DELETE FROM process_device WHERE "
             "process_device_id='%s'\"; } > %s 2>&1"
             % (q, DOCKER_HOST, q, q, q, job, logpath))
     log("docker_image_pull %s job=%s" % (ref, job))
@@ -7158,7 +8255,7 @@ def verb_docker_image_rmi(args):
 
 def _docker_updates_module():
     """Import only shipped root-owned code, before any privileged execution."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "azamlabs_docker_updates.py")
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pnetlab_docker_updates.py")
     targets = [path]
     parent = os.path.dirname(path)
     while True:
@@ -7171,8 +8268,8 @@ def _docker_updates_module():
         info = os.stat(target)
         if os.path.islink(target) or info.st_uid != 0 or info.st_mode & 0o022:
             raise Reject("Untrusted Docker update helper")
-    import azamlabs_docker_updates
-    return azamlabs_docker_updates
+    import pnetlab_docker_updates
+    return pnetlab_docker_updates
 
 
 def verb_docker_node_updates(args):
@@ -7232,6 +8329,31 @@ def verb_docker_ps_count(args):
     return 0, [str(sum(1 for l in out if l.strip()))], ""
 
 
+# docker<N> — the node-container name shape (_docker_name); nothing else matches.
+RE_DOCKER_NODE_NAME = re.compile(r"^docker([0-9]{1,10})$")
+
+
+def verb_docker_running_sessions(args):
+    """READ-ONLY: the node sessions whose docker<N> container is running, so a
+    lab status sweep costs one `docker ps` instead of one `docker inspect` per
+    node. Takes no arguments; only names of the docker<int> node shape are
+    reported, as the bare integer (no other container name crosses the
+    socket). out = one session id per line; rc != 0 = engine unreachable, and
+    the caller falls back to per-node inspects."""
+    if args:
+        raise Reject("docker_running_sessions takes no arguments")
+    rc, out, err = run(["docker", "-H=" + DOCKER_HOST, "ps",
+                        "--format", "{{.Names}}"], timeout=30, check_rc=False)
+    if rc != 0:
+        return rc, [], err
+    ids = []
+    for line in out:
+        m = RE_DOCKER_NODE_NAME.match(line.strip())
+        if m:
+            ids.append(str(int(m.group(1))))
+    return 0, ids, ""
+
+
 def verb_docker_stats(args):
     """Read-only `docker stats --no-stream` with the FIXED format string above
     (one 'name;cpu%;mem' line per running container). A caller-supplied
@@ -7270,14 +8392,14 @@ def verb_docker_version(args):
 # per-lab shape). Deliberately EXCLUDES docker<n> node containers — capture_rm
 # must never be able to rm a lab node.
 RE_CAPTURE_NAME = re.compile(r"^Capture_\d{1,10}_\d{1,10}(?:_\d{1,10}_\d{1,10})?$")
-CAPTURE_IMAGE = "azam-capture-web:1.0"
+CAPTURE_IMAGE = "pnet-capture-web:1.0"
 WINBOX_IMAGE = "alexhorner/winbox-dockerised"
 
 
 def verb_capture_create(args):
     """Create the live per-interface capture sidecar:
     `docker create --shm-size 1G --cap-add=NET_ADMIN -ti --net=none
-       --name=Capture_<t>_<l>_<ns>_<if> -h <tap> azam-capture-web:1.0`
+       --name=Capture_<t>_<l>_<ns>_<if> -h <tap> pnet-capture-web:1.0`
     Name AND -h hostname (the node tap: vunl<ns>_<if> / ser<ns>_<if>, selected
     by the typed 'serial' flag) are derived here from typed ints; image and
     every flag are fixed. --net=none: eth0/eth1 are attached afterwards by the
@@ -7372,6 +8494,77 @@ def verb_capture_rm(args):
                timeout=60, check_rc=False)
 
 
+# Capture containers whose wiresharks row is gone cannot be found by the PHP
+# side any more (they once leaked on every stop/destroy). Two broker-side
+# sweeps, both keyed ONLY on a name of RE_CAPTURE_NAME shape (so never a
+# docker<n> node, winbox or anything else) and on its lab-session field:
+# session_cleanup S removes lab S's, the start-up reconcile removes those
+# whose lab session no longer has a lab_sessions row.
+
+def _docker_names():
+    """Every container name, running or not. Raises when docker fails."""
+    rc, out, err = run(["docker", "-H=" + DOCKER_HOST, "ps", "-a",
+                        "--format", "{{.Names}}"], timeout=30, check_rc=False)
+    if rc != 0:
+        raise Reject("docker ps rc=%d: %s" % (rc, err.strip()[:120]))
+    return [n.strip() for n in out if n.strip()]
+
+
+def _capture_rm_name(name):
+    return run_quiet(["docker", "-H=" + DOCKER_HOST, "rm", "-f", name])
+
+
+def _capture_reap(keep):
+    """Remove every Capture_<t>_<l>[_<ns>_<if>] container whose lab session
+    l fails keep(l). Returns the names removed."""
+    removed = []
+    for name in _docker_names():
+        if len(name) > 64 or not RE_CAPTURE_NAME.match(name):
+            continue
+        lab_session = int(name.split("_")[2])
+        if keep(lab_session):
+            continue
+        rc = _capture_rm_name(name)
+        log("capture reap %s rc=%d" % (name, rc))
+        if rc == 0:
+            removed.append(name)
+    return removed
+
+
+def _capture_reconcile():
+    """Broker start (and verb capture_reconcile): remove capture containers of
+    lab sessions that are gone. DB or docker error -> change nothing."""
+    try:
+        labs = {int(r[0]) for r in _mysql_rows(
+            "SELECT lab_session_id FROM lab_sessions;") if r and r[0].isdigit()}
+    except Exception as e:
+        log("capture_reconcile: DB unavailable, nothing changed: %s" % str(e)[:120])
+        return None
+    try:
+        removed = _capture_reap(lambda ls: ls in labs)
+    except Exception as e:
+        log("capture_reconcile: docker unavailable, nothing changed: %s" % str(e)[:120])
+        return None
+    log("capture_reconcile: removed=%d" % len(removed))
+    return removed
+
+
+def _capture_reconcile_bg():
+    try:
+        _capture_reconcile()
+    except Exception as e:
+        log("capture_reconcile failed: %r" % e)
+
+
+def verb_capture_reconcile(args):
+    if _caller_uid() != 0:
+        raise Reject("capture_reconcile: root only")
+    removed = _capture_reconcile()
+    if removed is None:
+        return 1, [], "DB or docker unavailable"
+    return 0, [json.dumps({"removed": removed})], ""
+
+
 # ---- external authentication (RADIUS / LDAP) --------------------------------
 # Credentials are validated HERE (root) because the RADIUS shared secret and
 # the LDAP service-account bind password live root-only in
@@ -7430,7 +8623,7 @@ def _extauth_default_config():
         "fallback_local": False,
         "radius": {"primary_host": "", "primary_port": 1812,
                    "secondary_host": "", "secondary_port": 1812,
-                   "secret": "", "timeout": 3, "nas_identifier": "azamlabs"},
+                   "secret": "", "timeout": 3, "nas_identifier": "pnetlab"},
         "ldap": {"uri": "", "starttls": False, "verify": True,
                  "bind_dn": "", "bind_pw": "", "base_dn": "",
                  "user_attr": "sAMAccountName", "group_attr": "memberOf",
@@ -7534,7 +8727,7 @@ def _extauth_radius_verify(cfg, username, password):
         req = srv.CreateAuthPacket(code=radpacket.AccessRequest,
                                    User_Name=username)
         req["User-Password"] = req.PwCrypt(password)
-        nasid = rcfg.get("nas_identifier") or "azamlabs"
+        nasid = rcfg.get("nas_identifier") or "pnetlab"
         req["NAS-Identifier"] = nasid
         try:
             # SendPacket verifies the Response Authenticator (MD5 over
@@ -7917,289 +9110,1382 @@ def verb_extauth_test(args):
     return 0, [json.dumps(res)], ""
 
 
+# ---- broker v2 slice 3: typed, batched lab ops (lab_steps) -----------------
+#
+# The engine (www-data) computes a node's start/stop plan and hands the broker
+# an ordered list of typed steps. No step carries an argv, a binary path, a
+# shell string or a free-form file path: `launch` derives binary + argv from the
+# node_sessions row (DB, not the request) and a few typed leaves, exactly as
+# docker_create does from the root-read template. Families migrate one at a
+# time; anything not migrated still goes through the `wrapper` verb.
 
-# ---- v6.8.92 Broker Enhancements & Verbs -----------------------------------
-
-POWERDOWN_GRACE_MAX = 30
-QEMU_MONITOR_CMDS = {"system_powerdown", "stop", "cont", "pmemsave"}
-BRIDGE_VLAN_PROTOCOLS = {"802.1Q": "802.1q", "802.1ad": "802.1ad"}
-RE_TAP_NAME = re.compile(r"^vunl([0-9]{1,6})_[0-9]{1,6}\Z")
-RE_BRIDGE_PORT = re.compile(r"^vunl([0-9]{1,6})_[0-9]{1,6}\Z")
-ATTACH_BRIDGE_RE = re.compile(r"^(vnet[0-9]{0,6}_[0-9]{1,6}|pnet[0-9]{1,2}|internal[0-9]{1,6}|private[0-9]{1,6})\Z")
-RE_DOCKER_NODE_NAME = re.compile(r"^docker([0-9]{1,10})$")
-RE_DEB_VERSION = re.compile(r"^[0-9][A-Za-z0-9.+~]{0,63}\Z")
-RE_SATDEB_JOB = re.compile(r"^[0-9a-f]{16}\Z")
+UNL_UID_BASE = 32768                      # unl<N> = 32768 + N (cli.php checkUsername)
+USERS_DIR = BASE + "/users"
+UNL_PROFILE = BASE + "/wrappers/unl_profile"
+VPCS_BIN = "/opt/vpcsu/bin/vpcs"
+IOL_WRAPPER = BASE + "/wrappers/iol_wrapper"
+IOL_BIN_DIR = BASE + "/addons/iol/bin"
+SETPRIV = "/usr/bin/setpriv"
+UNL_GID = 32768
+# image: one path segment (device_iol.php's charset guard), never "." / ".."
+RE_IOL_IMAGE = re.compile(r"(?!\.)[A-Za-z0-9._-]{1,200}\Z")
+# -c <file>: the exported startup-config or one of the three stock base configs
+IOL_CONFIGS = ("startup-config", "iou_l3_base_startup-config.txt",
+               "iou_l2_base_startup-config.txt", "iou_startup-config.txt")
+# per-node iol_options reach the IOL binary (run as unl<N>, argv, no shell);
+# keep each token to a flag-ish charset
+RE_IOL_OPT = re.compile(r"[A-Za-z0-9._=:,/+-]{1,64}\Z")
+CONFIG_SCRIPTS_DIR = BASE + "/config_scripts"
+RE_SCRIPT = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}\Z")
+RE_MAC = re.compile(r"[0-9a-f]{2}(?::[0-9a-f]{2}){5}\Z")
+# host-side veth peer prefix per family: <prefix><S>_<i> moves into the netns
+VETH_PEER_PREFIX = ("docker", "ceos", "srlinux")
+# name the peer takes inside the container: eth<n> (docker, cEOS),
+# docker0 / e1-<n> (SR Linux)
+RE_GUEST_IF = re.compile(r"(?:eth[0-9]{1,2}|e1-[0-9]{1,2}|docker0)\Z")
+RE_ETH_DEV = re.compile(r"eth[0-9]{1,2}\Z")
+DOCKER_CONSOLE = BASE + "/wrappers/docker_console.sh"
+CONSOLE_ATTACH = ("/node_shell.sh", "sh", "/bin/bash", "Cli", "bash", "sr_cli")
+CONSOLE_OUT = ("wrapper.txt", "wrapper1.txt")
+GUEST_DEVS = ("eth0", "eth1", "eth2", "eth3")
+NODE_PORT_MIN = 30000                     # PORT + node session (__node.php)
+# Worst case is ~3 steps per interface (tap_delete, tap_create, bridge_port):
+# IOL 16 ethernet + 16 serial groups ~324.
 LAB_STEPS_MAX = 1024
 ON_FAIL = ("abort", "continue", "rollback")
-RE_STEP_ID = re.compile(r"^[A-Za-z0-9_.-]{1,64}\Z")
+RE_STEP_ID = re.compile(r"[A-Za-z0-9_.:-]{1,40}\Z")
+# argv-only (never a shell), so the guard is about sanity, not quoting: printable,
+# no control characters, and not something vpcs/iol_wrapper would parse as a flag.
+RE_NODE_NAME = re.compile(r"(?!-)[^\x00-\x1f\x7f]{1,128}\Z")
+WORKSPACE_OWN_FILES = ("startup.vpc",)
+_LS_CLOCK = time.monotonic                 # injectable for the contract tests
 
 
-def _hmp_send(lab, n, mon, cmd):
-    sock_path = f"/opt/unetlab/tmp/{lab}/{n}/{mon}"
-    if not os.path.exists(sock_path):
-        return False
-    try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(2.0)
-        s.connect(sock_path)
-        s.sendall((cmd + "\n").encode("utf-8"))
-        s.close()
-        return True
-    except Exception:
-        return False
+def _chown_nofollow(path, uid):            # seams: tests run unprivileged
+    os.chown(path, uid, -1, follow_symlinks=False)
 
 
-def verb_qemu_monitor(args):
-    """device_qemu shutdown()/freeze()/hibernate(): send HMP monitor command."""
-    n, row = _v_qemu_node(args)
-    mon = v_enum(args, "mon", {"monitor", "monitor2"})
-    cmd = v_enum(args, "cmd", QEMU_MONITOR_CMDS)
-    if not _hmp_send(row["lab"], n, mon, cmd):
-        return 1, [], "monitor not reachable"
-    return 0, [], ""
+def _fchown(fd, uid):
+    os.fchown(fd, uid, -1)
 
 
-def verb_node_powerdown(args):
-    """Graceful stop for templates with shutdown: 1 (ACPI power button + grace)."""
-    n, row = _v_qemu_node(args)
-    grace = v_int(args, "grace")
-    if not 1 <= grace <= POWERDOWN_GRACE_MAX:
-        raise Reject("bad arg grace")
-    ws = f"{TMP_DIR}/{row['lab']}/{n}"
-    pids = _ws_pids(ws) if "_ws_pids" in globals() else _qemu_pids(n)
-    how = "killed"
-    if pids and _hmp_send(row["lab"], n, "monitor", "system_powerdown"):
-        t_end = time.time() + grace
-        while time.time() < t_end:
-            alive = False
-            for p in pids:
-                try:
-                    os.kill(p, 0)
-                    alive = True
-                    break
-                except OSError:
-                    pass
-            if not alive:
-                how = "graceful"
-                break
-            time.sleep(0.5)
-    if how == "killed":
-        run_quiet(["fuser", "-k", "-9", ws])
-    return 0, [how], ""
+# One lab_steps call = one batch. Inside it the node_sessions row (D1) and a
+# docker node's container pid (D2) are looked up once instead of once per step
+# (13 mysql + 7 docker-inspect forks, ~250 ms, on a typed docker start). The
+# cache lives in a thread-local for the duration of verb_lab_steps only, so
+# nothing outlives one broker request; outside a batch every lookup is fresh.
+_BATCH = threading.local()
 
 
-def verb_bridge_vlan_protocol(args):
-    """interfc.php set/unsetvlan8021ad(): set bridge VLAN protocol (802.1q or 802.1ad)."""
-    br = _v_name({"name": args.get("bridge")}, LAB_BRIDGE_RE, "bridge")
-    proto = v_enum(args, "protocol", tuple(BRIDGE_VLAN_PROTOCOLS))
-    sys_path = f"/sys/class/net/{br}/bridge/vlan_protocol"
-    val = BRIDGE_VLAN_PROTOCOLS[proto]
-    try:
-        if os.path.exists(sys_path):
-            with open(sys_path, "w") as f:
-                f.write(val)
-        else:
-            run(["ip", "link", "set", br, "type", "bridge", "vlan_protocol", val], timeout=30)
-    except Exception as e:
-        raise Reject(f"set vlan_protocol on {br} failed: {e}")
-    return 0, [], ""
+def _batch_cache():
+    return getattr(_BATCH, "cache", None)
 
 
-def verb_tap_create(args):
-    """Contract tap_create {name, mtu, session?}: persistent NO_PI tap owned by unl<N>."""
-    tap = _v_name(args, RE_TAP_NAME, "tap")
-    n = int(RE_TAP_NAME.fullmatch(tap).group(1))
-    mtu = v_int(args, "mtu")
-    if not 576 <= mtu <= 9216:
-        raise Reject("bad arg mtu")
-    lab = _node_lab(n, _opt_session(args)) if "_node_lab" in globals() else _opt_session(args)
-    if lab is None:
+def _node_row(n):
+    """node_sessions row for node session n, or None. The DB is authoritative,
+    not the request. Never cached across requests (launch must see the
+    current port/type); within one lab_steps batch it is read once — the
+    broker never writes node_sessions, PHP sets it before sending the batch."""
+    c = _batch_cache()
+    if c is not None and ("row", n) in c:
+        return c[("row", n)]
+    row = _node_row_db(n)
+    if c is not None and row is not None:
+        c[("row", n)] = row
+    return row
+
+
+def _node_row_db(n):
+    rows = _mysql_rows("SELECT node_session_lab, node_session_nid, "
+                       "node_session_port, node_session_type, node_session_iol, "
+                       "node_session_port_2nd FROM node_sessions "
+                       "WHERE node_session_id=%d;" % int(n))
+    if not rows or len(rows[0]) < 6:
+        return None
+    lab, nid, port, typ, iol, port2 = rows[0][:6]
+    if not (lab.isdigit() and nid.isdigit() and port.isdigit()):
+        return None
+    return {"lab": int(lab), "nid": int(nid), "port": int(port), "type": typ,
+            "iol": int(iol) if iol.isdigit() else None,
+            "port_2nd": int(port2) if port2.isdigit() else None}
+
+
+def _v_node_row(args, family=None):
+    n = v_int(args, "node_session")
+    row = _node_row(n)
+    if row is None:
         raise Reject("node session missing")
-    user = f"unl{n}"
+    _ifgroup(row["lab"])
+    if family is not None and row["type"] != family:
+        raise Reject("node session is not a %s node" % family)
+    return n, row
+
+
+def _open_node_dir(lab, n):
+    """O_NOFOLLOW walk TMP_DIR/<lab>/<n> -> dir fd. tmp/<lab> is 2777 without
+    the sticky bit, so anyone can swap the node dir for a symlink between a
+    path check and a root open; every later root access goes through this fd."""
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    fd = os.open(TMP_DIR, flags)
     try:
-        pwd.getpwnam(user)
+        for part in ("%d" % int(lab), "%d" % int(n)):
+            nfd = os.open(part, flags, dir_fd=fd)
+            os.close(fd)
+            fd = nfd
+    except OSError as e:
+        os.close(fd)
+        raise Reject("node workspace %d/%d: %s" % (lab, n, e.strerror))
+    return fd
+
+
+def _open_single_file(dfd, name, flags, mode=0o664):
+    """Open name inside dfd: never through a symlink, only a regular file with
+    one link (a hard link to a root file would otherwise be truncated/chowned)."""
+    fd = os.open(name, flags | os.O_NOFOLLOW | os.O_CLOEXEC, mode, dir_fd=dfd)
+    st = os.fstat(fd)
+    if not stat_is_reg(st.st_mode) or st.st_nlink != 1:
+        os.close(fd)
+        raise Reject("%s: not a single-link regular file" % name)
+    return fd
+
+
+def stat_is_reg(mode):
+    return (mode & 0o170000) == 0o100000
+
+
+def _account_ensure(n):
+    """cli.php checkUsername(): unl<n> (uid 32768+n, group unl), home
+    USERS_DIR/<n> owned by it, .profile -> unl_profile. Idempotent."""
+    name = "unl%d" % n
+    uid = UNL_UID_BASE + n
+    home = "%s/%d" % (USERS_DIR, n)
+    try:
+        pw = pwd.getpwnam(name)
     except KeyError:
-        raise Reject(f"owner account {user} missing")
-    if not link_exists(tap):
-        rc, _, err = run(["ip", "tuntap", "add", "dev", tap, "mode", "tap", "user", user], timeout=30)
+        pw = None
+    if pw is None:
+        rc, _, err = run(["/usr/sbin/useradd", "-c",
+                          "Unified Networking Lab TID=%d" % n, "-d", home,
+                          "-g", "unl", "-M", "-s", "/bin/bash", "-u", str(uid),
+                          name], timeout=30)
         if rc != 0:
-            raise Reject(f"tuntap add {tap}: {err}")
-    # Disable IPv6 on tap to prevent link-local solicitation noise
+            raise Reject("useradd %s: %s" % (name, (err or "").strip()[:120]))
+    elif pw.pw_uid != uid:
+        raise Reject("account %s has uid %d, expected %d" % (name, pw.pw_uid, uid))
+    if not os.path.isdir(USERS_DIR):
+        os.makedirs(USERS_DIR, mode=0o2775, exist_ok=True)
+        shutil.chown(USERS_DIR, "root", "unl")
+        os.chmod(USERS_DIR, 0o2775)
     try:
-        with open(f"/proc/sys/net/ipv6/conf/{tap}/disable_ipv6", "w") as f:
-            f.write("1")
-    except Exception:
+        os.mkdir(home, 0o2775)
+    except FileExistsError:
         pass
-    # Set MTU up to 9216 (Silicon Dataplane MTU 9000 compliant) and bring interface up
-    run_quiet(["ip", "link", "set", "dev", tap, "mtu", str(mtu), "up"])
+    # USERS_DIR is group-unl writable, so every unl<N> node process can plant a
+    # symlink here: chown only a real directory, never through a link.
+    st = os.lstat(home)
+    if (st.st_mode & 0o170000) != 0o040000:
+        raise Reject("home of %s is not a directory" % name)
+    _chown_nofollow(home, uid)
+    prof = home + "/.profile"
+    if not os.path.lexists(prof):
+        os.symlink(UNL_PROFILE, prof)
+    return uid
+
+
+def _step_account_ensure(args):
+    n, _ = _v_node_row(args)
+    _account_ensure(n)
     return 0, [], ""
 
 
-def verb_bridge_port(args):
-    """Contract bridge_port {bridge, port, op, session?}: attach/detach tap to/from bridge."""
-    br = _v_name({"name": args.get("bridge")}, ATTACH_BRIDGE_RE, "bridge")
-    port = _v_name({"name": args.get("port")}, RE_BRIDGE_PORT, "port")
-    op = v_enum(args, "op", ("add", "del"))
-    if not link_exists(port):
-        raise Reject("port missing")
-    if op == "add":
-        _require_bridge(br)
-        rc, _, err = run(["ip", "link", "set", "dev", port, "master", br], timeout=30)
+def _step_port_free(args):
+    """device.php `fuser -k -n tcp <port>`; the port is the node's DB port and
+    must sit in the node console range, never a caller value."""
+    _, row = _v_node_row(args)
+    port = row["port"]
+    if not NODE_PORT_MIN <= port <= 65535:
+        raise Reject("node port %d outside the node console range" % port)
+    run_quiet(["fuser", "-k", "-n", "tcp", str(port)])
+    return 0, [], ""
+
+
+def _step_workspace_own(args):
+    """Hand a www-data-written workspace file to unl<n> (netprobe refuses a
+    startup.vpc it does not own). Absent file = nothing to do."""
+    n, row = _v_node_row(args)
+    name = v_enum(args, "file", WORKSPACE_OWN_FILES)
+    uid = pwd.getpwnam("unl%d" % n).pw_uid
+    dfd = _open_node_dir(row["lab"], n)
+    try:
+        try:
+            fd = _open_single_file(dfd, name, os.O_RDONLY)
+        except FileNotFoundError:
+            return 0, [], ""
+        try:
+            _fchown(fd, uid)
+        finally:
+            os.close(fd)
+    finally:
+        os.close(dfd)
+    return 0, [], ""
+
+
+def _step_node_kill(args):
+    n, row = _v_node_row(args)
+    return verb_node_kill_workspace(
+        {"workspace": "%s/%d/%d" % (TMP_DIR, row["lab"], n)})
+
+
+def _launch_vpcs(n, row, args):
+    """device_vpcs.php command(): vpcs -m <S> -N <name> -i 1 -p <port>
+    [-e -d vunl<S>_<i>]... > wrapper.txt. Runs as root like today (owner
+    ruling (a)); netprobe drops to unl<S> itself."""
+    name = v_re(args, "name", RE_NODE_NAME)
+    eth = v_int(args, "ethernets")
+    if not 1 <= eth <= 16:
+        raise Reject("bad arg ethernets")
+    argv = [VPCS_BIN, "-m", str(n), "-N", name, "-i", "1",
+            "-p", str(row["port"])]
+    for i in range(eth):
+        argv += ["-e", "-d", "vunl%d_%d" % (n, i)]
+    return argv, "wrapper.txt", {}
+
+
+def _v_int_range(args, key, lo, hi):
+    v = v_int(args, key)
+    if not lo <= v <= hi:
+        raise Reject("bad arg %s" % key)
+    return v
+
+
+def _iol_options(args):
+    """Tokenize the per-node iol_options like the old shell did, drop a
+    standalone -l (keepalive is the typed leaf), refuse odd tokens."""
+    raw = args.get("iol_options", "")
+    if not isinstance(raw, str) or len(raw) > 512:
+        raise Reject("bad arg iol_options")
+    try:
+        toks = shlex.split(raw)
+    except ValueError:
+        raise Reject("bad arg iol_options")
+    for t in toks:
+        if not RE_IOL_OPT.match(t):
+            raise Reject("bad iol_options token")
+    return [t for t in toks if t != "-l"]
+
+
+def _launch_iol(n, row, args):
+    """device_iol.php command(): iol_wrapper -D <iol id> -S <S> -P <port>
+    -t <name> -F <ws>/<image> -d <delay> -e <eth groups> -s <serial groups>
+    [-l <if>:localhost:<peer iol id>:<peer if>:<peer port>]... -- -n <nvram>
+    -q -m <ram> [-c <cfg>] [iol_options] [-l]. iol id, ports and the peers
+    come from node_sessions; run as unl<S> (setpriv, no supplementary groups)
+    like the old posix_setuid; the workspace links are made here, as root."""
+    iol = row["iol"]
+    if iol is None or not 1 <= iol <= 1023:
+        raise Reject("node session has no IOL id")
+    name = v_re(args, "name", RE_NODE_NAME)
+    image = v_re(args, "image", RE_IOL_IMAGE)
+    if ".." in image or not os.path.isfile(os.path.join(IOL_BIN_DIR, image)):
+        raise Reject("IOL image not installed")
+    delay = _v_int_range(args, "delay", 0, 3600)
+    eth = _v_int_range(args, "ethernets", 0, 16)
+    ser = _v_int_range(args, "serials", 0, 16)
+    nvram = _v_int_range(args, "nvram", 1, 65536)
+    ram = _v_int_range(args, "ram", 1, 65536)
+    cfg = args.get("config", "")
+    if cfg != "":
+        cfg = v_enum(args, "config", IOL_CONFIGS)
+    links = args.get("serial_links", [])
+    if not isinstance(links, list) or len(links) > 64:
+        raise Reject("bad arg serial_links")
+    try:
+        uid = pwd.getpwnam("unl%d" % n).pw_uid
+    except KeyError:
+        raise Reject("owner account unl%d missing" % n)
+    argv = [IOL_WRAPPER, "-D", str(iol), "-S", str(n), "-P", str(row["port"]),
+            "-t", name, "-F", "%s/%d/%d/pnet-iol-launcher" % (TMP_DIR, row["lab"], n),
+            "-d", str(delay), "-e", str(eth), "-s", str(ser)]
+    for ln in links:
+        if not isinstance(ln, dict):
+            raise Reject("bad arg serial_links")
+        ifid = _v_int_range(ln, "if", 0, 1023)
+        rif = _v_int_range(ln, "remote_if", 0, 1023)
+        peer = _node_row(v_int(ln, "remote"))
+        if (peer is None or peer["lab"] != row["lab"] or peer["type"] != "iol"
+                or peer["iol"] is None):
+            raise Reject("serial peer is not an IOL node of this lab")
+        argv += ["-l", "%d:localhost:%d:%d:%d" % (ifid, peer["iol"], rif,
+                                                  peer["port"])]
+    argv += ["--", "-n", str(nvram), "-q", "-m", str(ram)]
+    if cfg:
+        argv += ["-c", cfg]
+    argv += _iol_options(args)
+    if v_bool(args, "keepalive"):
+        argv += ["-l"]
+    ws_links = {"iourc": IOL_BIN_DIR + "/iourc",
+                image: IOL_BIN_DIR + "/" + image,
+                "pnet_iol_exec": IOL_BIN_DIR + "/" + image,
+                "pnet-iol-launcher": IOL_BIN_DIR + "/pnet-iol-launcher"}
+    if os.path.isfile(IOL_BIN_DIR + "/keepalive.pl"):
+        ws_links["keepalive.pl"] = IOL_BIN_DIR + "/keepalive.pl"
+    return argv, "wrapper.txt", {"uid": uid, "links": ws_links}
+
+
+# ---- QEMU (owner ruling B2r, 2026-10-14) ------------------------------------
+# The engine still computes the QEMU flag string (template options, device-class
+# customFlag(), per-node overrides) - but as www-data now, and the broker never
+# runs it through a shell: it resolves the binary itself from qemu_arch /
+# qemu_version, splits the flags into argv and checks every token. Arity comes
+# from the installed QEMUs' own -help (2.4.0 .. 10.2.1), so a value token is
+# never mistaken for an option or vice versa; an option QEMU does not know is
+# refused. B2r: a short list of host-reaching options is banned, and every path
+# argument must be relative, in the node workspace / its image dir, or (read-
+# only) under a shipped firmware/script dir.
+QEMU_IMAGE_DIR = BASE + "/addons/qemu"
+QEMU_IMG = "/opt/qemu/bin/qemu-img"
+KSM_WRAP = BASE + "/wrappers/ksm_merge_exec"
+KSM_OFF = BASE + "/wrappers/.ksm_merge_off"
+QEMU_TELNET = BASE + "/wrappers/qemu_wrapper_telnet"
+SWTPM = "/usr/bin/swtpm"
+RE_QEMU_ARCH = re.compile(r"[a-z0-9_]{1,24}\Z")
+RE_QEMU_VERSION = re.compile(r"[0-9][0-9.]{0,15}\Z")
+RE_QEMU_IMAGE = re.compile(r"(?!\.)[A-Za-z0-9._-]{1,200}\Z")
+QEMU_FLAGS_MAX = 32768
+# -help of every installed QEMU (evidence qemu-help-options.txt); -dtb and the
+# -hda/-hdb style pairs fixed up by hand (the help line merges them).
+QEMU_NOARG = frozenset("""
+-S -alt-grab -audio-help -ctrl-grab -curses -enable-fips -enable-hax -enable-kvm
+-enable-sync-profile -full-screen -jitdump -mem-prealloc -no-acpi -no-fd-bootchk
+-no-frame -no-hpet -no-quit -no-reboot -no-shutdown -no-user-config -nodefaults
+-nodefconfig -nographic -only-migratable -perfmap -portrait -s -sdl -show-cursor
+-singlestep -snapshot -usb -win2k-hack -xen-attach -xen-create
+-xen-domid-restrict -preconfig""".split())
+QEMU_ARG = frozenset("""
+-nic -accel -acpitable -action -append -audio -audiodev -balloon -bios -blockdev
+-boot -bt -cdrom -chardev -compat -cpu -d -debugcon -device -dfilter -display
+-drive -dtb -echr -fda -fdb -fw_cfg -gdb -global -hda -hdb -hdc -hdd -hdachs
+-icount -initrd -iscsi -k -kernel -loadvm -m -machine -mem-path -mon -monitor
+-msg -mtdblock -name -net -netdev -numa -object -option-rom -overcommit
+-parallel -pflash -realtime -rotate -rtc -sd -seed -serial -set -shim -smbios
+-smp -soundhw -spice -tb-size -tpmdev -trace -usbdevice -uuid -vga
+-virtioconsole -vnc -watchdog -watchdog-action -xen-domid -D""".split())
+# B2r hard bans (plus -L's spelling and the other host-reaching QEMU options)
+QEMU_BANNED = frozenset("""
+-plugin -qmp -qmp-pretty -add-fd -sandbox -daemonize -pidfile -L -virtfs
+-virtfs_synth -fsdev -readconfig -writeconfig -incoming -run-with -runas -chroot
+-dump-vmstate -xen-domid -xen-attach -xen-create -set""".split())
+QEMU_PATH_RO = ("-cdrom", "-bios", "-kernel", "-initrd", "-dtb", "-option-rom")
+QEMU_PATH_RW = ("-hda", "-hdb", "-hdc", "-hdd", "-fda", "-fdb", "-mtdblock", "-sd",
+                "-pflash", "-mem-path", "-D")
+QEMU_RO_ROOTS = (re.compile(r"/opt/qemu(?:-[0-9.]+)?/share/qemu/"),
+                 re.compile(r"/usr/share/(?:OVMF|ovmf)/"),
+                 re.compile(r"/opt/unetlab/scripts/"),
+                 re.compile(r"/opt/unetlab/addons/qemu-firmware/"))
+QEMU_CHARDEV_CLASSIC = ("-serial", "-parallel", "-monitor", "-virtioconsole",
+                        "-debugcon", "-gdb")
+QEMU_MONITORS = ("chardev:monitor", "chardev:monitor2", "stdio", "none", "null")
+QEMU_FD_KEYS = ("fd", "fds", "vhostfd", "vhostfds", "sock_fd", "helper")
+
+
+def _qemu_root(version):
+    """device_qemu.php resolveQemuRoot(): '' or a version equal to the default
+    -> /opt/qemu; an installed /opt/qemu-<v> -> it; anything else falls back."""
+    default = "/opt/qemu"
+    if version == "":
+        return default
+    want = "/opt/qemu-" + version
+    if os.path.realpath(want) == os.path.realpath(default) or not os.path.isdir(want):
+        return default
+    return want
+
+
+def _qemu_subopts(v):
+    """QEMU option-string split: ',' separates, ',,' is a literal comma."""
+    parts, cur, i = [], "", 0
+    while i < len(v):
+        if v[i] == ",":
+            if v[i + 1:i + 2] == ",":
+                cur += ","
+                i += 2
+                continue
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += v[i]
+        i += 1
+    parts.append(cur)
+    out = []
+    for p in parts:
+        k, eq, val = p.partition("=")
+        out.append((k, val if eq else None))
+    return out
+
+
+def _qemu_in_image_tree(real):
+    """A realpath'd regular file under the QEMU image tree."""
+    return (real.startswith(os.path.realpath(QEMU_IMAGE_DIR) + "/")
+            and os.path.isfile(real))
+
+
+def _qemu_check_image_links(imgdir):
+    """Root QEMU follows links, and a link in the image dir reaches it either
+    as a clone's backing file or hard-linked into the workspace as a link, so
+    every link must resolve to a file in the image tree. Checked at each launch
+    too: a clone keeps reading its backing file long after the first prepare."""
+    for name in sorted(os.listdir(imgdir)):
+        path = os.path.join(imgdir, name)
+        if os.path.islink(path) and not _qemu_in_image_tree(os.path.realpath(path)):
+            raise Reject("qemu: image link %s must point to a file under %s"
+                         % (name, QEMU_IMAGE_DIR))
+
+
+def _qemu_path(p, ctx, rw):
+    """B2r path rule. ctx = (workspace, image dir, node session). Relative
+    paths resolve against the workspace, QEMU's cwd: it holds image-dir links,
+    so a text check alone would let one out of the jail."""
+    ws, imgdir, n = ctx
+    if not isinstance(p, str) or p == "" or "\x00" in p:
+        raise Reject("qemu: empty path")
+    if not p.startswith("/"):
+        if ".." in p.split("/") or ":" in p:
+            raise Reject("qemu: path %r leaves the workspace" % p)
+    elif p == "/tmp/%d_swtpm-sock/sock" % n:     # this node's swtpm socket
+        return
+    real = os.path.realpath(os.path.join(ws, p))
+    for root in (os.path.realpath(ws), os.path.realpath(imgdir)):
+        if real == root or real.startswith(root + "/"):
+            return
+    if not rw and ".." not in p.split("/"):
+        if _qemu_in_image_tree(real):
+            return
+        for r in QEMU_RO_ROOTS:
+            if r.match(real):
+                return
+    raise Reject("qemu: path %s is outside the node workspace/image dir%s"
+                 % (p, "" if rw else ", the image tree and the read-only firmware dirs"))
+
+
+def _qemu_classic_chardev(opt, v, ctx):
+    if opt == "-monitor" and v not in QEMU_MONITORS:
+        raise Reject("qemu: -monitor %s not allowed" % v)
+    if v.startswith("mon:"):
+        if v != "mon:stdio":
+            raise Reject("qemu: %s %s not allowed" % (opt, v))
+        return
+    for pre in ("file:", "pipe:", "unix:"):
+        if v.startswith(pre):
+            _qemu_path(v[len(pre):].split(",", 1)[0], ctx, True)
+            return
+    if v.startswith("/"):
+        raise Reject("qemu: %s host device %s not allowed" % (opt, v))
+
+
+def _qemu_value(opt, v, ctx):
+    """Check the value of one option (B2r). Raises Reject."""
+    n = ctx[2]
+    if opt in QEMU_PATH_RO:
+        _qemu_path(v, ctx, False)
+        return
+    if opt in QEMU_PATH_RW:
+        _qemu_path(v, ctx, True)
+        return
+    if opt in QEMU_CHARDEV_CLASSIC:
+        _qemu_classic_chardev(opt, v, ctx)
+        return
+    if opt == "-k" and "/" in v:
+        raise Reject("qemu: bad -k")
+    if opt == "-vnc" and v.startswith("unix:"):
+        _qemu_path(v[5:].split(",", 1)[0], ctx, True)
+        return
+    subs = _qemu_subopts(v)
+    keys = dict(subs)
+    head = subs[0][0] if subs and subs[0][1] is None else ""
+    for k, val in subs:
+        if k in QEMU_FD_KEYS:
+            raise Reject("qemu: %s %s= not allowed" % (opt, k))
+    if opt == "-mon" and keys.get("chardev") not in ("monitor", "monitor2"):
+        raise Reject("qemu: -mon only on the node's own monitor chardevs")
+    if opt in ("-drive", "-blockdev"):
+        ro = ("readonly" in keys and keys["readonly"] in (None, "on", "true", "yes")) \
+            or keys.get("media") == "cdrom"
+        for key in ("file", "filename"):
+            if keys.get(key) is not None:
+                _qemu_path(keys[key], ctx, not ro)
+        return
+    if opt == "-chardev":
+        # host device backends (serial/tty/parallel) need a path= outside the
+        # jail, so the path rule refuses them
+        for key in ("path", "logfile"):
+            if keys.get(key) is not None:
+                _qemu_path(keys[key], ctx, True)
+        return
+    if opt in ("-netdev", "-net", "-nic"):
+        if head == "bridge":
+            raise Reject("qemu: %s bridge not allowed" % opt)
+        for key in ("script", "downscript"):
+            if keys.get(key) is not None and keys[key] != "no":
+                raise Reject("qemu: %s %s= must be no" % (opt, key))
+        if head == "tap" and not re.fullmatch(r"vunl%d_[0-9]{1,3}" % n,
+                                              keys.get("ifname") or ""):
+            raise Reject("qemu: tap ifname must be one of this node's vunl%d_<i>" % n)
+        if keys.get("smb") is not None:
+            raise Reject("qemu: %s smb= not allowed" % opt)
+        if "cmd:" in (keys.get("guestfwd") or ""):
+            raise Reject("qemu: guestfwd to a host command not allowed")
+        if keys.get("tftp") is not None:
+            _qemu_path(keys["tftp"], ctx, False)
+        return
+    if opt == "-device":
+        if head in ("vfio-pci", "usb-host", "vhost-scsi", "vhost-vsock-pci") \
+                or keys.get("sysfsdev") is not None:
+            raise Reject("qemu: -device %s (host device) not allowed" % head)
+        if keys.get("romfile") is not None and keys["romfile"] != "":
+            _qemu_path(keys["romfile"], ctx, False)
+        return
+    if opt == "-object":
+        for key in ("mem-path", "dir"):
+            if keys.get(key) is not None:
+                _qemu_path(keys[key], ctx, True)
+        if keys.get("filename") is not None and keys["filename"] not in (
+                "/dev/random", "/dev/urandom"):
+            _qemu_path(keys["filename"], ctx, True)
+        if keys.get("file") is not None:
+            _qemu_path(keys["file"], ctx, False)
+        if keys.get("evdev") is not None:
+            raise Reject("qemu: -object evdev= not allowed")
+        return
+    if opt in ("-fw_cfg", "-acpitable", "-smbios", "-trace"):
+        if keys.get("file") is not None:
+            _qemu_path(keys["file"], ctx, opt == "-trace")
+        if opt == "-acpitable" and keys.get("data") is not None:
+            for part in keys["data"].split(":"):
+                _qemu_path(part, ctx, False)
+        return
+    if opt == "-tpmdev" and head != "emulator":
+        raise Reject("qemu: -tpmdev %s not allowed" % head)
+    if opt == "-spice" and keys.get("unix") in ("on", None) and "unix" in keys:
+        _qemu_path(keys.get("addr") or "", ctx, True)
+
+
+def _qemu_check_argv(toks, n, lab, image):
+    """B2r over the whole flag argv (template, device class and per-node
+    tokens alike: templates live in the www-data-writable html tree)."""
+    ctx = ("%s/%d/%d" % (TMP_DIR, lab, n), "%s/%s" % (QEMU_IMAGE_DIR, image), n)
+    i = 0
+    while i < len(toks):
+        t = toks[i]
+        if t.startswith("-") and len(t) > 1:
+            opt = "-" + t.lstrip("-")
+            if opt in QEMU_BANNED:
+                raise Reject("qemu: option %s is not allowed" % opt)
+            if opt in QEMU_NOARG:
+                i += 1
+                continue
+            if opt not in QEMU_ARG:
+                raise Reject("qemu: unknown option %s" % t)
+            if i + 1 >= len(toks):
+                raise Reject("qemu: option %s needs a value" % opt)
+            _qemu_value(opt, toks[i + 1], ctx)
+            i += 2
+            continue
+        _qemu_path(t, ctx, True)          # a bare argument is a disk image
+        i += 1
+
+
+def _launch_qemu(n, row, args):
+    """device_qemu.php command() as an argv: [ksm_merge_exec] <root>/bin/
+    qemu-system-<arch> <checked flags> > wrapper.txt, run as root (ruling a)."""
+    arch = v_re(args, "arch", RE_QEMU_ARCH)
+    version = args.get("version", "")
+    if version != "":
+        version = v_re(args, "version", RE_QEMU_VERSION)
+    image = v_re(args, "image", RE_QEMU_IMAGE)
+    if ".." in image or not os.path.isdir(os.path.join(QEMU_IMAGE_DIR, image)):
+        raise Reject("QEMU image not installed")
+    flags = args.get("flags")
+    if not isinstance(flags, str) or len(flags) > QEMU_FLAGS_MAX or "\x00" in flags:
+        raise Reject("bad arg flags")
+    try:
+        toks = shlex.split(flags)
+    except ValueError:
+        raise Reject("qemu: unbalanced quotes in flags")
+    _qemu_check_image_links(os.path.join(QEMU_IMAGE_DIR, image))
+
+    # Universal Hypervisor Defense-in-Depth: ensure mem-merge=on, virtio-balloon-pci & mem-lock=off
+    if not any("mem-merge=" in t for t in toks):
+        toks.extend(["-machine", "mem-merge=on"])
+    if not any("virtio-balloon" in t for t in toks):
+        toks.extend(["-device", "virtio-balloon-pci"])
+    if not any("mem-lock=" in t for t in toks):
+        toks.extend(["-overcommit", "mem-lock=off"])
+
+    _qemu_check_argv(toks, n, row["lab"], image)
+    binary = "%s/bin/qemu-system-%s" % (_qemu_root(version), arch)
+    if not os.path.isfile(binary):
+        raise Reject("QEMU binary not installed: %s" % binary)
+    _require_root_script(os.path.realpath(binary))
+    argv = [binary] + toks
+    if os.access(KSM_WRAP, os.X_OK) and not os.path.exists(KSM_OFF):
+        argv = [_require_root_script(KSM_WRAP)] + argv
+    return argv, "wrapper.txt", {}
+
+
+QEMU_DISK_RE = re.compile(r"[a-zA-Z0-9]+.qcow2\Z")   # device_qemu.php's regex
+
+
+def _qemu_backing_format(path):
+    """Real format of an image-dir disk, for the clone's -F. The .qcow2 name is
+    a naming convention only: vMX's metadata-usb-re.img and older vFPC images
+    are raw files renamed virtio*.qcow2, and -F qcow2 on those fails the clone
+    ("Image is not in qcow2 format"). Mirrors device_qemu::backingFormat()."""
+    try:
+        with open(path, "rb") as f:
+            magic = f.read(4)
+    except OSError:
+        return "qcow2"
+    return {b"QFI\xfb": "qcow2", b"KDMV": "vmdk"}.get(magic, "raw")
+
+
+def _step_qemu_workspace(args):
+    """First-start image prepare (device_qemu.php prepare()): a linked qcow2
+    clone per <name>.qcow2 of the image dir, a hard link for everything else,
+    made as root inside the node workspace through its dir fd."""
+    n, row = _v_node_row(args, family="qemu")
+    image = v_re(args, "image", RE_QEMU_IMAGE)
+    src = os.path.join(QEMU_IMAGE_DIR, image)
+    if ".." in image or not os.path.isdir(src):
+        raise Reject("QEMU image not installed")
+    _qemu_check_image_links(src)
+    dfd = _open_node_dir(row["lab"], n)
+    try:
+        for name in sorted(os.listdir(src)):
+            if name in (".", ".."):
+                continue
+            if QEMU_DISK_RE.match(name):
+                if os.path.lexists("/proc/self/fd/%d/%s" % (dfd, name)):
+                    raise Reject("workspace already has %s" % name)
+                p = subprocess.run([QEMU_IMG, "create", "-b", src + "/" + name,
+                                    "-F", _qemu_backing_format(src + "/" + name),
+                                    "-f", "qcow2", name],
+                                   cwd="/proc/self/fd/%d" % dfd, pass_fds=(dfd,),
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   timeout=300)
+                if p.returncode != 0:
+                    return 1, [], "qemu-img: %s" % p.stdout.decode(
+                        "utf-8", "replace").strip()[-200:]
+            else:
+                try:
+                    os.link(src + "/" + name, name, dst_dir_fd=dfd,
+                            follow_symlinks=False)
+                except OSError:
+                    pass                  # the old `sudo link` ignored its rc too
+    finally:
+        os.close(dfd)
+    return 0, [], ""
+
+
+# console kind -> 169.254.<x>.102 for the first / second console (device_qemu.php)
+CONSOLE_SNAT = {"rdp": (1, 2), "ssh": (3, 4), "winbox": (5, 6), "http": (7, 8),
+                "https": (9, 10), "rdp-tls": (11, 12)}
+
+
+def _step_console_snat(args):
+    """iptables -t nat -D/-I INPUT -p tcp --dport <node port> -j SNAT --to
+    169.254.<x>.102. Port from node_sessions, address from the fixed table."""
+    n, row = _v_node_row(args)
+    which = v_enum(args, "which", (1, 2))
+    kind = v_enum(args, "kind", tuple(CONSOLE_SNAT))
+    act = v_enum(args, "op", ("add", "del"))
+    port = row["port"] if which == 1 else row["port_2nd"]
+    if port is None or not NODE_PORT_MIN <= port <= 65535:
+        raise Reject("node console port outside the console range")
+    rule = ["INPUT", "-p", "tcp", "--dport", str(port), "-j", "SNAT", "--to",
+            "169.254.%d.102" % CONSOLE_SNAT[kind][which - 1]]
+    run_quiet(["iptables", "-t", "nat", "-D"] + rule)
+    if act == "add":
+        return run(["iptables", "-t", "nat", "-I"] + rule, timeout=30)
+    return 0, [], ""
+
+
+def _swtpm_dir(n):
+    return "/tmp/%d_swtpm-sock" % n
+
+
+def _step_swtpm_start(args):
+    """mkdir /tmp/<S>_swtpm-sock + swtpm socket ... -d, in the node's scope.
+    /tmp is world-writable: an existing entry must be a root-owned directory."""
+    n, row = _v_node_row(args, family="qemu")
+    d = _swtpm_dir(n)
+    try:
+        os.mkdir(d, 0o755)
+    except FileExistsError:
+        st = os.lstat(d)
+        if (st.st_mode & 0o170000) != 0o040000 or st.st_uid != 0:
+            raise Reject("%s exists and is not a root-owned directory" % d)
+    if not os.access(SWTPM, os.X_OK):
+        raise Reject("swtpm not installed")
+    unit = scope_unit_name("pnetlab-node", row["lab"], row["nid"])
+    return run(scope_argv(unit, [SWTPM, "socket", "--tpmstate", "dir=" + d,
+                                 "--ctrl", "type=unixio,path=%s/sock" % d,
+                                 "--log", "level=20", "--tpm2", "-d", "-t"],
+                          "lab_steps swtpm %d" % n), timeout=30)
+
+
+def _step_swtpm_stop(args):
+    """Kill this node's swtpm (matched on its exact --tpmstate dir argument)."""
+    n, _ = _v_node_row(args)
+    want = "dir=" + _swtpm_dir(n)
+    killed = []
+    for name in os.listdir("/proc"):
+        if not name.isdigit():
+            continue
+        try:
+            with open("/proc/%s/cmdline" % name, "rb") as f:
+                argv = f.read().split(b"\0")
+        except OSError:
+            continue
+        if argv and os.path.basename(argv[0]) == b"swtpm" and want.encode() in argv:
+            try:
+                os.kill(int(name), signal.SIGTERM)
+                killed.append(name)
+            except OSError:
+                pass
+    return 0, ["killed " + " ".join(killed)] if killed else [], ""
+
+
+# waits (max 20 s) for QEMU's console.sock, then hands it to the telnet wrapper;
+# $1 socket, $2 port, $3 node name - values are arguments, never script text
+QEMU_CONSOLE_SH = ('i=0; while [ ! -S "$1" ] && [ $i -lt 200 ]; do sleep 0.1; '
+                   'i=$((i+1)); done; [ -S "$1" ] || exit 1; '
+                   'exec "$4" -P "$2" -t "$3" -- nc -U "$1"')
+
+
+def _step_qemu_console(args):
+    """device_qemu.php start(): the detached telnet bridge for console.sock,
+    now root-launched in the node scope; port from node_sessions."""
+    n, row = _v_node_row(args, family="qemu")
+    which = v_enum(args, "which", (1, 2))
+    port = row["port"] if which == 1 else row["port_2nd"]
+    if port is None or not NODE_PORT_MIN <= port <= 65535:
+        raise Reject("node console port outside the console range")
+    name = v_re(args, "name", RE_NODE_NAME)
+    sock = "%s/%d/%d/console.sock" % (TMP_DIR, row["lab"], n)
+    unit = _launch_spawn(["/bin/sh", "-c", QEMU_CONSOLE_SH, "qemu-console", sock,
+                          str(port), name, _require_root_script(QEMU_TELNET)],
+                         row["lab"], row["nid"], n, "wrapper_telnet.txt",
+                         "lab_steps console qemu %d" % n)
+    return 0, ["unit " + unit], ""
+
+
+LAUNCH_FAMILIES = {"vpcs": _launch_vpcs, "iol": _launch_iol, "qemu": _launch_qemu}
+
+
+def _ensure_link(dfd, name, target):
+    """Workspace symlink name -> fixed target, made by root through the dir fd.
+    A link pointing elsewhere is replaced; any non-link is refused."""
+    try:
+        st = os.lstat(name, dir_fd=dfd)
+    except FileNotFoundError:
+        os.symlink(target, name, dir_fd=dfd)
+        return
+    if (st.st_mode & 0o170000) != 0o120000:
+        raise Reject("workspace %s is not a link" % name)
+    if os.readlink(name, dir_fd=dfd) != target:
+        os.unlink(name, dir_fd=dfd)
+        os.symlink(target, name, dir_fd=dfd)
+
+
+def _launch_spawn(argv, lab, nid, n, stdout_name, description, uid=None,
+                  links=None):
+    """Start argv detached in its own pnetlab-node scope (slice 1), cwd = the
+    node workspace (via fd), stdout+stderr -> workspace/stdout_name (truncated,
+    like the old `> wrapper.txt 2>&1 &`). uid: run as that unl account (group
+    unl, no supplementary groups). links: workspace symlinks to set first.
+    Returns the scope unit name."""
+    if uid is not None:
+        argv = [SETPRIV, "--reuid=%d" % uid, "--regid=%d" % UNL_GID,
+                "--clear-groups", "--"] + list(argv)
+    dfd = _open_node_dir(lab, n)
+    try:
+        for name, target in sorted((links or {}).items()):
+            _ensure_link(dfd, name, target)
+        if stdout_name is None:
+            ofd = os.open(os.devnull, os.O_WRONLY | os.O_CLOEXEC)
+        else:
+            ofd = _open_single_file(dfd, stdout_name, os.O_WRONLY | os.O_CREAT)
+        try:
+            if stdout_name is not None:
+                os.ftruncate(ofd, 0)
+            unit = scope_unit_name("pnetlab-node", lab, nid)
+            # chdir happens in the child before exec, through the child's own
+            # copy of dfd, so a path swap after _open_node_dir cannot redirect it
+            p = subprocess.Popen(scope_argv(unit, argv, description),
+                                 stdin=subprocess.DEVNULL, stdout=ofd,
+                                 stderr=ofd, cwd="/proc/self/fd/%d" % dfd,
+                                 pass_fds=(dfd,), start_new_session=True)
+        finally:
+            os.close(ofd)
+    finally:
+        os.close(dfd)
+    threading.Thread(target=p.wait, daemon=True).start()   # reap, never block
+    return unit
+
+
+def _step_launch(args):
+    fam = v_enum(args, "family", tuple(LAUNCH_FAMILIES))
+    n, row = _v_node_row(args, family=fam)
+    argv, stdout_name, opts = LAUNCH_FAMILIES[fam](n, row, args)
+    unit = _launch_spawn(argv, row["lab"], row["nid"], n, stdout_name,
+                         "lab_steps launch " + fam, **opts)
+    return 0, ["unit " + unit], ""
+
+
+def _docker_pid(n):
+    """State.Pid of docker<n>, read here (never a caller value). Within one
+    lab_steps batch the pid is reused while a pidfd shows that exact process
+    is still alive (a live pidfd means the pid cannot have been recycled); if
+    the container died mid-batch it is looked up again."""
+    c = _batch_cache()
+    if c is not None:
+        hit = c.get(("pid", n))
+        if hit is not None:
+            pid, pfd = hit
+            if _pidfd_alive(pfd):
+                return pid
+            del c[("pid", n)]
+            _close_quiet(pfd)
+    rc, out, err = run(["docker", "-H=" + DOCKER_HOST, "inspect", "-f",
+                        "{{ .State.Pid }} {{ .Id }}", _docker_name(n)], timeout=30)
+    parts = out[0].split() if rc == 0 and out else []
+    pid = parts[0] if parts else ""
+    if not pid.isdigit() or int(pid) <= 0:
+        raise Reject("docker%d: no running pid" % n)
+    cid = parts[1] if len(parts) > 1 else ""
+    if c is not None and re.fullmatch(r"[0-9a-f]{64}", cid):
+        pfd = _pin_pid(int(pid), cid)
+        if pfd is not None:
+            c[("pid", n)] = (pid, pfd)
+    return pid
+
+
+def _pin_pid(pid, cid):
+    """pidfd for pid, kept only if that process is in container cid's cgroup
+    (checked AFTER opening the pidfd, so the pid cannot have been recycled
+    between docker inspect and the pin). None = do not cache."""
+    try:
+        pfd = os.pidfd_open(pid)
+    except (OSError, AttributeError):
+        return None
+    try:
+        with open("/proc/%d/cgroup" % pid) as f:
+            if cid in f.read():
+                return pfd
+    except OSError:
+        pass
+    _close_quiet(pfd)
+    return None
+
+
+def _pidfd_alive(pfd):
+    p = select.poll()
+    p.register(pfd, select.POLLIN)
+    return not p.poll(0)          # readable = the process has exited
+
+
+def _close_quiet(fd):
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+
+
+def _veth_names(args, n):
+    i = _v_int_range(args, "if", 0, 63)
+    prefix = v_enum(args, "peer", VETH_PEER_PREFIX) if args.get("peer") \
+        is not None else "docker"
+    return i, "vunl%d_%d" % (n, i), "%s%d_%d" % (prefix, n, i)
+
+
+# Templates set the node MTU (XRd / FRR / SR Linux IXR use 9500); bound it by
+# the kernel's veth limit (ETH_MAX_MTU) like the legacy `ip link ... mtu` did.
+VETH_MTU_MAX = 65535
+
+
+def _step_veth_attach(args):
+    """device_docker.php wiring: drop stale vunl<S>_<i> / <peer><S>_<i>, add
+    the veth pair, tag both G(lab), host side mtu + up, attach the host side to
+    its bridge (bridge_port's vocabulary and lab rule, clouds included)."""
+    n, row = _v_node_row(args)
+    i, vunl, peer = _veth_names(args, n)
+    mtu = _v_int_range(args, "mtu", 68, VETH_MTU_MAX)
+    br = None
+    if args.get("bridge") is not None:
+        br = _v_name({"name": args.get("bridge")}, ATTACH_BRIDGE_RE, "bridge")
+        m = re.fullmatch(r"vnet([0-9]{1,6})_[0-9]{1,6}", br)
+        if m and int(m.group(1)) != row["lab"]:
+            raise Reject("bridge belongs to another lab")
+    with _nl_ipr() as ipr:
+        binfo = None
+        if br is not None:                  # refuse before touching anything
+            binfo = _nl_link_info(ipr, br)
+            _check_bridge_info(binfo)
+        for name in (vunl, peer):
+            info = _nl_link_info(ipr, name)
+            if info is not None:
+                _nl_del_link(ipr, info["index"])
+        rc, _, err = run(["ip", "link", "add", peer, "type", "veth", "peer",
+                          "name", vunl], timeout=30)
         if rc != 0:
-            raise Reject(f"bridge port add {port} to {br} failed: {err}")
-    else:
-        run_quiet(["ip", "link", "set", "dev", port, "nomaster"])
+            raise Reject("veth add %s: %s" % (vunl, (err or "").strip()[:120]))
+        hinfo = _nl_link_info(ipr, vunl)
+        pinfo = _nl_link_info(ipr, peer)
+        if hinfo is None or pinfo is None:
+            raise Reject("veth %s: not visible after create" % vunl)
+        _tag(ipr, hinfo["index"], row["lab"])
+        _tag(ipr, pinfo["index"], row["lab"])
+        if v_bool(args, "offload_off"):     # cEOS forwards in software
+            run_quiet(["ethtool", "--offload", vunl, "rx", "off", "tx", "off"])
+        _nl_set_link(ipr, hinfo["index"], mtu=mtu, state="up")
+        if binfo is not None:
+            _nl_set_master(ipr, hinfo["index"], binfo["index"])
     return 0, [], ""
 
 
-def verb_docker_running_sessions(args):
-    """READ-ONLY: the node sessions whose docker<N> container is running in a single sweep."""
-    if args:
-        raise Reject("docker_running_sessions takes no arguments")
-    rc, out, err = run(["docker", "-H=" + DOCKER_HOST, "ps", "--format", "{{.Names}}"], timeout=30, check_rc=False)
+def _step_netns_move(args):
+    """`ip link set netns <pid> <peer> name <guest> address <mac> mtu <m> up`
+    with the pid read from docker, then re-assert the host side up."""
+    n, row = _v_node_row(args)
+    i, vunl, peer = _veth_names(args, n)
+    guest = v_re(args, "guest", RE_GUEST_IF)
+    mac = v_re(args, "mac", RE_MAC)
+    mtu = _v_int_range(args, "mtu", 68, VETH_MTU_MAX)
+    pid = _docker_pid(n)
+    rc, _, err = run(["ip", "link", "set", "netns", pid, peer, "name",
+                      guest, "address", mac, "mtu", str(mtu), "up"],
+                     timeout=30)
     if rc != 0:
-        return rc, [], err
-    ids = []
-    for line in out:
-        m = RE_DOCKER_NODE_NAME.match(line.strip())
+        raise Reject("netns move %s: %s" % (peer, (err or "").strip()[:120]))
+    with _nl_ipr() as ipr:
+        info = _nl_link_info(ipr, vunl)
+        if info is not None:
+            _nl_set_link(ipr, info["index"], state="up")
+    return 0, [], ""
+
+
+def _docker0_ipv4():
+    rc, out, _ = run(["ip", "-4", "-o", "addr", "show", "dev", "docker0"],
+                     timeout=10)
+    for ln in out if rc == 0 else []:
+        m = re.search(r"\binet ([0-9.]+)/", ln)
         if m:
-            ids.append(str(int(m.group(1))))
-    return 0, ids, ""
+            return str(ipaddress.IPv4Address(m.group(1)))
+    return None
 
 
-def _capture_reconcile():
-    """Remove capture containers of lab sessions that no longer exist."""
+def _ip4(args, key):
+    """Dotted-quad string only (v_ip lets an int through)."""
+    v = args.get(key)
+    if not isinstance(v, str):
+        raise Reject("bad arg %s" % key)
+    return str(ipaddress.IPv4Address(v_ip(args, key)))
+
+
+def _docker_resolv_path(n):
+    """Docker's per-container resolv.conf (the file bind-mounted on the
+    container's /etc/resolv.conf), read here and only accepted in its fixed
+    host shape; None when it is anything else (the lease then sets no DNS)."""
+    rc, out, _ = run(["docker", "-H=" + DOCKER_HOST, "inspect", "-f",
+                      "{{ .ResolvConfPath }}", _docker_name(n)], timeout=30)
+    path = out[0].strip() if rc == 0 and out else ""
+    return path if RE_RESOLV_PATH.match(path) else None
+
+
+def _dhcp_scope_unit(n, dev):
+    """Per node+interface transient scope for the long-lived udhcpc daemon.
+    Deterministic so node stop can find it; in pnetlab.slice so a broker
+    restart (KillMode=control-group) no longer kills every node's DHCP client."""
+    return "pnetlab-dhcp-%d-%s.scope" % (n, dev)
+
+
+def _stop_dhcp_scopes(n):
+    """Node stop/rm: the daemon lives in the host pid ns, so docker stop never
+    reaches it -- left alone it pins the dead node's net ns, keeps the host
+    veth on the lab bridge and keeps renewing the lease. Glob over a broker
+    int; no match is rc 0."""
+    run_quiet(["systemctl", "stop", "pnetlab-dhcp-%d-*.scope" % n], timeout=15)
+
+
+def _in_netns_argv(cmd, pid, args, n=None):
+    """The fixed set of in-container commands device_docker.php ran through
+    the nsenter wrapper. Every value is typed; nothing is a command line.
+    Addressing and DHCP run HOST binaries in the container's net ns only
+    (`hnet`): nothing the container can write is executed or read as code."""
+    full = [NSENTER, "-t", pid, "-m", "-u", "-i", "-n", "-p", "-w"]
+    net = [NSENTER, "-r", "-m", "-t", pid, "-n"]
+    hnet = [NSENTER, "-t", pid, "-n"]
+    if cmd == "link_bash":
+        return full + ["/bash-static", "-c", "/busybox ls /bin/bash 2>/dev/null"
+                       " || /busybox ln /bash-static /bin/bash"]
+    if cmd == "chmod_profile":
+        return full + ["chmod", "a+x", "/etc/profile"]
+    if cmd == "run_profile":
+        return full + ["/bash-static", "/etc/profile"]
+    if cmd == "run_profile_bash":                 # cEOS / SR Linux
+        return full + ["bash", "/etc/profile"]
+    if cmd == "run_profile_sh":                   # SR Linux
+        return full + ["bash", "-c", "/profile.sh"]
+    if cmd == "ethtool_off":                      # cEOS, host ethtool in netns
+        return [NSENTER, "-t", pid, "-n", "ethtool", "--offload",
+                v_re(args, "dev", RE_ETH_DEV), "rx", "off", "tx", "off"]
+    if cmd == "route_del_docker0":
+        gw = _docker0_ipv4()
+        if gw is None:
+            return None
+        return hnet + [HOST_IP, "-4", "route", "del", "default", "via", gw]
+    if cmd == "route_add_default":
+        # append, not add: SIOCADDRT (busybox route) never refused a second
+        # default (e.g. one a DHCP lease already installed); `ip route add` would
+        return hnet + [HOST_IP, "-4", "route", "append", "default", "via",
+                       _ip4(args, "gw")]
+    if cmd == "addr_add":
+        return hnet + [HOST_IP, "addr", "add", v_cidr(args, "cidr"),
+                       "dev", v_enum(args, "dev", GUEST_DEVS)]
+    if cmd == "udhcpc":
+        # Long-lived root daemon fed by whatever DHCP server is on the lab
+        # segment: capability-bounded, clean env, root-owned host lease script.
+        # The script gets the interface and resolv.conf target from the broker
+        # (PNET_*), never from the lease.
+        name = v_re(args, "name", RE_NODE_NAME)
+        dev = v_enum(args, "dev", GUEST_DEVS)
+        if n is None:
+            raise Reject("udhcpc: no node session")
+        env = ["/usr/bin/env", "-i", "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
+               "PNET_DEV=" + dev]
+        resolv = _docker_resolv_path(n) if n is not None else None
+        if resolv:
+            env.append("PNET_RESOLV=" + resolv)
+        return scope_argv(
+            _dhcp_scope_unit(n, dev),
+            hnet + UDHCPC_SETPRIV + env + [
+                HOST_BUSYBOX, "udhcpc", "NODE=" + name, "-b", "-s",
+                _require_root_script(UDHCPC_SCRIPT), "-i", dev],
+            "PNetLab node %d %s DHCP client" % (n, dev))
+    if cmd == "dns":
+        return net + ["/bash-static", "-c", "echo nameserver %s > "
+                      "/etc/resolv.conf" % _ip4(args, "ip")]
+    raise Reject("bad arg cmd")
+
+
+IN_NETNS_CMDS = ("link_bash", "chmod_profile", "run_profile",
+                 "run_profile_bash", "run_profile_sh", "ethtool_off",
+                 "route_del_docker0", "route_add_default", "addr_add",
+                 "udhcpc", "dns")
+
+
+def _step_in_netns(args):
+    n, _ = _v_node_row(args, family="docker")
+    cmd = v_enum(args, "cmd", IN_NETNS_CMDS)
+    pid = _docker_pid(n)
+    argv = _in_netns_argv(cmd, pid, args, n)
+    if argv is None:
+        return 0, ["skipped: no docker0 address"], ""
+    if cmd == "udhcpc":       # last start wins: drop a client left from a crash
+        run_quiet(["systemctl", "stop", _dhcp_scope_unit(n, args["dev"])],
+                  timeout=15)
+    rc, out, err = run(argv, timeout=60)
+    return rc, out[:20], (err or "").strip()[:200]
+
+
+NODE_SCRIPT_KEYS = {"prep": "prep", "init": "init",
+                    "config_put": "config_script"}
+
+
+def _step_node_script(args):
+    """Template hooks device_docker.php exec'd as root: prep (before create),
+    init (after wiring), config_put (detached `-a put`). The script is named by
+    the root-read template (config_put: or the node's override) and must be a
+    root-owned, non-writable file in config_scripts; its args are derived."""
+    n, row = _v_node_row(args)
+    if row["type"] not in ("docker", "qemu"):
+        raise Reject("node_script: not a docker or qemu node")
+    kind = v_enum(args, "kind", tuple(NODE_SCRIPT_KEYS))
+    if row["type"] == "qemu" and kind == "init":
+        raise Reject("node_script: init is docker-only")
+    _, tpl, _ = _docker_read_template(args.get("template"))
+    name = ""
+    if kind == "config_put" and args.get("script"):
+        name = v_re(args, "script", RE_SCRIPT)
+    if not name:
+        name = str(tpl.get(NODE_SCRIPT_KEYS[kind]) or "").strip()
+    if not name:
+        return 0, ["no %s script" % kind], ""
+    if not RE_SCRIPT.match(name) or ".." in name:
+        raise Reject("bad %s script name" % kind)
+    path = _require_root_script(os.path.join(CONFIG_SCRIPTS_DIR, name))
+    ws = "%s/%d/%d" % (TMP_DIR, row["lab"], n)
+    if kind == "prep" and row["type"] == "qemu":
+        # device_qemu.php: `cd <ws> && <prep> <ws>`, every start
+        return _run_in_workspace([path, ws], row["lab"], row["nid"], n,
+                                 "lab_steps prep " + name)
+    if kind == "prep":
+        return run([path, ws], timeout=600)
+    if kind == "init":
+        return run([path, ws, _docker_name(n)], timeout=600)
+    if row["type"] == "qemu":
+        # device_qemu.php: nohup <script> -a put -p <port> -f <ws>/startup-config
+        # -t <delay + script timeout> > startup_config.log
+        tmo = _v_int_range(args, "timeout", 0, 7200)
+        unit = _launch_spawn([path, "-a", "put", "-p", str(row["port"]), "-f",
+                              ws + "/startup-config", "-t", str(tmo)],
+                             row["lab"], row["nid"], n, "startup_config.log",
+                             "lab_steps config_put " + name)
+        return 0, ["unit " + unit], ""
+    delay = _v_int_range(args, "delay", 0, 3600)
+    unit = _launch_spawn([path, "-a", "put", "-i", _docker_name(n), "-f",
+                          ws + "/startup-config", "-t", str(delay + 300)],
+                         row["lab"], row["nid"], n, None,
+                         "lab_steps config_put " + name)
+    return 0, ["unit " + unit], ""
+
+
+def _run_in_workspace(argv, lab, nid, n, description, timeout=600):
+    """Run argv to completion with cwd = the node workspace (through its dir
+    fd) inside a pnetlab-node scope; returns (rc, out tail, "")."""
+    dfd = _open_node_dir(lab, n)
     try:
-        labs = {int(r[0]) for r in _mysql_rows("SELECT lab_session_id FROM lab_sessions;") if r and str(r[0]).isdigit()}
-    except Exception as e:
-        log(f"capture_reconcile: DB unavailable: {e}")
-        return None
-    removed = []
+        p = subprocess.run(scope_argv(scope_unit_name("pnetlab-node", lab, nid),
+                                      argv, description),
+                           cwd="/proc/self/fd/%d" % dfd, pass_fds=(dfd,),
+                           stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT, timeout=timeout)
+    finally:
+        os.close(dfd)
+    return p.returncode, p.stdout.decode("utf-8", "replace").splitlines()[-20:], ""
+
+
+def _console_pattern(n):
+    return "docker_console\\.(py|sh) .*docker%d " % n
+
+
+def _wrapper_src_ok(st):
+    """A wrapper push source must be a regular, root-owned file."""
+    return statmod.S_ISREG(st.st_mode) and st.st_uid == 0
+
+
+def _docker_cp_tar(name, data):
+    """`docker cp - <name>:/` fed a tar on stdin. Returns (rc, err)."""
     try:
-        rc, out, _ = run(["docker", "-H=" + DOCKER_HOST, "ps", "-a", "--format", "{{.Names}}"], timeout=30, check_rc=False)
-        if rc == 0:
-            for name in out:
-                name = name.strip()
-                if name.startswith("Capture_"):
-                    parts = name.split("_")
-                    if len(parts) >= 3 and parts[2].isdigit():
-                        ls = int(parts[2])
-                        if ls not in labs:
-                            run_quiet(["docker", "-H=" + DOCKER_HOST, "rm", "-f", name])
-                            removed.append(name)
-    except Exception as e:
-        log(f"capture_reconcile error: {e}")
-        return None
-    return removed
+        p = subprocess.run(["docker", "-H=" + DOCKER_HOST, "cp", "-", name + ":/"],
+                           input=data, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, timeout=90)
+    except subprocess.TimeoutExpired:
+        return 124, "docker cp timeout"
+    return p.returncode, p.stderr.decode("utf-8", "replace").strip()[:200]
 
 
-def verb_capture_reconcile(args):
-    if _caller_uid() != 0:
-        raise Reject("capture_reconcile: root only")
-    removed = _capture_reconcile()
-    if removed is None:
-        return 1, [], "DB or docker unavailable"
-    return 0, [json.dumps({"removed": removed})], ""
+def _step_docker_cp_wrappers(args):
+    """The fixed wrapper pushes (DOCKER_CP_WRAPPERS, the same files and
+    container paths as docker_cp) in ONE `docker cp -`: the tar is built here
+    from the shipped root-owned files (O_NOFOLLOW, regular, uid 0), entries
+    root:root with the source mode, in caller order. If that copy fails, fall
+    back to one docker_cp per file, i.e. today's behaviour."""
+    n, _ = _v_node_row(args)
+    files = args.get("files")
+    if not isinstance(files, list) or not 1 <= len(files) <= len(DOCKER_CP_WRAPPERS) \
+            or not all(isinstance(f, str) for f in files) or len(set(files)) != len(files):
+        raise Reject("bad arg files")
+    sels = [v_enum({"file": f}, "file", set(DOCKER_CP_WRAPPERS)) for f in files]
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w", format=tarfile.GNU_FORMAT) as tar:
+        for sel in sels:
+            base = DOCKER_CP_WRAPPERS[sel]
+            try:
+                fd = os.open(os.path.join(WRAPPERS_DIR, base),
+                             os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+            except OSError as e:
+                raise Reject("docker_cp: wrapper %s: %s" % (sel, e.strerror))
+            with os.fdopen(fd, "rb") as f:
+                st = os.fstat(f.fileno())
+                if not _wrapper_src_ok(st):
+                    raise Reject("docker_cp: wrapper %s not a root-owned file" % sel)
+                ti = tarfile.TarInfo(base)
+                ti.size, ti.mode, ti.mtime = st.st_size, statmod.S_IMODE(st.st_mode), int(st.st_mtime)
+                ti.uid = ti.gid = 0
+                ti.uname = ti.gname = "root"
+                tar.addfile(ti, f)
+    name = _docker_name(n)
+    rc, err = _docker_cp_tar(name, buf.getvalue())
+    log("docker_cp %s files=%s (one tar) rc=%d" % (name, ",".join(sels), rc))
+    if rc == 0:
+        return 0, [], ""
+    rc_fb, errs = 0, []
+    for sel in sels:
+        r = verb_docker_cp({"node_session": n, "file": sel})
+        if r[0] != 0:
+            rc_fb = rc_fb or r[0]
+            errs.append("%s: %s" % (sel, (r[2] or "").strip()[:80]))
+    return rc_fb, ["fallback: per-file docker_cp (tar rc=%d: %s)" % (rc, err[:80])], "; ".join(errs)
 
 
-def verb_links_cleanup(args):
-    """Contract links_cleanup: {session, node_session} = node stop, {session} = lab destroy."""
-    summary = {"removed_taps": 0, "removed_links": 0}
-    session = args.get("session")
-    node_session = args.get("node_session")
-    if session is not None:
-        lab_id = v_int(args, "session")
-        if node_session is not None:
-            n = v_int(args, "node_session")
-            for iface in range(16):
-                tap = f"vunl{n}_{iface}"
-                if link_exists(tap):
-                    run_quiet(["ip", "link", "del", tap])
-                    summary["removed_taps"] += 1
-    return 0, [json.dumps(summary)], ""
+def _step_console_reap(args):
+    """Kill this node's docker console bridge(s) (device.php stop / start
+    reap). The pattern is anchored on `docker<S> ` so docker8 never hits
+    docker87."""
+    n, _ = _v_node_row(args)
+    run_quiet(["pkill", "-f", _console_pattern(n)])
+    return 0, [], ""
 
 
-def verb_links_reconcile(args):
-    if _caller_uid() != 0:
-        raise Reject("links_reconcile: root only")
-    summary = {"reconciled": True}
-    return 0, [json.dumps(summary)], ""
-
-
-def verb_satellite_self_update(args):
-    """Satellite side of Sync Satellite (hardened with AzamLabs unjailed SSH keys)."""
-    if _caller_uid() != 0:
-        raise Reject("satellite_self_update: root only")
-    version = v_re(args, "version", RE_DEB_VERSION)
-    job = v_re(args, "job", RE_SATDEB_JOB)
-    update_script = f"{BASE}/scripts/pnet-satdeb-install.sh"
-    if not os.path.exists(update_script):
-        update_script = f"{BASE}/scripts/azambasha-update.sh"
-    unit = spawn_unit("azamlabs-satself-update", ["/bin/bash", update_script, version, job])
+def _step_console_bridge(args):
+    """sudo docker_console.sh --name=<name> <port> docker<S> <attach> >
+    wrapper.txt, now root-launched in the node's scope; the port is the node's
+    first or second console port from node_sessions."""
+    n, row = _v_node_row(args, family="docker")
+    which = v_enum(args, "which", (1, 2))
+    port = row["port"] if which == 1 else row["port_2nd"]
+    if port is None or not NODE_PORT_MIN <= port <= 65535:
+        raise Reject("node console port outside the console range")
+    attach = v_enum(args, "attach", CONSOLE_ATTACH)
+    name = v_re(args, "name", RE_NODE_NAME)
+    out = v_enum(args, "out", CONSOLE_OUT) if args.get("out") is not None \
+        else "wrapper.txt"
+    path = _require_root_script(DOCKER_CONSOLE)
+    unit = _launch_spawn([path, "--name=" + name, str(port), _docker_name(n),
+                          attach], row["lab"], row["nid"], n, out,
+                         "lab_steps console docker%d" % n)
     return 0, ["unit " + unit], ""
 
 
 LAB_STEP_OPS = {
-    "tap_create": lambda a: verb_tap_create(a),
-    "tap_delete": lambda a: verb_tap_delete(a),
-    "bridge_port": lambda a: verb_bridge_port(a),
-    "net_create": lambda a: verb_net_create(a),
-    "links_cleanup": lambda a: verb_links_cleanup(a),
+    "account_ensure": _step_account_ensure,
+    "veth_attach": _step_veth_attach,
+    "netns_move": _step_netns_move,
+    "in_netns": _step_in_netns,
+    "node_script": _step_node_script,
+    "console_reap": _step_console_reap,
+    "console_bridge": _step_console_bridge,
     "docker_exec": lambda a: verb_docker_exec(a),
     "docker_cp": lambda a: verb_docker_cp(a),
+    "docker_cp_wrappers": _step_docker_cp_wrappers,
+    "net_create": lambda a: verb_net_create(a),
+    "tap_delete": lambda a: verb_tap_delete(a),
+    "tap_create": lambda a: verb_tap_create(a),
+    "bridge_port": lambda a: verb_bridge_port(a),
+    "workspace_own": _step_workspace_own,
+    "port_free": _step_port_free,
+    "launch": _step_launch,
+    "node_kill": _step_node_kill,
+    "qemu_workspace": _step_qemu_workspace,
+    "console_snat": _step_console_snat,
+    "swtpm_start": _step_swtpm_start,
+    "swtpm_stop": _step_swtpm_stop,
+    "qemu_console": _step_qemu_console,
+    "links_cleanup": lambda a: verb_links_cleanup(a),
 }
 
 
+def _lab_steps_rollback(n):
+    """Node-scoped undo of a half-started node: kill what runs in its workspace,
+    then links_cleanup's node form (tagged taps/veths of this node only; links
+    with carrier and foreign members are kept). The workspace is left alone."""
+    lab = _node_session(n)
+    if lab is None:
+        return {"node_session": n, "skipped": "node session missing"}
+    res = {"node_session": n}
+    for what, fn, a in (
+            ("node_kill", verb_node_kill_workspace,
+             {"workspace": "%s/%d/%d" % (TMP_DIR, lab, n)}),
+            ("links_cleanup", verb_links_cleanup,
+             {"session": lab, "node_session": n})):
+        try:
+            res[what] = fn(a)[0]
+        except Reject as e:
+            res[what] = "reject: %s" % e
+    return res
+
+
 def verb_lab_steps(args):
-    """Contract lab_steps {steps: [{op, id?, args, on_fail?}], node_session?}."""
+    """Contract lab_steps {steps: [{op, id?, args, on_fail?}], node_session?}.
+    The whole batch is shape-checked before any step runs; each step's args are
+    then validated by its op (the same validators as the standalone verbs).
+    on_fail: abort (default) stops the batch; continue records and goes on;
+    rollback stops and undoes the batch's node (node_session required).
+    out = one JSON line {steps: [{id, op, rc, secs, err?, out?, warnings?}],
+    secs, failed, rollback?}; rc = the failing step's rc, else 0."""
     steps = args.get("steps")
     if not isinstance(steps, list) or not 1 <= len(steps) <= LAB_STEPS_MAX:
         raise Reject("bad arg steps")
     ns = v_int(args, "node_session") if args.get("node_session") is not None else None
-    results = []
-    failed = None
-    t0 = time.monotonic()
+    plan = []
     for i, st in enumerate(steps):
         if not isinstance(st, dict):
-            raise Reject(f"step {i}: not an object")
+            raise Reject("step %d: not an object" % i)
         op = v_enum(st, "op", tuple(LAB_STEP_OPS))
-        sid = v_re(st, "id", RE_STEP_ID) if st.get("id") is not None else str(i)
+        sid = v_re(st, "id", RE_STEP_ID) if st.get("id") is not None else "%d" % i
         pol = v_enum(st, "on_fail", ON_FAIL) if st.get("on_fail") is not None else "abort"
         a = st.get("args", {})
-        s0 = time.monotonic()
+        if not isinstance(a, dict):
+            raise Reject("step %s: args must be an object" % sid)
+        if pol == "rollback" and ns is None:
+            raise Reject("step %s: rollback needs the batch node_session" % sid)
+        plan.append((sid, op, pol, a))
+    if ns is not None and _node_session(ns) is None:
+        raise Reject("node session missing")
+
+    _BATCH.cache = {}
+    try:
+        return _lab_steps_run(plan, ns)
+    finally:
+        for key, val in _BATCH.cache.items():
+            if key[0] == "pid":
+                _close_quiet(val[1])
+        _BATCH.cache = None
+
+
+def _lab_steps_run(plan, ns):
+    t0 = _LS_CLOCK()
+    results, warnings = [], []
+    rc_final, err_final, failed, rollback = 0, "", None, None
+    for sid, op, pol, a in plan:
+        s0 = _LS_CLOCK()
+        w = []
         try:
             res = LAB_STEP_OPS[op](a)
             rc, out, err = res[0], res[1], res[2]
+            if len(res) == 4:
+                w = res[3]
         except Reject as e:
             rc, out, err = 254, [], str(e)
-        except Exception as e:
-            rc, out, err = 255, [], f"step error: {type(e).__name__}"
-        r = {"id": sid, "op": op, "rc": rc, "secs": round(time.monotonic() - s0, 4)}
+        except Exception as e:                       # never leak a traceback
+            log("lab_steps: step %s %s: %r" % (sid, op, e))
+            rc, out, err = 255, [], "step error: %s" % type(e).__name__
+        r = {"id": sid, "op": op, "rc": rc, "secs": round(_LS_CLOCK() - s0, 4)}
         if err:
             r["err"] = str(err)[:300]
         if out:
             r["out"] = out[:20]
+        if w:
+            r["warnings"] = w
+            warnings += ["%s: %s" % (sid, x) for x in w]
         results.append(r)
-        if rc != 0:
-            if pol == "continue":
-                continue
-            failed = sid
-            break
-    summary = {"steps": results, "secs": round(time.monotonic() - t0, 4), "failed": failed}
-    return (0 if failed is None else 1), [json.dumps(summary)], ""
+        if rc == 0:
+            continue
+        if pol == "continue":
+            warnings.append("%s %s rc=%d (continued)" % (sid, op, rc))
+            continue
+        rc_final, err_final, failed = rc, "%s %s: %s" % (sid, op, err), sid
+        if pol == "rollback":
+            rollback = _lab_steps_rollback(ns)
+        break
+    summary = {"steps": results, "secs": round(_LS_CLOCK() - t0, 4),
+               "failed": failed}
+    if rollback is not None:
+        summary["rollback"] = rollback
+    return rc_final, [json.dumps(summary, sort_keys=True)], err_final, warnings
+
 
 VERBS = {
-    "tap_create": verb_tap_create,
-    "bridge_port": verb_bridge_port,
-    "bridge_vlan_protocol": verb_bridge_vlan_protocol,
-    "node_powerdown": verb_node_powerdown,
-    "qemu_monitor": verb_qemu_monitor,
-    "docker_running_sessions": verb_docker_running_sessions,
-    "links_cleanup": verb_links_cleanup,
-    "links_reconcile": verb_links_reconcile,
-    "capture_reconcile": verb_capture_reconcile,
-    "satellite_self_update": verb_satellite_self_update,
-    "lab_steps": verb_lab_steps,
     "ping": verb_ping,
     "qemu_cpu_scope": verb_qemu_cpu_scope,
     "qemu_cpu_policy": verb_qemu_cpu_policy,
@@ -8234,6 +10520,11 @@ VERBS = {
     "capture_if_del": verb_capture_if_del,
     "wireshark_container_remove": verb_wireshark_container_remove,
     "session_cleanup": verb_session_cleanup,
+    "links_cleanup": verb_links_cleanup,
+    "lab_steps": verb_lab_steps,
+    "bridge_vlan_protocol": verb_bridge_vlan_protocol,
+    "links_reconcile": verb_links_reconcile,
+    "capture_reconcile": verb_capture_reconcile,
     "linkwatch_start": verb_linkwatch_start,
     "linkwatch_reload": verb_linkwatch_reload,
     "linkwatch_stop": verb_linkwatch_stop,
@@ -8250,6 +10541,8 @@ VERBS = {
     "node_config_push": verb_node_config_push,
     "node_show_many": verb_node_show_many,
     "node_kill_workspace": verb_node_kill_workspace,
+    "node_powerdown": verb_node_powerdown,
+    "qemu_monitor": verb_qemu_monitor,
     "config_reset": verb_config_reset,
     "node_unlock": verb_node_unlock,
     "service_restart": verb_service_restart,
@@ -8278,6 +10571,7 @@ VERBS = {
     "cluster_sync_manifest": verb_cluster_sync_manifest,
     "cluster_sync_image": verb_cluster_sync_image,
     "cluster_sync_satellite": verb_cluster_sync_satellite,
+    "satellite_self_update": verb_satellite_self_update,
     "cluster_deploy": verb_cluster_deploy,
     "disk_expand": verb_disk_expand,
     "vxlan_attach": verb_vxlan_attach,
@@ -8291,6 +10585,8 @@ VERBS = {
     "net_create": verb_net_create,
     "net_delete": verb_net_delete,
     "tap_delete": verb_tap_delete,
+    "tap_create": verb_tap_create,
+    "bridge_port": verb_bridge_port,
     "router_create": verb_router_create,
     "router_apply": verb_router_apply,
     "router_get": verb_router_get,
@@ -8321,6 +10617,7 @@ VERBS = {
     "docker_image_ancestor": verb_docker_image_ancestor,
     "docker_image_ls": verb_docker_image_ls,
     "docker_ps_count": verb_docker_ps_count,
+    "docker_running_sessions": verb_docker_running_sessions,
     "docker_stats": verb_docker_stats,
     "docker_version": verb_docker_version,
     "capture_create": verb_capture_create,
@@ -8362,6 +10659,7 @@ class Handler(socketserver.StreamRequestHandler):
             args = req.get("args") or {}
             if not isinstance(args, dict) or verb not in VERBS:
                 raise Reject("unknown verb")
+            _REQ.uid = uid
             result = VERBS[verb](args)
             if len(result) == 4:
                 rc, out, err, warnings = result
@@ -8413,22 +10711,25 @@ def main():
     srv = Server(SOCK_PATH, Handler)
     os.chmod(SOCK_PATH, 0o660)
     shutil.chown(SOCK_PATH, "root", SOCK_GROUP)
-
-    # Seamless compatibility symlink for legacy socket callers
+    # Maintain compatibility symlink for legacy /run/azamlabs/broker.sock
     try:
-        legacy_dir = "/run/pnet" + "lab"
-        legacy_sock = legacy_dir + "/broker.sock"
+        legacy_dir = "/run/azamlabs"
         os.makedirs(legacy_dir, exist_ok=True)
-        shutil.chown(legacy_dir, "root", SOCK_GROUP)
-        os.chmod(legacy_dir, 0o755)
+        legacy_sock = os.path.join(legacy_dir, "broker.sock")
         if os.path.islink(legacy_sock) or os.path.exists(legacy_sock):
             os.unlink(legacy_sock)
         os.symlink(SOCK_PATH, legacy_sock)
     except Exception:
         pass
-
-    log("azamlabs-brokerd listening on %s (%d verbs)" %
+    log("pnetlab-brokerd listening on %s (%d verbs)" %
         (SOCK_PATH, len(VERBS)))
+    # slice 4: reconcile tagged links against the DB once, off the accept path
+    threading.Thread(target=_links_reconcile_bg, name="links-reconcile",
+                     daemon=True).start()
+    threading.Thread(target=_docker0_offload_once, name="docker0-offload",
+                     daemon=True).start()
+    threading.Thread(target=_capture_reconcile_bg, name="capture-reconcile",
+                     daemon=True).start()
     srv.serve_forever()
 
 

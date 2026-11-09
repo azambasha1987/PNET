@@ -85,6 +85,29 @@ fi
 if [ -f "${SCRIPT_DIR}/web-ui/main/pnet-features.js" ]; then
     cp -f "${SCRIPT_DIR}/web-ui/main/pnet-features.js" "${PNET_HTML}/main/js/pnet-features.js"
 fi
+if [ -f "${SCRIPT_DIR}/web-ui/main/pnetlab-webconsole.js" ]; then
+    cp -f "${SCRIPT_DIR}/web-ui/main/pnetlab-webconsole.js" "${PNET_HTML}/themes/default/js/pnetlab-webconsole.js" 2>/dev/null || true
+fi
+
+# Deploy Core PHP API & validation patches
+if [ -d "${SCRIPT_DIR}/patches/html/includes" ]; then
+    log_info "Deploying core API patches (api_labs, lab_validation_store, activity_log)..."
+    cp -rf "${SCRIPT_DIR}/patches/html/includes/"* "${PNET_HTML}/includes/" 2>/dev/null || true
+fi
+
+# Deploy HTTP Webconsole streaming bridge
+if [ -f "${SCRIPT_DIR}/scripts/http_ws_bridge.py" ]; then
+    mkdir -p /opt/pnet-webconsole/backend 2>/dev/null || true
+    cp -f "${SCRIPT_DIR}/scripts/http_ws_bridge.py" /opt/pnet-webconsole/backend/http_ws_bridge.py 2>/dev/null || true
+    chmod 755 /opt/pnet-webconsole/backend/http_ws_bridge.py 2>/dev/null || true
+    systemctl restart pnet-http-bridge.service 2>/dev/null || true
+fi
+
+# Deploy docker template manifest
+if [ -f "${SCRIPT_DIR}/scripts/docker-template-manifest.sha256" ]; then
+    cp -f "${SCRIPT_DIR}/scripts/docker-template-manifest.sha256" /opt/unetlab/scripts/docker-template-manifest.sha256 2>/dev/null || true
+    chmod 644 /opt/unetlab/scripts/docker-template-manifest.sha256 2>/dev/null || true
+fi
 
 # ── Ensure Svelte Islands canonical symlinks & registration ───────────────────
 ISLANDS_DIR="${PNET_HTML}/themes/default/islands/js"

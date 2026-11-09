@@ -303,6 +303,11 @@ sync_from_github() {
     ln -sf /opt/unetlab/scripts/pnet-setup-ollama.sh             /usr/local/bin/pnet-ollama 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-release-ingestion-engine.py /usr/local/bin/pnet-release-engine 2>/dev/null || true
     ln -sf /opt/unetlab/scripts/pnet-ingest-release.sh          /usr/local/bin/pnet-ingest-release 2>/dev/null || true
+    if [ -f "${src_repo}/apply-all-custom.sh" ]; then
+        ln -sf "${src_repo}/apply-all-custom.sh" /usr/local/bin/pnet-apply-all 2>/dev/null || true
+    elif [ -f /opt/pnet/apply-all-custom.sh ]; then
+        ln -sf /opt/pnet/apply-all-custom.sh /usr/local/bin/pnet-apply-all 2>/dev/null || true
+    fi
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py /usr/local/bin/pnet-* 2>/dev/null || true
 
     # Automatically install newly downloaded debian packages if present in repo releases

@@ -154,18 +154,22 @@ if [ "$MODE" = "master" ]; then
     fi
 
     # Ensure Privilege Broker Daemon service unit is active
-    BROKER_SCRIPT="/opt/unetlab/scripts/pnet-brokerd.py"
-    if [ -f "$BROKER_SCRIPT" ]; then
-        if [ ! -f /etc/systemd/system/pnetlab-brokerd.service ]; then
-            cat << 'EOF_BROKER' > /etc/systemd/system/pnetlab-brokerd.service
+    BROKER_SCRIPT="/opt/unetlab/scripts/pnetlab-brokerd.py"
+    if [ ! -f "$BROKER_SCRIPT" ] && [ -f "/opt/unetlab/scripts/pnet-brokerd.py" ]; then
+        ln -sf /opt/unetlab/scripts/pnet-brokerd.py /opt/unetlab/scripts/pnetlab-brokerd.py 2>/dev/null || true
+    elif [ -f "$BROKER_SCRIPT" ] && [ ! -f "/opt/unetlab/scripts/pnet-brokerd.py" ]; then
+        ln -sf /opt/unetlab/scripts/pnetlab-brokerd.py /opt/unetlab/scripts/pnet-brokerd.py 2>/dev/null || true
+    fi
+    if [ -f "$BROKER_SCRIPT" ] || [ -f "/opt/unetlab/scripts/pnet-brokerd.py" ]; then
+        cat << 'EOF_BROKER' > /etc/systemd/system/pnetlab-brokerd.service
 [Unit]
 Description=PNetLab privilege broker (allowlisted root verbs for the engine)
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/unetlab/scripts/pnet-brokerd.py
-RuntimeDirectory=azamlabs
+ExecStart=/usr/bin/python3 /opt/unetlab/scripts/pnetlab-brokerd.py
+RuntimeDirectory=pnetlab azamlabs
 RuntimeDirectoryMode=0755
 User=root
 Group=root
@@ -175,9 +179,8 @@ RestartSec=2
 [Install]
 WantedBy=multi-user.target
 EOF_BROKER
-            chmod 0644 /etc/systemd/system/pnetlab-brokerd.service 2>/dev/null || true
-            ln -sf /etc/systemd/system/pnetlab-brokerd.service /etc/systemd/system/azamlabs-brokerd.service 2>/dev/null || true
-        fi
+        chmod 0644 /etc/systemd/system/pnetlab-brokerd.service 2>/dev/null || true
+        ln -sf /etc/systemd/system/pnetlab-brokerd.service /etc/systemd/system/azamlabs-brokerd.service 2>/dev/null || true
         systemctl daemon-reload 2>/dev/null || true
         systemctl enable pnetlab-brokerd.service 2>/dev/null || true
         systemctl restart pnetlab-brokerd.service 2>/dev/null || true
