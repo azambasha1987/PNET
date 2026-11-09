@@ -1,6 +1,38 @@
 # PNetLab v8 changelog
 
-## 6.8.93
+## 6.8.93 (Sequence 95)
+
+### v6.8.94 Turnkey Backport & Subsystem Integrity Enhancements
+- **Lab Root Move & Task Migration (Codeberg #99)**: moving a lab to the workspace root (`/`) previously failed
+  with `"Invalid lab path"` due to prefix double slashes (`//lab.unl`); destination path resolution is normalized
+  and atomic sidecar validation tasks move alongside the lab file via transactional rollback protection.
+- **Cat9k Config Export & First-Boot Bypass (Codeberg #98)**: `config_cat9kv.py` exports previously failed with
+  exit code 16 on password prompts; now features a complete authentication ladder (`Password:`, `Username:`,
+  `(config`, `--More--`, and `Router>`), checks lab default credentials, aborts unknown passwords with an explicit
+  reason, and terminates first-boot configuration prompts without leaving an enable secret configured.
+- **Session Idle Timeout Logging (Codeberg #101)**: expired sessions past idle timeout now insert `idle_logout`
+  records in Logs > User sessions labeled as `"Logged out (idle timeout)"` stamped at expiration with duration;
+  pre-upgrade unclosed sessions are swept and backfilled cleanly once on initial fetch.
+- **HTTP Node Consoles Streaming**: non-HTML backend HTTP responses (MJPEG video streams, Server-Sent Events,
+  and binary payloads) stream chunk-by-chunk via `httpx` async generator (`aiter_bytes`) without memory buffering,
+  eliminating blank preview windows; HTML pages continue to be buffered and rewritten for same-origin framing.
+- **Floating Console Window Anti-Flash**: floating web console container window iframe styling initializes with
+  transparent background and adopts the loaded child document's computed background color on `load` events,
+  preventing theme canvas flashes across page transitions.
+- **Splunk & Nokia SR Linux Template Manifests**: regenerated `docker-template-manifest.sha256` with updated
+  sha256 digest (`e03a5e28...`) for `splunk.yml` and added signatures for Nokia SR Linux (`srlinux.yml`,
+  `srlinux-ixr-d2l.yml`, `srlinux-ixr-d3.yml`, `srlinux-ixr-d3l.yml`), resolving node creation conversion/signing failures.
+- **Broker Daemon & Runtime Directory Synchronization**: unified `pnet-brokerd.py` and `pnetlab-brokerd.py`
+  (10,700 lines) with dynamic physical uplink discovery (`_get_real_iface`), dual-path Unix socket compatibility
+  (`/run/pnetlab/broker.sock` and `/run/azamlabs/broker.sock`), and `RuntimeDirectory=pnetlab azamlabs` systemd provisioning.
+- **Canonical Ops-API Tool Resolution**: replaced hardcoded script locations in `pnet-ops-api.py` with dynamic
+  `resolve_script()` helper resolving canonical `/usr/local/bin/pnet-*` and `/opt/unetlab/scripts/pnet-*` tools
+  with backward-compatible alias fallback.
+- **Ingestion Engine Packaging Overlays**: updated `pnet-release-ingestion-engine.py` to package core PHP patches,
+  web console bridges, UI log formatters, and manifests directly into Debian archives (`6.8.93` and `6.8.93resolute1`);
+  advanced channel pointer sequence to `95`.
+
+## 6.8.93 (Sequence 94)
 
 ### Tri-Pillar Enterprise Architecture & Upstream Release Ingestion
 - **Upstream Ingestion & Multiarch Packaging**: official ingestion of upstream release 6.8.93 packages
