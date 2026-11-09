@@ -42,6 +42,11 @@ ENV/
 *.swp
 *~
 
+# Logs & Temporary files
+*.log
+*.tmp
+*.bak
+
 ~$*.docx
 scratch/
 Desktop/
