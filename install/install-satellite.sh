@@ -62,9 +62,22 @@ apt-get install -y --no-install-recommends \
     git \
     libvirt-daemon-system \
     qemu-kvm \
-    docker.io 2>/dev/null || true
+    docker.io \
+    php-cli \
+    python3-pyroute2 \
+    python3-psutil \
+    python3-yaml \
+    python3-pip \
+    rsync \
+    ifupdown 2>/dev/null || true
 
 echo "[3/5] Installing PNetLab Satellite packages for $VERSION..."
+# If conflicting master package (pnetlab) is installed on this satellite node, remove it cleanly
+if dpkg -s pnetlab >/dev/null 2>&1; then
+    echo "Notice: Master package (pnetlab) detected on Satellite node. Removing master package..."
+    dpkg -P --force-all pnetlab 2>/dev/null || true
+fi
+
 SATELLITE_DEBS=(
     "pnetlab-bridge-dkms_${VERSION}_all.deb"
     "pnetlab-vpcs_${VERSION}_amd64.deb"
@@ -84,11 +97,29 @@ for deb_name in "${SATELLITE_DEBS[@]}"; do
     fi
 done
 
-dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y 2>/dev/null || true
+# 1. Direct payload unpack to guarantee all engine files exist
+SAT_DEB="$DEB_DIR/pnetlab-satellite_${VERSION}_amd64.deb"
+[ -f "$SAT_DEB" ] || SAT_DEB="$(ls -1 "$DEB_DIR"/pnetlab-satellite*.deb 2>/dev/null | head -n1)"
+if [ -f "$SAT_DEB" ]; then
+    echo "Unpacking PNetLab satellite payload directly to filesystem..."
+    dpkg -x "$SAT_DEB" / 2>/dev/null || dpkg-deb -x "$SAT_DEB" / 2>/dev/null || true
+fi
 
 # Ensure usr-merge integrity: /lib must always be a symlink to usr/lib
 if [ ! -L /lib ] && [ -d /usr/lib ]; then
     echo "Preserving usr-merge: migrating unmerged /lib into /usr/lib..."
+    cp -a /lib/* /usr/lib/ 2>/dev/null || true
+    rm -rf /lib
+    ln -s usr/lib /lib
+fi
+
+# 2. Install satellite packages with --force-all to bypass dependency naming quirks (e.g. docker.io vs docker-ce)
+dpkg -i --force-all "${DEB_LIST[@]}" 2>/dev/null || true
+apt-get install -f -y 2>/dev/null || true
+
+# Final usr-merge check after dpkg
+if [ ! -L /lib ] && [ -d /usr/lib ]; then
+    echo "Preserving usr-merge after dpkg: migrating unmerged /lib into /usr/lib..."
     cp -a /lib/* /usr/lib/ 2>/dev/null || true
     rm -rf /lib
     ln -s usr/lib /lib
@@ -159,7 +190,84 @@ return 0 2>/dev/null || true
 OVF_EOF
 chmod 644 /etc/profile.d/ovf.sh 2>/dev/null || true
 
-# 3. Deploy systemd cloud bridges unit and enable it Before=networking.service
+# 3. Deploy universal MAC-agnostic Netplan configuration bridging uplink into pnet0
+if command -v netplan >/dev/null 2>&1; then
+    UPLINK_IFACE=""
+    for iface in $(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d'@' -f1); do
+        case "$iface" in
+            lo|pnet*|docker*|veth*|virbr*|tun*|tap*|br-*) continue ;;
+            eth*|ens*|enp*|eno*)
+                UPLINK_IFACE="$iface"
+                break
+                ;;
+        esac
+    done
+    [ -z "$UPLINK_IFACE" ] && UPLINK_IFACE="eth0"
+
+    # Only generate if pnet0 bridge is not already configured in netplan
+    if ! grep -q "pnet0" /etc/netplan/*.yaml /etc/netplan/*.yml 2>/dev/null; then
+        DETECTED_IP="$(ip -4 addr show dev "$UPLINK_IFACE" 2>/dev/null | awk '/inet /{print $2}' | head -n1 || true)"
+        DETECTED_GW="$(ip -4 route show default 2>/dev/null | awk '{print $3}' | head -n1 || true)"
+        [ -z "$DETECTED_GW" ] && DETECTED_GW="192.168.1.1"
+
+        if [ -n "$DETECTED_IP" ]; then
+            cat << NETPLAN_EOF > /etc/netplan/00-installer-config.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ${UPLINK_IFACE}:
+      dhcp4: false
+      dhcp6: false
+  bridges:
+    pnet0:
+      interfaces:
+        - ${UPLINK_IFACE}
+      addresses:
+        - ${DETECTED_IP}
+      routes:
+        - to: default
+          via: ${DETECTED_GW}
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 1.1.1.1
+      parameters:
+        stp: false
+        forward-delay: 0
+NETPLAN_EOF
+        else
+            cat << NETPLAN_EOF > /etc/netplan/00-installer-config.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ${UPLINK_IFACE}:
+      dhcp4: false
+      dhcp6: false
+  bridges:
+    pnet0:
+      interfaces:
+        - ${UPLINK_IFACE}
+      dhcp4: true
+      dhcp6: false
+      parameters:
+        stp: false
+        forward-delay: 0
+NETPLAN_EOF
+        fi
+        chmod 600 /etc/netplan/00-installer-config.yaml
+        netplan generate 2>/dev/null || true
+        netplan apply 2>/dev/null || true
+
+        # Critical safeguard: ensure physical uplink is immediately enslaved to pnet0 so active SSH connection never drops
+        ip link set "$UPLINK_IFACE" master pnet0 2>/dev/null || true
+        ip link set "$UPLINK_IFACE" up 2>/dev/null || true
+        ip link set pnet0 up 2>/dev/null || true
+    fi
+fi
+
+# 4. Deploy systemd cloud bridges unit and enable it Before=networking.service
 if [ -f "$REPO_ROOT/scripts/pnet-bridges.sh" ]; then
     cp -f "$REPO_ROOT/scripts/pnet-bridges.sh" /opt/ovf/pnet-bridges.sh 2>/dev/null || true
 fi
