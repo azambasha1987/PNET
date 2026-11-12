@@ -40,14 +40,24 @@ for i in 0 1 2 3 4 5 6 7 8 9; do
 done
 
 # Guarantee pnet0 is attached to physical uplink NIC so link carrier is never lost
+# Order-safe: If $iface holds an IP address, migrate it to pnet0 so active SSH sessions NEVER drop!
 if [ -d /sys/class/net/pnet0 ] && [ -z "$(ls -A /sys/class/net/pnet0/brif 2>/dev/null)" ]; then
     for iface in $("$IP" -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d'@' -f1); do
         case "$iface" in
             lo|pnet*|nat*|docker*|veth*|virbr*|tun*|tap*|br-*|wlan*|hwsim*) continue ;;
             eth*|ens*|enp*|eno*)
+                IFACE_IP=$("$IP" -4 addr show dev "$iface" 2>/dev/null | awk '/inet /{print $2}' | head -n1 || true)
+                IFACE_GW=$("$IP" -4 route show default 2>/dev/null | awk '{print $3}' | head -n1 || true)
                 "$IP" link set "$iface" master pnet0 2>/dev/null || true
                 "$IP" link set "$iface" up 2>/dev/null || true
                 "$IP" link set pnet0 up 2>/dev/null || true
+                if [ -n "$IFACE_IP" ] && [ -z "$("$IP" -4 addr show dev pnet0 2>/dev/null | awk '/inet /{print $2}')" ]; then
+                    "$IP" addr del "$IFACE_IP" dev "$iface" 2>/dev/null || true
+                    "$IP" addr add "$IFACE_IP" dev pnet0 2>/dev/null || true
+                    [ -n "$IFACE_GW" ] && "$IP" route add default via "$IFACE_GW" dev pnet0 2>/dev/null || true
+                elif [ -z "$("$IP" -4 addr show dev pnet0 2>/dev/null | awk '/inet /{print $2}')" ]; then
+                    command -v dhclient >/dev/null 2>&1 && dhclient -1 pnet0 >/dev/null 2>&1 &
+                fi
                 break
                 ;;
         esac
@@ -70,3 +80,4 @@ if ! "$IP" link show pnet0 >/dev/null 2>&1; then
 fi
 
 exit 0
+

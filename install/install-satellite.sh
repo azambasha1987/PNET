@@ -210,8 +210,14 @@ if command -v netplan >/dev/null 2>&1; then
         DETECTED_GW="$(ip -4 route show default 2>/dev/null | awk '{print $3}' | head -n1 || true)"
         [ -z "$DETECTED_GW" ] && DETECTED_GW="192.168.1.1"
 
+        # Backup existing netplan files to prevent duplicate interface declarations
+        mkdir -p /opt/unetlab/data/netcfg-backups /etc/netplan 2>/dev/null || true
+        for f in /etc/netplan/*.yaml /etc/netplan/*.yml; do
+            [ -f "$f" ] && [ "$(basename "$f")" != "01-azamlabs-netcfg.yaml" ] && cp -f "$f" /opt/unetlab/data/netcfg-backups/ 2>/dev/null && rm -f "$f" 2>/dev/null || true
+        done
+
         if [ -n "$DETECTED_IP" ]; then
-            cat << NETPLAN_EOF > /etc/netplan/00-installer-config.yaml
+            cat << NETPLAN_EOF > /etc/netplan/01-azamlabs-netcfg.yaml
 network:
   version: 2
   renderer: networkd
@@ -237,7 +243,7 @@ network:
         forward-delay: 0
 NETPLAN_EOF
         else
-            cat << NETPLAN_EOF > /etc/netplan/00-installer-config.yaml
+            cat << NETPLAN_EOF > /etc/netplan/01-azamlabs-netcfg.yaml
 network:
   version: 2
   renderer: networkd
@@ -256,7 +262,7 @@ network:
         forward-delay: 0
 NETPLAN_EOF
         fi
-        chmod 600 /etc/netplan/00-installer-config.yaml
+        chmod 600 /etc/netplan/01-azamlabs-netcfg.yaml
         netplan generate 2>/dev/null || true
         netplan apply 2>/dev/null || true
 
@@ -288,6 +294,9 @@ fi
 
 echo "[5/5] Starting satellite services..."
 systemctl daemon-reload || true
+systemctl unmask pnetlab-satd.service 2>/dev/null || true
+systemctl enable pnetlab-satd.service 2>/dev/null || true
+systemctl start pnetlab-satd.service 2>/dev/null || true
 
 echo "=========================================================="
 echo " PNetLab Satellite Installation Completed!"

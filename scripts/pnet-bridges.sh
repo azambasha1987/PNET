@@ -55,6 +55,8 @@ if [ -d /sys/class/net/pnet0 ] && [ -z "$(ls -A /sys/class/net/pnet0/brif 2>/dev
                     "$IP" addr del "$IFACE_IP" dev "$iface" 2>/dev/null || true
                     "$IP" addr add "$IFACE_IP" dev pnet0 2>/dev/null || true
                     [ -n "$IFACE_GW" ] && "$IP" route add default via "$IFACE_GW" dev pnet0 2>/dev/null || true
+                elif [ -z "$("$IP" -4 addr show dev pnet0 2>/dev/null | awk '/inet /{print $2}')" ]; then
+                    command -v dhclient >/dev/null 2>&1 && dhclient -1 pnet0 >/dev/null 2>&1 &
                 fi
                 break
                 ;;
