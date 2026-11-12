@@ -436,12 +436,15 @@ class PNetReleaseEngine:
                         rel = f.relative_to(web_assets).as_posix()
                         overlays.append((f"opt/unetlab/html/assets-common/{rel}", f, 0o644))
 
-            # Ops-Center / docked console
+            # Ops-Center / docked console / sequenced console
             web_ops = self.custom_feat_dir / "web-ui" / "ops-center"
             if web_ops.is_dir():
                 for f in web_ops.glob("*"):
                     if f.is_file():
                         overlays.append((f"opt/unetlab/html/ops-center/{f.name}", f, 0o644))
+                        if f.suffix == ".js":
+                            overlays.append((f"opt/unetlab/html/themes/default/js/{f.name}", f, 0o644))
+                            overlays.append((f"opt/unetlab/themes/default/js/{f.name}", f, 0o644))
 
             # Web-UI JS modules
             web_js = web_main / "js"
@@ -610,6 +613,41 @@ class PNetReleaseEngine:
                                 if f"'{version}'" not in v_content:
                                     v_content += f"\nif (!defined('PNET_RELEASE_VERSION')) {{\n    define('PNET_RELEASE_VERSION', '{version}');\n}}\n"
                                 data = v_content.encode("utf-8")
+                                ti = tarfile.TarInfo(name=member.name)
+                                ti.size = len(data)
+                                ti.mode = member.mode
+                                ti.mtime = int(datetime.datetime.now().timestamp())
+                                ti.uname = "root"
+                                ti.gname = "root"
+                                dst_tar.addfile(ti, io.BytesIO(data))
+                            # Ensure themes/default/index.html includes sequenced console script & button
+                            elif clean_name in ("opt/unetlab/html/themes/default/index.html", "opt/unetlab/themes/default/index.html"):
+                                f_obj = src_tar.extractfile(member)
+                                idx_content = f_obj.read().decode("utf-8", errors="ignore") if f_obj else ""
+                                if "pnet-sequenced-console.js" not in idx_content:
+                                    idx_content = idx_content.replace("</body>", '<script src="/themes/default/js/pnet-sequenced-console.js"></script>\n</body>')
+                                if "action-seq-console" not in idx_content and "action-openconsole-all" in idx_content:
+                                    btn_html = '\n\t\t<button type="button" class="pnq-btn action-seq-console" id="pnq-btn-seq-console" title="⚡ Sequenced Console (SecureCRT & HTML5) — Natural order R → SW → SVR → VPC" aria-label="Sequenced Console"><i class="fa fa-bolt" aria-hidden="true" style="color:#38bdf8;"></i><span class="pnq-label" style="color:#7dd3fc;">Seq Console</span></button>'
+                                    idx_content = re.sub(r'(<button [^>]*class="[^"]*action-openconsole-all[^"]*"[^>]*>.*?</button>)', r'\1' + btn_html, idx_content, count=1, flags=re.DOTALL)
+                                data = idx_content.encode("utf-8")
+                                ti = tarfile.TarInfo(name=member.name)
+                                ti.size = len(data)
+                                ti.mode = member.mode
+                                ti.mtime = int(datetime.datetime.now().timestamp())
+                                ti.uname = "root"
+                                ti.gname = "root"
+                                dst_tar.addfile(ti, io.BytesIO(data))
+                            # Ensure themes/default/js/actions.js includes Sequenced Console context menu entry
+                            elif clean_name in ("opt/unetlab/html/themes/default/js/actions.js", "opt/unetlab/themes/default/js/actions.js"):
+                                f_obj = src_tar.extractfile(member)
+                                act_content = f_obj.read().decode("utf-8", errors="ignore") if f_obj else ""
+                                if "action-seq-console" not in act_content and "action-openconsole-all" in act_content:
+                                    menu_entry = "    body += '<li><a class=\"action-seq-console\" href=\"javascript:void(0)\"><i class=\"fa fa-bolt\" style=\"color:#38bdf8;margin-right:7px;\"></i> ' + lang(\"⚡ Sequenced Console (SecureCRT)\") + '</a></li>';\n"
+                                    act_content = act_content.replace(
+                                        "body += '<li><a class=\"action-openconsole-all\"",
+                                        menu_entry + "    body += '<li><a class=\"action-openconsole-all\""
+                                    )
+                                data = act_content.encode("utf-8")
                                 ti = tarfile.TarInfo(name=member.name)
                                 ti.size = len(data)
                                 ti.mode = member.mode

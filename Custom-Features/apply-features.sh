@@ -227,11 +227,19 @@ if [ -f "${THEME_INDEX}" ]; then
             sed -i "/<\/body>/i <script src=\"/themes/default/js/${js_file}?v=${CACHE_TS}\"></script>" "${THEME_INDEX}" 2>/dev/null || true
         fi
     done
+    if ! grep -q "action-seq-console" "${THEME_INDEX}"; then
+        sed -i 's|class="pnq-btn action-openconsole-all"[^>]*>.*</button>|&\n\t\t<button type="button" class="pnq-btn action-seq-console" id="pnq-btn-seq-console" title="⚡ Sequenced Console (SecureCRT & HTML5) — Natural order R → SW → SVR → VPC" aria-label="Sequenced Console"><i class="fa fa-bolt" aria-hidden="true" style="color:#38bdf8;"></i><span class="pnq-label" style="color:#7dd3fc;">Seq Console</span></button>|' "${THEME_INDEX}" 2>/dev/null || true
+    fi
 fi
 
 ACTIONS_JS="${PNET_HTML}/themes/default/js/actions.js"
-if [ -f "${ACTIONS_JS}" ] && ! grep -q "PNetLab Sequenced Console Priority Hook" "${ACTIONS_JS}"; then
-    sed -i '1i // === PNetLab Sequenced Console Priority Hook ===\nif (typeof window !== "undefined") {\n  window.addEventListener("click", function(e) {\n    var t = e.target;\n    var el = t && t.closest ? t.closest(".action-nodesconsole, [data-path=\\"nodes/console\\"], #context-menu a, .context-menu-item") : null;\n    if (el && window.pnetSequencedConsole && !window.pnetSequencedConsole.isBusy) {\n      var txt = (el.innerText || el.textContent || "").toLowerCase();\n      if (el.classList.contains("action-nodesconsole") || el.getAttribute("data-path") === "nodes/console" || txt.indexOf("console to all") !== -1 || txt.indexOf("all nodes console") !== -1) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.pnetSequencedConsole.launch({ mode: "all" });\n        return false;\n      } else if (txt.indexOf("console to selected") !== -1 || txt.indexOf("selected nodes console") !== -1) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.pnetSequencedConsole.launch({ mode: "selected" });\n        return false;\n      }\n    }\n  }, true);\n}\n' "${ACTIONS_JS}" 2>/dev/null || true
+if [ -f "${ACTIONS_JS}" ]; then
+    if ! grep -q "PNetLab Sequenced Console Priority Hook" "${ACTIONS_JS}"; then
+        sed -i '1i // === PNetLab Sequenced Console Priority Hook ===\nif (typeof window !== "undefined") {\n  window.addEventListener("click", function(e) {\n    var t = e.target;\n    var el = t && t.closest ? t.closest(".action-nodesconsole, [data-path=\\"nodes/console\\"], .action-openconsole-all, .action-openconsole-group, .action-seq-console, #pnq-btn-seq-console, #context-menu a, .context-menu-item") : null;\n    if (el && window.pnetSequencedConsole && !window.pnetSequencedConsole.isBusy) {\n      var txt = (el.innerText || el.textContent || "").toLowerCase();\n      var isSeq = el.classList.contains("action-seq-console") || el.id === "pnq-btn-seq-console" || txt.indexOf("seq") !== -1;\n      var isHtml5 = (typeof window.pnqHtml5Mode === "function") ? window.pnqHtml5Mode() : (window.HTML5 == 1);\n      if (!isHtml5 || isSeq) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.pnetSequencedConsole.launch({ mode: "all" });\n        return false;\n      }\n    }\n  }, true);\n}\n' "${ACTIONS_JS}" 2>/dev/null || true
+    fi
+    if ! grep -q "action-seq-console" "${ACTIONS_JS}"; then
+        sed -i 's|body += '\''<li><a class="action-openconsole-all"[^>]*>.*</a></li>'\'';|&\n    body += '\''<li><a class="action-seq-console" href="javascript:void(0)"><i class="fa fa-bolt" style="color:#38bdf8;margin-right:7px;"></i> '\'' + lang("⚡ Sequenced Console (SecureCRT)") + '\''</a></li>'\'';|' "${ACTIONS_JS}" 2>/dev/null || true
+    fi
 fi
 
 MAIN_INDEX="${PNET_HTML}/main/index.html"

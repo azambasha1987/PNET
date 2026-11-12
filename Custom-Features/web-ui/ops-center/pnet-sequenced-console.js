@@ -212,28 +212,34 @@
       var proto = node.console || 'telnet';
       var nodeName = this.getNodeDisplayName(node);
 
-      // 1. Authoritative DOM Link on canvas (guarantees correct dynamic VPCS / Server port)
-      var domNode = document.getElementById('node' + node.id) || 
-                    document.querySelector('.node_frame[data-path="' + node.id + '"]');
-      var domA = domNode ? domNode.querySelector('a') : null;
-      var domHref = domA ? (domA.getAttribute('href') || domA.href) : '';
-
+      // Prefer authoritative node.url from backend (respects multi-node satellite placement)
       var url = '';
-      if (domHref && domHref !== '#' && domHref.indexOf('javascript:') === -1) {
-        url = domHref;
-      } else if (node.url) {
+      if (node.url && node.url !== '#' && node.url.indexOf('javascript:') === -1) {
         url = node.url;
       } else {
-        var port = node.port || (32768 + parseInt(node.id, 10));
-        url = proto + '://' + host + ':' + port;
+        var domNode = document.getElementById('node' + node.id) || 
+                      document.querySelector('.node_frame[data-path="' + node.id + '"]');
+        var domA = domNode ? domNode.querySelector('a') : null;
+        var domHref = domA ? (domA.getAttribute('href') || domA.href) : '';
+        if (domHref && domHref !== '#' && domHref.indexOf('javascript:') === -1) {
+          url = domHref;
+        } else {
+          var port = node.port || (32768 + parseInt(node.id, 10));
+          url = proto + '://' + host + ':' + port;
+        }
       }
 
-      var isHtml5 = (window.userConsolePref === 'html5') || 
+      var isHtml5 = (typeof window.pnqHtml5Mode === 'function' ? window.pnqHtml5Mode() : (window.HTML5 == 1 || (window.server && window.server.user && window.server.user.html5 == 1))) ||
+                    (window.userConsolePref === 'html5') || 
                     (document.cookie && document.cookie.indexOf('console=html5') !== -1) ||
                     (url && (url.indexOf('html5') !== -1 || url.indexOf('guacamole') !== -1));
 
       if (isHtml5) {
         // HTML5 In-Browser Web Console
+        if (typeof window.pnqOpenConsoleAuto === 'function') {
+          window.pnqOpenConsoleAuto(node.id);
+          return;
+        }
         if (url.indexOf('http') === -1 && url.indexOf('/html5') === -1) {
           url = '/html5/#/client/' + btoa(node.id || '1') + '?token=' + (window.sessionToken || '');
         }
@@ -245,7 +251,7 @@
       } else {
         // Native Client (SecureCRT / PuTTY / Windows Terminal)
         var nativeUrl = url;
-        var passTabNames = localStorage.getItem('pnq_seq_tab_names') === 'true';
+        var passTabNames = localStorage.getItem('pnq_seq_tab_names') !== 'false';
         if (passTabNames && nativeUrl.indexOf('telnet://') === 0 && nativeUrl.indexOf('#') === -1) {
           nativeUrl += '#' + encodeURIComponent(nodeName);
         } else if (!passTabNames && nativeUrl.indexOf('#') !== -1) {
@@ -391,6 +397,21 @@
     }
   };
 
+  // Toast fallback helper
+  function notifyMsg(msg, type) {
+    if (typeof azToast === 'function') { azToast(msg, type); return; }
+    if (window.App && typeof window.App.toast === 'function') { window.App.toast(msg, type); return; }
+    if (typeof toastr !== 'undefined' && toastr[type || 'info']) { toastr[type || 'info'](msg); return; }
+    if (typeof addMessage === 'function') { addMessage(type || 'info', msg); return; }
+    console.log('[Sequenced Console ' + (type || 'info') + ']', msg);
+  }
+  if (typeof window.azToast === 'undefined') {
+    window.azToast = notifyMsg;
+  }
+
+  // Dual engine aliasing for complete AzamLabs & PNetLab backward compatibility
+  window.azamSequencedConsole = window.pnetSequencedConsole;
+
   // Attach auto-interception when document is ready
   function initHooks() {
     function interceptConsoleClick(e) {
@@ -404,15 +425,15 @@
       var isConsoleSelected = false;
 
       // 1. Selector / action / data-path matching
-      if (el.matches && el.matches('.action-nodesconsole, [data-action="nodesconsole"], [data-path="nodes/console"], .action-nodesopen, a[href*="nodes/console"], a[href*="console/all"], [data-name="nodesconsole"], .action-nodes-console')) {
+      if (el.matches && el.matches('.action-nodesconsole, [data-action="nodesconsole"], [data-path="nodes/console"], .action-nodesopen, a[href*="nodes/console"], a[href*="console/all"], [data-name="nodesconsole"], .action-nodes-console, .action-openconsole-all, .action-openconsole-group, .action-seq-console, #pnq-btn-seq-console, [data-action="seq-console"]')) {
         isConsoleAll = true;
       }
 
       // 2. Menu text, title, or aria-label matching
       var txt = (el.innerText || el.textContent || el.getAttribute('title') || el.getAttribute('aria-label') || '').trim().toLowerCase();
-      var inMenu = !!(el.closest && el.closest('#context-menu, .context-menu, .context-menu-list, ul.context-menu-root, #sidebar, .sidebar, .dropdown-menu, #menu-collapse, .menu-collapse, .menu-manage'));
+      var inMenu = !!(el.closest && el.closest('#context-menu, .context-menu, .context-menu-list, ul.context-menu-root, #sidebar, .sidebar, .dropdown-menu, #menu-collapse, .menu-collapse, .menu-manage, #pnetlab-quickbar, #pnq-buttons'));
 
-      if (txt.indexOf('console to all') !== -1 || txt.indexOf('console all') !== -1 || txt.indexOf('open all console') !== -1 || txt.indexOf('all nodes console') !== -1) {
+      if (txt.indexOf('console to all') !== -1 || txt.indexOf('console all') !== -1 || txt.indexOf('open all console') !== -1 || txt.indexOf('all nodes console') !== -1 || txt.indexOf('seq console') !== -1 || txt.indexOf('sequenced console') !== -1) {
         isConsoleAll = true;
       } else if (txt.indexOf('console to selected') !== -1 || txt.indexOf('console selected') !== -1 || txt.indexOf('selected nodes console') !== -1) {
         isConsoleSelected = true;
@@ -421,6 +442,14 @@
       }
 
       if ((isConsoleAll || isConsoleSelected) && window.pnetSequencedConsole && !window.pnetSequencedConsole.isBusy) {
+        var isSeqExplicit = (el.classList && (el.classList.contains('action-seq-console') || el.id === 'pnq-btn-seq-console')) || txt.indexOf('seq') !== -1;
+        var html5On = (typeof window.pnqHtml5Mode === 'function') ? window.pnqHtml5Mode() : (window.HTML5 == 1 || (window.server && window.server.user && window.server.user.html5 == 1));
+
+        // When HTML5 is ON and click was generic "Console All", let the combined Web Console handle it
+        if (html5On && !isSeqExplicit && typeof window.pnqOpenWebConsoleAll === 'function') {
+          return;
+        }
+
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -439,10 +468,13 @@
     if (typeof window.nodesConsole === 'function') {
       window.nodesConsole = function() { window.pnetSequencedConsole.launch({ mode: 'all' }); };
     }
+    if (typeof window.openNativeConsoleAll === 'function') {
+      window.openNativeConsoleAll = function() { window.pnetSequencedConsole.launch({ mode: 'all' }); };
+    }
 
     // 3. Fallback jQuery delegation for synthetic click triggers
     if (typeof $ !== 'undefined') {
-      $(document).on('click', '.action-nodesconsole, [data-action="nodesconsole"], [data-path="nodes/console"], .action-nodesopen, a[href*="nodes/console"], a[href*="console/all"], [data-name="nodesconsole"], #context-menu a, #context-menu li, .context-menu a, .context-menu-item', function(e) {
+      $(document).on('click', '.action-nodesconsole, [data-action="nodesconsole"], [data-path="nodes/console"], .action-nodesopen, a[href*="nodes/console"], a[href*="console/all"], [data-name="nodesconsole"], .action-openconsole-all, .action-openconsole-group, .action-seq-console, #pnq-btn-seq-console, #context-menu a, #context-menu li, .context-menu a, .context-menu-item', function(e) {
         var t = ($(this).text() || '').trim().toLowerCase();
         if (t.indexOf('selected') !== -1) {
           if (window.pnetSequencedConsole && !window.pnetSequencedConsole.isBusy) {
@@ -451,7 +483,12 @@
             window.pnetSequencedConsole.launch({ mode: 'selected' });
             return false;
           }
-        } else if (t.indexOf('console') !== -1 || $(this).is('.action-nodesconsole, [data-path="nodes/console"]')) {
+        } else if (t.indexOf('console') !== -1 || $(this).is('.action-nodesconsole, [data-path="nodes/console"], .action-openconsole-all, .action-openconsole-group, .action-seq-console, #pnq-btn-seq-console')) {
+          var html5On = (typeof window.pnqHtml5Mode === 'function') ? window.pnqHtml5Mode() : (window.HTML5 == 1 || (window.server && window.server.user && window.server.user.html5 == 1));
+          var isSeqExplicit = $(this).is('.action-seq-console, #pnq-btn-seq-console') || t.indexOf('seq') !== -1;
+          if (html5On && !isSeqExplicit && typeof window.pnqOpenWebConsoleAll === 'function') {
+            return;
+          }
           if (window.pnetSequencedConsole && !window.pnetSequencedConsole.isBusy) {
             e.preventDefault();
             e.stopImmediatePropagation();

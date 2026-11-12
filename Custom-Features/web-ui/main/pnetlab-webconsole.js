@@ -1120,7 +1120,18 @@
       if (downloadRdpFile(url, name)) { fileHandoffHint(name); return true; }
       return false;
     }
-    if (/^(telnet|ssh|vnc|spice|winbox):/i.test(url)) { fireNativeHandler(url); nativeHandoffHint(url, name); return true; }
+    if (/^(telnet|ssh|vnc|spice|winbox):/i.test(url)) {
+      var targetUrl = url;
+      if (/^telnet:\/\//i.test(url) && name && targetUrl.indexOf('#') === -1) {
+        var passNames = (typeof localStorage !== 'undefined') ? (localStorage.getItem('pnq_seq_tab_names') !== 'false') : true;
+        if (passNames) {
+          targetUrl += '#' + encodeURIComponent(name);
+        }
+      }
+      fireNativeHandler(targetUrl);
+      nativeHandoffHint(targetUrl, name);
+      return true;
+    }
     if (ctype === 'http' || ctype === 'https') {
       // Docker nodes with an http/https console start instantly but their
       // in-container web GUI can take 10-15s (firstboot wait + daemon boot)
@@ -1415,6 +1426,10 @@
   // a burst of window.open calls as spam). window.nodes is the same live
   // topology map openNativeConsole() reads per node.
   function openNativeConsoleAll() {
+    if (window.pnetSequencedConsole && typeof window.pnetSequencedConsole.launch === 'function') {
+      window.pnetSequencedConsole.launch({ mode: 'all' });
+      return;
+    }
     var nodes = null;
     try { nodes = window.nodes; } catch (e) { return; }
     if (!nodes) return;
@@ -1518,6 +1533,20 @@
     e.preventDefault();
     e.stopPropagation();
     openHtml5AwareConsoleAll();
+  }, true);
+
+  // Dedicated Sequenced Console trigger (.action-seq-console / #pnq-btn-seq-console)
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var hit = t && t.closest ? t.closest('.action-seq-console, #pnq-btn-seq-console') : null;
+    if (!hit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.pnetSequencedConsole && typeof window.pnetSequencedConsole.launch === 'function') {
+      window.pnetSequencedConsole.launch({ mode: 'all' });
+    } else {
+      openHtml5AwareConsoleAll();
+    }
   }, true);
 
   window.pnqOpenWebConsole = openWebConsole;     // mode-respecting (quickbar / Slice 4)
