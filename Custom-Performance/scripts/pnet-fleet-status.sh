@@ -100,7 +100,7 @@ echo -e " LACP BPDU Mask:    ${BOLD}${BPDU_MASK}${RESET} (0xffff = full hardware
 if [ "$IS_MASTER" = true ] && command -v mysql &>/dev/null; then
     echo -e "${CYAN}--------------------------------------------------------------------------------${RESET}"
     echo -e " ${BOLD}Connected Satellite Worker Nodes:${RESET}"
-    SATS=$(mysql -u azamlabs -pazam -N -e "SELECT host_id, host_name, host_ip, host_status, host_version FROM azamlabs_db.cluster_hosts ORDER BY host_id;" 2>/dev/null || mysql -u root -pazam -N -e "SELECT host_id, host_name, host_ip, host_status, host_version FROM azamlabs_db.cluster_hosts ORDER BY host_id;" 2>/dev/null || true)
+    SATS=$(mysql -N -e "SELECT host_id, host_name, host_ip, host_status, host_version FROM pnetlab_db.cluster_hosts ORDER BY host_id;" 2>/dev/null || mysql -u azamlabs -pazam -N -e "SELECT host_id, host_name, host_ip, host_status, host_version FROM azamlabs_db.cluster_hosts ORDER BY host_id;" 2>/dev/null || mysql -u root -pazam -N -e "SELECT host_id, host_name, host_ip, host_status, host_version FROM azamlabs_db.cluster_hosts ORDER BY host_id;" 2>/dev/null || true)
     if [ -n "$SATS" ]; then
         echo "$SATS" | while read -r sat_id sat_name sat_ip sat_status sat_ver; do
             PING_RES=$(ping -c 1 -W 1 "$sat_ip" &>/dev/null && echo -e "${GREEN}ONLINE (Ping OK)${RESET}" || echo -e "${RED}UNREACHABLE${RESET}")
