@@ -1990,16 +1990,16 @@
   /* ── 6.8.93 Capability: Multi-Theme Engine & System Settings Integration ── */
   (function initThemeManagementSuiteHook() {
     var ENTERPRISE_THEMES = [
-      { id: 'nord',                name: 'Nord Arctic (Default)', desc: 'Frosted Polar Slate & Cyan', dot: '#88c0d0', bg: '#242933', primary: '#242933', surface: '#2e3440', light: false },
-      { id: 'solarized-light',     name: 'Solarized Light',       desc: 'Warm Light Parchment & Cyan', dot: '#268bd2', bg: '#fdf6e3', primary: '#fdf6e3', surface: '#eee8d5', light: true },
-      { id: 'high-contrast',       name: 'High Contrast',         desc: 'OLED Black & Pure White',     dot: '#00ffff', bg: '#000000', primary: '#000000', surface: '#0a0a0a', light: false },
-      { id: 'high-contrast-light', name: 'High Contrast Light',   desc: 'Stark Daylight White & Ink',   dot: '#0000cc', bg: '#ffffff', primary: '#ffffff', surface: '#f8f8f8', light: true },
-      { id: 'dark',                name: 'Obsidian Slate',        desc: 'Neutral Charcoal Dark',       dot: '#3b82f6', bg: '#0a0c10', primary: '#0f172a', surface: '#12151e', light: false },
-      { id: 'light',               name: 'Crisp Daylight',        desc: 'Clean High-Contrast Daylight',dot: '#2563eb', bg: '#f8fafc', primary: '#ffffff', surface: '#ffffff', light: true },
-      { id: 'solarized',           name: 'Solarized NOC',         desc: 'Deep Oceanic Teal',           dot: '#2aa198', bg: '#00212b', primary: '#001920', surface: '#002b36', light: false },
-      { id: 'dracula',             name: 'Dracula Gothic',        desc: 'Dark Plum & Neon Pink',       dot: '#ff79c6', bg: '#1e1f29', primary: '#191a21', surface: '#282a36', light: false },
-      { id: 'cyberpunk',           name: 'Cyberpunk Neon',        desc: 'Synthwave Violet & Pink',     dot: '#00f2fe', bg: '#120726', primary: '#0d041a', surface: '#1c0c3b', light: false },
-      { id: 'matrix',              name: 'Retro Terminal',        desc: 'Phosphor Green Matrix',       dot: '#00ff66', bg: '#000000', primary: '#000a02', surface: '#001404', light: false }
+      { id: 'nord',                name: 'Nord Arctic (Default)', desc: 'Frosted Polar Slate & Cyan', dot: '#88c0d0', bg: '#242933', primary: '#242933', surface: '#2e3440', surface2: '#3b4252', border: 'rgba(236,239,244,0.12)', borderStrong: 'rgba(236,239,244,0.22)', text: '#eceff4', textMuted: '#88c0d0', onAccent: '#242933', light: false },
+      { id: 'solarized-light',     name: 'Solarized Light',       desc: 'Warm Light Parchment & Cyan', dot: '#268bd2', bg: '#fdf6e3', primary: '#fdf6e3', surface: '#eee8d5', surface2: '#e0d8c3', border: 'rgba(0,0,0,0.14)', borderStrong: 'rgba(0,0,0,0.24)', text: '#657b83', textMuted: '#93a1a1', onAccent: '#ffffff', light: true },
+      { id: 'high-contrast',       name: 'High Contrast',         desc: 'OLED Black & Pure White',     dot: '#00ffff', bg: '#000000', primary: '#000000', surface: '#0a0a0a', surface2: '#171717', border: '#ffffff', borderStrong: '#00ffff', text: '#ffffff', textMuted: '#dddddd', onAccent: '#000000', light: false },
+      { id: 'high-contrast-light', name: 'High Contrast Light',   desc: 'Stark Daylight White & Ink',   dot: '#0000cc', bg: '#ffffff', primary: '#ffffff', surface: '#f8f8f8', surface2: '#eeeeee', border: '#000000', borderStrong: '#0000cc', text: '#000000', textMuted: '#222222', onAccent: '#ffffff', light: true },
+      { id: 'dark',                name: 'Obsidian Slate',        desc: 'Neutral Slate Navy & Sapphire',dot: '#3b82f6', bg: '#0f172a', primary: '#0f172a', surface: '#1e293b', surface2: '#334155', border: 'rgba(255,255,255,0.14)', borderStrong: 'rgba(255,255,255,0.28)', text: '#f8fafc', textMuted: '#94a3b8', onAccent: '#ffffff', light: false },
+      { id: 'light',               name: 'Crisp Daylight',        desc: 'Clean High-Contrast Daylight',dot: '#2563eb', bg: '#f8fafc', primary: '#ffffff', surface: '#ffffff', surface2: '#f1f5f9', border: '#e2e8f0', borderStrong: '#cbd5e1', text: '#0f172a', textMuted: '#64748b', onAccent: '#ffffff', light: true },
+      { id: 'solarized',           name: 'Solarized NOC',         desc: 'Deep Oceanic Teal',           dot: '#2aa198', bg: '#00212b', primary: '#00212b', surface: '#002b36', surface2: '#073642', border: 'rgba(131,148,150,0.16)', borderStrong: 'rgba(131,148,150,0.28)', text: '#839496', textMuted: '#586e75', onAccent: '#002b36', light: false },
+      { id: 'dracula',             name: 'Dracula Gothic',        desc: 'Dark Plum & Neon Pink',       dot: '#ff79c6', bg: '#1e1f29', primary: '#1e1f29', surface: '#282a36', surface2: '#343746', border: 'rgba(248,248,242,0.14)', borderStrong: 'rgba(248,248,242,0.28)', text: '#f8f8f2', textMuted: '#bd93f9', onAccent: '#1e1f29', light: false },
+      { id: 'cyberpunk',           name: 'Cyberpunk Neon',        desc: 'Synthwave Violet & Pink',     dot: '#00f2fe', bg: '#120726', primary: '#120726', surface: '#1c0c3b', surface2: '#291156', border: 'rgba(0,242,254,0.25)', borderStrong: 'rgba(224,102,255,0.38)', text: '#f8fafc', textMuted: '#e066ff', onAccent: '#0d041a', light: false },
+      { id: 'matrix',              name: 'Retro Terminal',        desc: 'Phosphor Green Matrix',       dot: '#00ff66', bg: '#000a02', primary: '#000a02', surface: '#001605', surface2: '#00280a', border: 'rgba(0,255,102,0.28)', borderStrong: 'rgba(0,255,102,0.45)', text: '#00ff66', textMuted: '#00aa44', onAccent: '#000000', light: false }
     ];
 
     function getCurrentTheme() {
@@ -2043,7 +2043,13 @@
       document.documentElement.style.setProperty('--labs-gradient-end', themeObj.surface);
       document.documentElement.style.setProperty('--pnq-bg', themeObj.bg);
       document.documentElement.style.setProperty('--pnq-surface', themeObj.surface);
+      document.documentElement.style.setProperty('--pnq-surface-2', themeObj.surface2);
       document.documentElement.style.setProperty('--pnq-accent', themeObj.dot);
+      document.documentElement.style.setProperty('--pnq-on-accent', themeObj.onAccent);
+      document.documentElement.style.setProperty('--pnq-border', themeObj.border);
+      document.documentElement.style.setProperty('--pnq-border-strong', themeObj.borderStrong);
+      document.documentElement.style.setProperty('--pnq-text', themeObj.text);
+      document.documentElement.style.setProperty('--pnq-text-muted', themeObj.textMuted);
 
       if (document.body) {
         document.body.dataset.theme = mode;

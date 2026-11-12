@@ -39,7 +39,7 @@
 
 	--labs-chrome-start:  #2e3440;
 	--labs-chrome-end:    #242933;
-	--labs-gradient-start: color-mix(in srgb, #2e3440 92%, #88c0d0);
+	--labs-gradient-start: #2e3440;
 	--labs-gradient-end:  #2e3440;
 	--pnq-labs-link:      #88c0d0;
 	color-scheme: dark;
@@ -48,10 +48,10 @@
 /* 2. Dracula Gothic */
 :root[data-theme-profile="dracula"],
 :root[data-theme="dracula"] {
-	--pnq-primary:        #191a21;
-	--pnq-primary-light:  #21222c;
-	--pnq-primary-hover:  #282a36;
-	--pnq-primary-gradient: #191a21;
+	--pnq-primary:        #1e1f29;
+	--pnq-primary-light:  #282a36;
+	--pnq-primary-hover:  #343746;
+	--pnq-primary-gradient: #1e1f29;
 	--pnq-on-primary:     #f8f8f2;
 	--pnq-on-primary-dim: #bd93f9;
 
@@ -71,15 +71,15 @@
 	--pnq-ok:             #50fa7b;
 	--pnq-warn:           #f1fa8c;
 
-	--pnq-border:         rgba(248, 248, 242, 0.12);
-	--pnq-border-strong:  rgba(248, 248, 242, 0.24);
+	--pnq-border:         rgba(248, 248, 242, 0.14);
+	--pnq-border-strong:  rgba(248, 248, 242, 0.28);
 	--pnq-preview-from:   #282a36;
 	--pnq-preview-to:     #1e1f29;
 	--pnq-shadow:         0 2px 12px rgba(0,0,0,0.55);
 
-	--labs-chrome-start:  #21222c;
-	--labs-chrome-end:    #191a21;
-	--labs-gradient-start: color-mix(in srgb, #282a36 92%, #ff79c6);
+	--labs-chrome-start:  #282a36;
+	--labs-chrome-end:    #1e1f29;
+	--labs-gradient-start: #282a36;
 	--labs-gradient-end:  #282a36;
 	--pnq-labs-link:      #ff79c6;
 	color-scheme: dark;
@@ -88,10 +88,10 @@
 /* 3. Cyberpunk Neon */
 :root[data-theme-profile="cyberpunk"],
 :root[data-theme="cyberpunk"] {
-	--pnq-primary:        #0d041a;
-	--pnq-primary-light:  #190833;
-	--pnq-primary-hover:  #260c4d;
-	--pnq-primary-gradient: #0d041a;
+	--pnq-primary:        #120726;
+	--pnq-primary-light:  #1c0c3b;
+	--pnq-primary-hover:  #291156;
+	--pnq-primary-gradient: #120726;
 	--pnq-on-primary:     #00f2fe;
 	--pnq-on-primary-dim: #e066ff;
 
@@ -111,15 +111,15 @@
 	--pnq-ok:             #00ff99;
 	--pnq-warn:           #ffe600;
 
-	--pnq-border:         rgba(0, 242, 254, 0.22);
+	--pnq-border:         rgba(0, 242, 254, 0.25);
 	--pnq-border-strong:  rgba(224, 102, 255, 0.38);
 	--pnq-preview-from:   #1c0c3b;
 	--pnq-preview-to:     #120726;
 	--pnq-shadow:         0 2px 16px rgba(0, 242, 254, 0.25);
 
-	--labs-chrome-start:  #190833;
-	--labs-chrome-end:    #0d041a;
-	--labs-gradient-start: color-mix(in srgb, #1c0c3b 92%, #00f2fe);
+	--labs-chrome-start:  #1c0c3b;
+	--labs-chrome-end:    #120726;
+	--labs-gradient-start: #1c0c3b;
 	--labs-gradient-end:  #1c0c3b;
 	--pnq-labs-link:      #00f2fe;
 	color-scheme: dark;
@@ -129,15 +129,15 @@
 :root[data-theme-profile="matrix"],
 :root[data-theme="matrix"] {
 	--pnq-primary:        #000a02;
-	--pnq-primary-light:  #001505;
-	--pnq-primary-hover:  #002408;
+	--pnq-primary-light:  #001605;
+	--pnq-primary-hover:  #00280a;
 	--pnq-primary-gradient: #000a02;
 	--pnq-on-primary:     #00ff66;
 	--pnq-on-primary-dim: #00aa44;
 
-	--pnq-bg:             #000000;
-	--pnq-surface:        #001404;
-	--pnq-surface-2:      #002608;
+	--pnq-bg:             #000a02;
+	--pnq-surface:        #001605;
+	--pnq-surface-2:      #00280a;
 	--pnq-text:           #00ff66;
 	--pnq-text-muted:     #00aa44;
 
@@ -151,16 +151,16 @@
 	--pnq-ok:             #00ff66;
 	--pnq-warn:           #ffff00;
 
-	--pnq-border:         rgba(0, 255, 102, 0.25);
+	--pnq-border:         rgba(0, 255, 102, 0.28);
 	--pnq-border-strong:  rgba(0, 255, 102, 0.45);
-	--pnq-preview-from:   #001404;
-	--pnq-preview-to:     #000000;
+	--pnq-preview-from:   #001605;
+	--pnq-preview-to:     #000a02;
 	--pnq-shadow:         0 0 14px rgba(0, 255, 102, 0.22);
 
-	--labs-chrome-start:  #001505;
+	--labs-chrome-start:  #001605;
 	--labs-chrome-end:    #000a02;
-	--labs-gradient-start: color-mix(in srgb, #001404 92%, #00ff66);
-	--labs-gradient-end:  #001404;
+	--labs-gradient-start: #001605;
+	--labs-gradient-end:  #001605;
 	--pnq-labs-link:      #00ff66;
 	color-scheme: dark;
 }
@@ -168,10 +168,10 @@
 /* 5. Solarized NOC */
 :root[data-theme-profile="solarized"],
 :root[data-theme="solarized"] {
-	--pnq-primary:        #001920;
-	--pnq-primary-light:  #00212b;
-	--pnq-primary-hover:  #002b36;
-	--pnq-primary-gradient: #001920;
+	--pnq-primary:        #00212b;
+	--pnq-primary-light:  #002b36;
+	--pnq-primary-hover:  #073642;
+	--pnq-primary-gradient: #00212b;
 	--pnq-on-primary:     #93a1a1;
 	--pnq-on-primary-dim: #657b83;
 
@@ -191,15 +191,15 @@
 	--pnq-ok:             #859900;
 	--pnq-warn:           #b58900;
 
-	--pnq-border:         rgba(131, 148, 150, 0.14);
-	--pnq-border-strong:  rgba(131, 148, 150, 0.25);
+	--pnq-border:         rgba(131, 148, 150, 0.16);
+	--pnq-border-strong:  rgba(131, 148, 150, 0.28);
 	--pnq-preview-from:   #002b36;
 	--pnq-preview-to:     #00212b;
 	--pnq-shadow:         0 2px 10px rgba(0,0,0,0.5);
 
-	--labs-chrome-start:  #00212b;
-	--labs-chrome-end:    #001920;
-	--labs-gradient-start: color-mix(in srgb, #002b36 92%, #2aa198);
+	--labs-chrome-start:  #002b36;
+	--labs-chrome-end:    #00212b;
+	--labs-gradient-start: #002b36;
 	--labs-gradient-end:  #002b36;
 	--pnq-labs-link:      #2aa198;
 	color-scheme: dark;
@@ -231,15 +231,15 @@
 	--pnq-ok:             #859900;
 	--pnq-warn:           #b58900;
 
-	--pnq-border:         rgba(0, 0, 0, 0.12);
-	--pnq-border-strong:  rgba(0, 0, 0, 0.22);
+	--pnq-border:         rgba(0, 0, 0, 0.14);
+	--pnq-border-strong:  rgba(0, 0, 0, 0.24);
 	--pnq-preview-from:   #fdf6e3;
 	--pnq-preview-to:     #eee8d5;
 	--pnq-shadow:         0 2px 8px rgba(0,0,0,0.1);
 
 	--labs-chrome-start:  #eee8d5;
 	--labs-chrome-end:    #fdf6e3;
-	--labs-gradient-start: #fdf6e3;
+	--labs-gradient-start: #eee8d5;
 	--labs-gradient-end:  #eee8d5;
 	--pnq-labs-link:      #268bd2;
 	color-scheme: light;
@@ -277,9 +277,9 @@
 	--pnq-preview-to:     #000000;
 	--pnq-shadow:         0 0 0 2px #ffffff;
 
-	--labs-chrome-start:  #000000;
+	--labs-chrome-start:  #0a0a0a;
 	--labs-chrome-end:    #000000;
-	--labs-gradient-start: #000000;
+	--labs-gradient-start: #0a0a0a;
 	--labs-gradient-end:  #0a0a0a;
 	--pnq-labs-link:      #00ffff;
 	color-scheme: dark;
@@ -317,9 +317,9 @@
 	--pnq-preview-to:     #f8f8f8;
 	--pnq-shadow:         0 0 0 2px #000000;
 
-	--labs-chrome-start:  #ffffff;
+	--labs-chrome-start:  #f8f8f8;
 	--labs-chrome-end:    #ffffff;
-	--labs-gradient-start: #ffffff;
+	--labs-gradient-start: #f8f8f8;
 	--labs-gradient-end:  #f8f8f8;
 	--pnq-labs-link:      #0000cc;
 	color-scheme: light;
@@ -327,7 +327,8 @@
 
 /* 9. Obsidian Slate */
 :root[data-theme-profile="dark"],
-:root[data-theme-profile="obsidian"] {
+:root[data-theme-profile="obsidian"],
+:root[data-theme="dark"] {
 	--pnq-primary:        #0f172a;
 	--pnq-primary-light:  #1e293b;
 	--pnq-primary-hover:  #334155;
@@ -335,9 +336,9 @@
 	--pnq-on-primary:     #f8fafc;
 	--pnq-on-primary-dim: #94a3b8;
 
-	--pnq-bg:             #0a0c10;
-	--pnq-surface:        #12151e;
-	--pnq-surface-2:      #1b202e;
+	--pnq-bg:             #0f172a;
+	--pnq-surface:        #1e293b;
+	--pnq-surface-2:      #334155;
 	--pnq-text:           #f8fafc;
 	--pnq-text-muted:     #94a3b8;
 
@@ -351,22 +352,23 @@
 	--pnq-ok:             #10b981;
 	--pnq-warn:           #f59e0b;
 
-	--pnq-border:         rgba(255, 255, 255, 0.10);
-	--pnq-border-strong:  rgba(255, 255, 255, 0.20);
-	--pnq-preview-from:   #12151e;
-	--pnq-preview-to:     #0a0c10;
+	--pnq-border:         rgba(255, 255, 255, 0.14);
+	--pnq-border-strong:  rgba(255, 255, 255, 0.28);
+	--pnq-preview-from:   #1e293b;
+	--pnq-preview-to:     #0f172a;
 	--pnq-shadow:         0 2px 10px rgba(0,0,0,0.5);
 
 	--labs-chrome-start:  #1e293b;
 	--labs-chrome-end:    #0f172a;
-	--labs-gradient-start: color-mix(in srgb, #12151e 92%, #3b82f6);
-	--labs-gradient-end:  #12151e;
+	--labs-gradient-start: #1e293b;
+	--labs-gradient-end:  #1e293b;
 	--pnq-labs-link:      #3b82f6;
 	color-scheme: dark;
 }
 
 /* 10. Crisp Daylight */
-:root[data-theme-profile="light"] {
+:root[data-theme-profile="light"],
+:root[data-theme="light"] {
 	--pnq-primary:        #ffffff;
 	--pnq-primary-light:  #f1f5f9;
 	--pnq-primary-hover:  #e2e8f0;
@@ -396,57 +398,215 @@
 	--pnq-preview-to:     #f1f5f9;
 	--pnq-shadow:         0 1px 3px rgba(0,0,0,0.08);
 
-	--labs-chrome-start:  #f8fafc;
-	--labs-chrome-end:    #f1f5f9;
+	--labs-chrome-start:  #ffffff;
+	--labs-chrome-end:    #f8fafc;
 	--labs-gradient-start: #ffffff;
-	--labs-gradient-end:  #f8fafc;
+	--labs-gradient-end:  #ffffff;
 	--pnq-labs-link:      #2563eb;
 	color-scheme: light;
 }
 
 /* ============================================================================
-   Component Theme Bindings — Guarantees Instant Visual Transformation
+   Component Theme Bindings — Guarantees Complete, Seamless Harmony
    ============================================================================ */
+
+/* 1. Global Shell & Canvas Frame */
+:root[data-theme-profile] body,
+:root[data-theme-profile] .content,
+:root[data-theme-profile] .app {
+	background: var(--pnq-bg) !important;
+	color: var(--pnq-text) !important;
+}
+
 :root[data-theme-profile] .topbar {
 	background: var(--pnq-primary-gradient, var(--pnq-primary)) !important;
 	color: var(--pnq-on-primary) !important;
 	border-bottom: 1px solid var(--pnq-border) !important;
 }
+
 :root[data-theme-profile] .sidebar {
 	background: linear-gradient(165deg, var(--labs-chrome-start), var(--labs-chrome-end)) !important;
 	border-right: 1px solid var(--pnq-border) !important;
 }
+
 :root[data-theme-profile] .nav-item {
 	color: var(--pnq-on-primary) !important;
 }
+
+:root[data-theme-profile] .nav-item:hover {
+	background: var(--pnq-primary-hover) !important;
+	color: var(--pnq-on-primary) !important;
+}
+
 :root[data-theme-profile] .nav-item.active {
 	background: var(--pnq-primary-light) !important;
 	color: var(--pnq-on-primary) !important;
-	box-shadow: inset 2px 0 0 var(--pnq-accent) !important;
+	box-shadow: inset 3px 0 0 var(--pnq-accent) !important;
 }
-:root[data-theme-profile] .pnq-labs__header {
-	background: linear-gradient(105deg, var(--labs-gradient-start), var(--labs-gradient-end)) !important;
-	border: 1px solid var(--pnq-border) !important;
-}
+
+/* 2. Workspace Panels, Cards & Containers */
 :root[data-theme-profile] .card,
 :root[data-theme-profile] .pnq-labs__list-panel,
 :root[data-theme-profile] .pnq-labs__inspector {
 	background: var(--pnq-surface) !important;
+	border: 1px solid var(--pnq-border) !important;
+	box-shadow: var(--pnq-shadow) !important;
+}
+
+:root[data-theme-profile] .pnq-labs__header {
+	background: var(--pnq-surface) !important;
+	border: 1px solid var(--pnq-border) !important;
+	box-shadow: var(--pnq-shadow) !important;
+}
+
+/* 3. Action Buttons */
+:root[data-theme-profile] .pnq-labs__button--primary,
+:root[data-theme-profile] .btn-primary {
+	background: var(--pnq-accent) !important;
+	color: var(--pnq-on-accent) !important;
+	border: 1px solid var(--pnq-accent) !important;
+	font-weight: 650 !important;
+	transition: background-color .15s ease, border-color .15s ease;
+}
+
+:root[data-theme-profile] .pnq-labs__button--primary:hover,
+:root[data-theme-profile] .btn-primary:hover {
+	background: var(--pnq-accent-hover) !important;
+	border-color: var(--pnq-accent-hover) !important;
+}
+
+:root[data-theme-profile] .pnq-labs__button--quiet,
+:root[data-theme-profile] .view-toggle button,
+:root[data-theme-profile] button.btn:not(.btn-primary) {
+	background: var(--pnq-surface-2) !important;
+	border: 1px solid var(--pnq-border) !important;
+	color: var(--pnq-text) !important;
+	border-radius: var(--pnq-radius-sm, 6px) !important;
+	transition: background-color .15s ease, border-color .15s ease;
+}
+
+:root[data-theme-profile] .pnq-labs__button--quiet:hover,
+:root[data-theme-profile] .view-toggle button:hover,
+:root[data-theme-profile] button.btn:not(.btn-primary):hover {
+	background: var(--pnq-primary-hover) !important;
+	border-color: var(--pnq-border-strong) !important;
+	color: var(--pnq-text) !important;
+}
+
+:root[data-theme-profile] .view-toggle button.active {
+	background: var(--pnq-accent) !important;
+	color: var(--pnq-on-accent) !important;
+	border-color: var(--pnq-accent) !important;
+}
+
+/* 4. Search Box & Form Controls */
+:root[data-theme-profile] .pnq-labs__search {
+	background: var(--pnq-surface-2) !important;
+	border: 1px solid var(--pnq-border) !important;
+	color: var(--pnq-text-muted) !important;
+}
+
+:root[data-theme-profile] .pnq-labs__search input {
+	color: var(--pnq-text) !important;
+	background: transparent !important;
+}
+
+:root[data-theme-profile] .pnq-labs__search:focus-within {
+	border-color: var(--pnq-accent) !important;
+	box-shadow: 0 0 0 2px var(--pnq-accent-soft) !important;
+}
+
+:root[data-theme-profile] input[type="text"],
+:root[data-theme-profile] input[type="search"],
+:root[data-theme-profile] input[type="password"],
+:root[data-theme-profile] textarea,
+:root[data-theme-profile] select {
+	background: var(--pnq-surface-2) !important;
+	color: var(--pnq-text) !important;
+	border: 1px solid var(--pnq-border) !important;
+	border-radius: var(--pnq-radius-sm, 6px) !important;
+}
+
+:root[data-theme-profile] select option {
+	background: var(--pnq-surface) !important;
+	color: var(--pnq-text) !important;
+}
+
+/* 5. Table Headers, Controls & Dividers */
+:root[data-theme-profile] .pnq-labs__list-header,
+:root[data-theme-profile] table th {
+	background: var(--pnq-surface-2) !important;
+	color: var(--pnq-text-muted) !important;
 	border-color: var(--pnq-border) !important;
 }
-:root[data-theme-profile] body {
-	background: var(--pnq-bg) !important;
+
+:root[data-theme-profile] table td {
+	border-color: var(--pnq-border) !important;
 	color: var(--pnq-text) !important;
+}
+
+:root[data-theme-profile] table tr:hover td {
+	background: var(--pnq-surface-2) !important;
+}
+
+:root[data-theme-profile] .pnq-labs__breadcrumbs {
+	border-color: var(--pnq-border) !important;
+	color: var(--pnq-text-muted) !important;
+}
+
+:root[data-theme-profile] .pnq-labs__list-controls {
+	border-color: var(--pnq-border) !important;
+}
+
+:root[data-theme-profile] .pnq-labs__health {
+	background: var(--pnq-surface-2) !important;
+	border-color: var(--pnq-border) !important;
+}
+
+/* 6. Empty State Graphics & Icons */
+:root[data-theme-profile] .pnq-labs__empty-icon,
+:root[data-theme-profile] .pnq-labs__empty .fa,
+:root[data-theme-profile] .pnq-labs__empty svg {
+	color: var(--pnq-accent) !important;
+	fill: var(--pnq-accent) !important;
+}
+
+/* 7. Modal Windows */
+:root[data-theme-profile] .modal-content {
+	background: var(--pnq-surface) !important;
+	border: 1px solid var(--pnq-border) !important;
+	color: var(--pnq-text) !important;
+	box-shadow: var(--pnq-shadow) !important;
+}
+
+:root[data-theme-profile] .modal-header,
+:root[data-theme-profile] .modal-footer {
+	border-color: var(--pnq-border) !important;
+	background: var(--pnq-surface) !important;
+}
+
+/* 8. Scrollbars */
+:root[data-theme-profile] ::-webkit-scrollbar-track {
+	background: var(--pnq-bg) !important;
+}
+
+:root[data-theme-profile] ::-webkit-scrollbar-thumb {
+	background: var(--pnq-border-strong) !important;
+	border-radius: 4px;
+}
+
+:root[data-theme-profile] ::-webkit-scrollbar-thumb:hover {
+	background: var(--pnq-accent) !important;
 }
 
 /* Swatches for the System Theme Settings chooser */
 .theme-option[data-theme-profile="nord"] .theme-swatch { background: #242933; box-shadow: inset 0 0 0 5px #88c0d0; }
 .theme-option[data-theme-profile="dracula"] .theme-swatch { background: #1e1f29; box-shadow: inset 0 0 0 5px #ff79c6; }
 .theme-option[data-theme-profile="cyberpunk"] .theme-swatch { background: #120726; box-shadow: inset 0 0 0 5px #00f2fe; }
-.theme-option[data-theme-profile="matrix"] .theme-swatch { background: #000000; box-shadow: inset 0 0 0 5px #00ff66; }
+.theme-option[data-theme-profile="matrix"] .theme-swatch { background: #000a02; box-shadow: inset 0 0 0 5px #00ff66; }
 .theme-option[data-theme-profile="solarized"] .theme-swatch { background: #00212b; box-shadow: inset 0 0 0 5px #2aa198; }
 .theme-option[data-theme-profile="solarized-light"] .theme-swatch { background: #fdf6e3; box-shadow: inset 0 0 0 5px #268bd2; }
 .theme-option[data-theme-profile="high-contrast"] .theme-swatch { background: #000000; box-shadow: inset 0 0 0 5px #00ffff; }
 .theme-option[data-theme-profile="high-contrast-light"] .theme-swatch { background: #ffffff; box-shadow: inset 0 0 0 5px #0000cc; }
-.theme-option[data-theme-profile="dark"] .theme-swatch { background: #0a0c10; box-shadow: inset 0 0 0 5px #3b82f6; }
+.theme-option[data-theme-profile="dark"] .theme-swatch { background: #0f172a; box-shadow: inset 0 0 0 5px #3b82f6; }
 .theme-option[data-theme-profile="light"] .theme-swatch { background: #ffffff; box-shadow: inset 0 0 0 5px #2563eb; }
