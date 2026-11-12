@@ -2016,76 +2016,94 @@
       return t;
     }
 
+    var isApplyingEnterpriseTheme = false;
+    var lastAppliedEnterpriseTheme = null;
+
     function applyEnterpriseTheme(themeId, skipSave) {
       if (themeId === 'ocean-teal') themeId = 'nord';
-      var themeObj = ENTERPRISE_THEMES.find(function(t) { return t.id === themeId; }) || ENTERPRISE_THEMES[0];
-      var themeName = themeObj.name;
-      var mode = themeObj.light ? 'light' : 'dark';
+      if (isApplyingEnterpriseTheme) return;
+      if (skipSave && lastAppliedEnterpriseTheme === themeId) return;
 
+      isApplyingEnterpriseTheme = true;
       try {
-        localStorage.setItem('pnq.main.theme', themeId);
-        localStorage.setItem('pnq_active_palette', themeId);
-        localStorage.setItem('pnq.canvasflow.theme', themeId);
-        localStorage.setItem('pnq.appearance.theme', themeId);
-      } catch (e) {}
+        var themeObj = ENTERPRISE_THEMES.find(function(t) { return t.id === themeId; }) || ENTERPRISE_THEMES[0];
+        var themeName = themeObj.name;
+        var mode = themeObj.light ? 'light' : 'dark';
+        lastAppliedEnterpriseTheme = themeId;
 
-      document.documentElement.dataset.theme = mode;
-      document.documentElement.dataset.themeProfile = themeId;
-      document.documentElement.setAttribute('data-theme', mode);
-      document.documentElement.setAttribute('data-theme-profile', themeId);
+        try {
+          localStorage.setItem('pnq.main.theme', themeId);
+          localStorage.setItem('pnq_active_palette', themeId);
+          localStorage.setItem('pnq.canvasflow.theme', themeId);
+          localStorage.setItem('pnq.appearance.theme', themeId);
+        } catch (e) {}
 
-      // Force immediate custom property update on root element for 0ms visual transformation
-      document.documentElement.style.setProperty('--pnq-primary', themeObj.primary);
-      document.documentElement.style.setProperty('--pnq-primary-gradient', themeObj.primary);
-      document.documentElement.style.setProperty('--labs-chrome-start', themeObj.surface);
-      document.documentElement.style.setProperty('--labs-chrome-end', themeObj.primary);
-      document.documentElement.style.setProperty('--labs-gradient-start', themeObj.surface);
-      document.documentElement.style.setProperty('--labs-gradient-end', themeObj.surface);
-      document.documentElement.style.setProperty('--pnq-bg', themeObj.bg);
-      document.documentElement.style.setProperty('--pnq-surface', themeObj.surface);
-      document.documentElement.style.setProperty('--pnq-surface-2', themeObj.surface2);
-      document.documentElement.style.setProperty('--pnq-accent', themeObj.dot);
-      document.documentElement.style.setProperty('--pnq-on-accent', themeObj.onAccent);
-      document.documentElement.style.setProperty('--pnq-border', themeObj.border);
-      document.documentElement.style.setProperty('--pnq-border-strong', themeObj.borderStrong);
-      document.documentElement.style.setProperty('--pnq-text', themeObj.text);
-      document.documentElement.style.setProperty('--pnq-text-muted', themeObj.textMuted);
+        document.documentElement.dataset.theme = mode;
+        document.documentElement.dataset.themeProfile = themeId;
+        document.documentElement.setAttribute('data-theme', mode);
+        document.documentElement.setAttribute('data-theme-profile', themeId);
 
-      if (document.body) {
-        document.body.dataset.theme = mode;
-        document.body.dataset.themeProfile = themeId;
-        document.body.style.background = 'var(--pnq-bg, ' + themeObj.bg + ')';
-        document.body.className = document.body.className.replace(/\bpnq-[a-z0-9_-]+\b/g, '').trim() + ' pnq-' + themeId + ' pnq-' + mode;
+        // Force immediate custom property update on root element for 0ms visual transformation
+        document.documentElement.style.setProperty('--pnq-primary', themeObj.primary);
+        document.documentElement.style.setProperty('--pnq-primary-gradient', themeObj.primary);
+        document.documentElement.style.setProperty('--labs-chrome-start', themeObj.surface);
+        document.documentElement.style.setProperty('--labs-chrome-end', themeObj.primary);
+        document.documentElement.style.setProperty('--labs-gradient-start', themeObj.surface);
+        document.documentElement.style.setProperty('--labs-gradient-end', themeObj.surface);
+        document.documentElement.style.setProperty('--pnq-bg', themeObj.bg);
+        document.documentElement.style.setProperty('--pnq-surface', themeObj.surface);
+        document.documentElement.style.setProperty('--pnq-surface-2', themeObj.surface2);
+        document.documentElement.style.setProperty('--pnq-accent', themeObj.dot);
+        document.documentElement.style.setProperty('--pnq-on-accent', themeObj.onAccent);
+        document.documentElement.style.setProperty('--pnq-border', themeObj.border);
+        document.documentElement.style.setProperty('--pnq-border-strong', themeObj.borderStrong);
+        document.documentElement.style.setProperty('--pnq-text', themeObj.text);
+        document.documentElement.style.setProperty('--pnq-text-muted', themeObj.textMuted);
+
+        if (document.body) {
+          document.body.dataset.theme = mode;
+          document.body.dataset.themeProfile = themeId;
+          document.body.style.background = 'var(--pnq-bg, ' + themeObj.bg + ')';
+          document.body.className = document.body.className.replace(/\bpnq-[a-z0-9_-]+\b/g, '').trim() + ' pnq-' + themeId + ' pnq-' + mode;
+        }
+        document.documentElement.style.background = 'var(--pnq-bg, ' + themeObj.bg + ')';
+
+        if (window.PnqTheme && typeof window.PnqTheme.apply === 'function') {
+          window.PnqTheme.apply(themeId, true);
+        }
+        if (!skipSave && window.PnqTheme && typeof window.PnqTheme.save === 'function') {
+          window.PnqTheme.save(themeId).catch(function() {});
+        }
+
+        if (window.PnqApp && typeof window.PnqApp.toast === 'function' && !skipSave) {
+          window.PnqApp.toast('Theme applied: ' + themeName, 'ok');
+        }
+
+        // Update Topbar button label/dot
+        var topbarDot = document.getElementById('pnet-topbar-theme-dot');
+        if (topbarDot && themeObj) {
+          topbarDot.style.background = themeObj.dot;
+          topbarDot.style.boxShadow = '0 0 6px ' + themeObj.dot;
+        }
+
+        try {
+          window.dispatchEvent(new CustomEvent('pnq:theme-change', {
+            detail: { theme: themeId, profile: themeId, mode: mode, palette: themeObj, source: 'enterprise-theme-engine' }
+          }));
+        } catch (e) {}
+      } finally {
+        isApplyingEnterpriseTheme = false;
       }
-      document.documentElement.style.background = 'var(--pnq-bg, ' + themeObj.bg + ')';
-
-      if (window.PnqTheme && typeof window.PnqTheme.apply === 'function') {
-        window.PnqTheme.apply(themeId, true);
-      }
-      if (!skipSave && window.PnqTheme && typeof window.PnqTheme.save === 'function') {
-        window.PnqTheme.save(themeId).catch(function() {});
-      }
-
-      if (window.PnqApp && typeof window.PnqApp.toast === 'function' && !skipSave) {
-        window.PnqApp.toast('Theme applied: ' + themeName, 'ok');
-      }
-
-      // Update Topbar button label/dot
-      var topbarDot = document.getElementById('pnet-topbar-theme-dot');
-      if (topbarDot && themeObj) {
-        topbarDot.style.background = themeObj.dot;
-        topbarDot.style.boxShadow = '0 0 6px ' + themeObj.dot;
-      }
-
-      try {
-        window.dispatchEvent(new CustomEvent('pnq:theme-change', { detail: { theme: themeId, profile: themeId, mode: mode, palette: themeObj } }));
-      } catch (e) {}
     }
 
     // Robust 4-layer synchronization with System Settings route (#/system) and core dashboard
     function handleThemeEvent(e) {
-      var prof = (e.detail && (e.detail.profile || e.detail.theme)) || null;
-      if (prof) applyEnterpriseTheme(prof, true);
+      if (!e || !e.detail) return;
+      if (e.detail.source === 'enterprise-theme-engine') return; // Break loop: ignore our own events
+      var prof = e.detail.profile || e.detail.theme;
+      if (prof && prof !== lastAppliedEnterpriseTheme) {
+        applyEnterpriseTheme(prof, true);
+      }
     }
     document.addEventListener('pnq:theme-applied', handleThemeEvent);
     window.addEventListener('pnq:theme-applied', handleThemeEvent);
@@ -2097,7 +2115,7 @@
       var opt = e.target && e.target.closest && e.target.closest('.theme-option[data-theme-profile]');
       if (opt) {
         var prof = opt.getAttribute('data-theme-profile');
-        if (prof) {
+        if (prof && prof !== lastAppliedEnterpriseTheme) {
           applyEnterpriseTheme(prof, false);
         }
       }
@@ -2105,14 +2123,13 @@
 
     // DOM MutationObserver safeguard on root element
     if (window.MutationObserver) {
-      var lastObservedProfile = null;
       var rootObserver = new MutationObserver(function(mutations) {
+        if (isApplyingEnterpriseTheme) return;
         for (var i = 0; i < mutations.length; i++) {
           var m = mutations[i];
           if (m.type === 'attributes' && m.attributeName === 'data-theme-profile') {
             var cur = document.documentElement.getAttribute('data-theme-profile');
-            if (cur && cur !== lastObservedProfile) {
-              lastObservedProfile = cur;
+            if (cur && cur !== lastAppliedEnterpriseTheme) {
               applyEnterpriseTheme(cur, true);
             }
           }

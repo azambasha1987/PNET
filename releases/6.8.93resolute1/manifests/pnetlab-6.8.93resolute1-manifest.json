@@ -20,7 +20,7 @@
     "pnetlab-vpcs": "6.8.93resolute1",
     "pnetlab": "6.8.93resolute1"
   },
-  "generated_utc": "2026-11-12T08:51:27Z",
+  "generated_utc": "2026-11-12T09:17:44Z",
   "install_profiles": {
     "master": {
       "best_effort_debs": [
@@ -48,7 +48,7 @@
     }
   },
   "min_bootstrap_version": "2026.08.22",
-  "not_valid_after": "2027-02-10T08:51:27Z",
+  "not_valid_after": "2027-02-10T09:17:44Z",
   "oci": {
     "pnet-wifi-spike:1.0": {
       "image_id": "sha256:fba55307f4adbd62bafc55978a7c0bc3d31022674a104550df70b37587ed4ef6",
@@ -64,5 +64,5 @@
     "url": "https://codeberg.org/api/packages/netkillui/generic/pnetlab-core-assets/6.8.93resolute1/pnetlab-install-resolute-satellite-6.8.93resolute1.sh"
   },
   "schema": 1,
-  "sequence": 98
+  "sequence": 99
 }
