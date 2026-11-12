@@ -150,6 +150,17 @@ apt-mark manual \
     pnetlab-vpcs \
     pnetlab-bridge-dkms 2>/dev/null || true
 
+# Proactively compile and install pnetlab-bridge DKMS for current kernel (including 7.0.0-43+)
+if [ -f /usr/src/pnetlab-bridge-1.0/dkms.conf ]; then
+    echo "Configuring pnetlab-bridge DKMS for Linux 7.0 kernel..."
+    sed -i 's/(14|30|31|38|42)/(14|30|31|38|42|43|44|45)/' /usr/src/pnetlab-bridge-1.0/dkms.conf 2>/dev/null || true
+    CURRENT_KVER="$(uname -r 2>/dev/null || true)"
+    if [ -n "$CURRENT_KVER" ]; then
+        dkms build -m pnetlab-bridge -v 1.0 -k "$CURRENT_KVER" 2>/dev/null || true
+        dkms install -m pnetlab-bridge -v 1.0 -k "$CURRENT_KVER" 2>/dev/null || true
+    fi
+fi
+
 # Proactive hypervisor virtual NIC kernel driver provisioning
 echo "Provisioning hypervisor virtual NIC kernel drivers (VMware, VirtualBox, KVM, Hyper-V)..."
 mkdir -p /etc/modules-load.d

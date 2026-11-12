@@ -133,6 +133,17 @@ fi
 # Lock satellite packages against autoremove
 apt-mark manual pnetlab-satellite pnetlab-bridge-dkms pnetlab-vpcs pnetlab-docker pnetlab-qemu 2>/dev/null || true
 
+# Proactively compile and install pnetlab-bridge DKMS for current kernel (including 7.0.0-43+)
+if [ -f /usr/src/pnetlab-bridge-1.0/dkms.conf ]; then
+    echo "Configuring pnetlab-bridge DKMS for Linux 7.0 kernel..."
+    sed -i 's/(14|30|31|38|42)/(14|30|31|38|42|43|44|45)/' /usr/src/pnetlab-bridge-1.0/dkms.conf 2>/dev/null || true
+    CURRENT_KVER="$(uname -r 2>/dev/null || true)"
+    if [ -n "$CURRENT_KVER" ]; then
+        dkms build -m pnetlab-bridge -v 1.0 -k "$CURRENT_KVER" 2>/dev/null || true
+        dkms install -m pnetlab-bridge -v 1.0 -k "$CURRENT_KVER" 2>/dev/null || true
+    fi
+fi
+
 # Proactive hypervisor virtual NIC kernel driver provisioning
 mkdir -p /etc/modules-load.d
 cat << 'NIC_EOF' > /etc/modules-load.d/pnet-hypervisor-nics.conf

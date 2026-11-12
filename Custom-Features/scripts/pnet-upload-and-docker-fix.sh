@@ -249,23 +249,25 @@ fi
 
 # Ensure docker service is enabled, failure state reset, & running
 if command -v systemctl >/dev/null 2>&1 && [ -f /lib/systemd/system/docker.service -o -f /etc/systemd/system/docker.service ]; then
-    rm -f /var/run/docker.sock /var/run/docker.pid
-    systemctl reset-failed docker.service 2>/dev/null || true
+    systemctl reset-failed docker.service docker.socket 2>/dev/null || true
     systemctl daemon-reload 2>/dev/null || true
-    systemctl enable --now docker 2>/dev/null || true
-    systemctl restart docker 2>/dev/null || true
+    systemctl enable --now docker.socket docker.service 2>/dev/null || true
+    systemctl restart docker.socket docker.service 2>/dev/null || true
 fi
 
-# 6. Preload Official HTML5 Web Packet Capture Container (azam-capture-web:1.0)
+# 6. Preload Official HTML5 Web Packet Capture Container (azam-capture-web:1.0 / pnet-capture-web:1.0)
 echo "[6/8] Preloading HTML5 In-Browser Packet Capture Image..."
 if command -v docker >/dev/null 2>&1 && timeout 5 docker info >/dev/null 2>&1; then
-    if timeout 10 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -Eq 'azam-capture-web:1.0'; then
-        echo "  -> azam-capture-web:1.0 is already preloaded."
+    if timeout 10 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -Eq 'azam-capture-web:1.0|pnet-capture-web:1.0'; then
+        docker tag azam-capture-web:1.0 pnet-capture-web:1.0 2>/dev/null || true
+        docker tag pnet-capture-web:1.0 azam-capture-web:1.0 2>/dev/null || true
+        echo "  -> HTML5 capture images verified and tagged."
     else
         echo "  -> Pulling rspnet/azam-capture-web:latest from Docker Hub (60s timeout)..."
         if timeout 60 docker pull rspnet/azam-capture-web:latest 2>/dev/null; then
             docker tag rspnet/azam-capture-web:latest azam-capture-web:1.0 2>/dev/null || true
-            echo "  -> Successfully pulled and tagged azam-capture-web:1.0"
+            docker tag rspnet/azam-capture-web:latest pnet-capture-web:1.0 2>/dev/null || true
+            echo "  -> Successfully pulled and tagged azam-capture-web:1.0 and pnet-capture-web:1.0"
         else
             echo "  [WARN] Docker Hub pull timed out or offline. Web capture will auto-pull on first GUI click."
         fi
