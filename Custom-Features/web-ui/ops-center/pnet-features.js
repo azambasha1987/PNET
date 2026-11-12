@@ -2918,29 +2918,40 @@
 
     function getSavedTheme() {
       try {
-        var t = localStorage.getItem(MAIN_THEME_KEY) || localStorage.getItem(CANVAS_THEME_KEY) || localStorage.getItem(BG_PREF_KEY);
+        var t = localStorage.getItem('pnq.appearance.theme') || localStorage.getItem(MAIN_THEME_KEY) || localStorage.getItem(CANVAS_THEME_KEY) || localStorage.getItem(BG_PREF_KEY);
+        if (t === 'ocean-teal') t = 'nord';
         if (t && PALETTE_MAP[t]) return t;
       } catch (e) {}
-      if (document.documentElement && document.documentElement.dataset && PALETTE_MAP[document.documentElement.dataset.theme]) {
-        return document.documentElement.dataset.theme;
+      if (document.documentElement && document.documentElement.dataset) {
+        var dt = document.documentElement.dataset.themeProfile || document.documentElement.dataset.theme;
+        if (dt === 'ocean-teal') dt = 'nord';
+        if (dt && PALETTE_MAP[dt]) return dt;
       }
       return 'nord'; // Nord Arctic by default for fresh setups
     }
 
     function applyTheme(theme, persist) {
+      if (theme === 'ocean-teal') theme = 'nord';
       if (!PALETTE_MAP[theme]) theme = 'nord';
       var p = PALETTE_MAP[theme];
+      var mode = (theme === 'light' || theme === 'solarized-light' || theme === 'high-contrast-light') ? 'light' : 'dark';
 
       if (document.documentElement) {
-        document.documentElement.dataset.theme = theme;
-        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.dataset.theme = mode;
+        document.documentElement.dataset.themeProfile = theme;
+        document.documentElement.setAttribute('data-theme', mode);
+        document.documentElement.setAttribute('data-theme-profile', theme);
       }
       if (document.body) {
         PALETTES.forEach(function(item) {
           document.body.classList.remove('pnq-' + item.id);
         });
         document.body.classList.add('pnq-' + theme);
-        if (theme === 'light' || theme === 'solarized-light' || theme === 'high-contrast-light') {
+        document.body.dataset.theme = mode;
+        document.body.dataset.themeProfile = theme;
+        document.body.setAttribute('data-theme', mode);
+        document.body.setAttribute('data-theme-profile', theme);
+        if (mode === 'light') {
           document.body.classList.remove('pnq-dark');
           document.body.classList.add('pnq-light');
         } else {
@@ -2954,6 +2965,7 @@
           localStorage.setItem(MAIN_THEME_KEY, theme);
           localStorage.setItem(CANVAS_THEME_KEY, theme);
           localStorage.setItem(BG_PREF_KEY, theme);
+          localStorage.setItem('pnq.appearance.theme', theme);
         } catch (e) {}
       }
 

@@ -255,8 +255,8 @@ cat << 'EOF' > /etc/apache2/conf-available/azambasha-optimization.conf
 </IfModule>
 
 <IfModule mod_headers.c>
-    # Keep API responses fresh while allowing static caching
-    <FilesMatch "\.(php|json)$">
+    # Keep API responses and HTML shells fresh while allowing static caching
+    <FilesMatch "\.(php|json|html|htm)$">
         Header set Cache-Control "no-cache, no-store, must-revalidate"
         Header set Pragma "no-cache"
         Header set Expires 0

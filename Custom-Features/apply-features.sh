@@ -82,6 +82,14 @@ fi
 if [ -d "${SCRIPT_DIR}/web-ui/main/js" ]; then
     cp -rf "${SCRIPT_DIR}/web-ui/main/js/"* "${PNET_HTML}/main/js/" 2>/dev/null || true
 fi
+if [ -d "${SCRIPT_DIR}/web-ui/main/css" ]; then
+    mkdir -p "${PNET_HTML}/main/css"
+    cp -rf "${SCRIPT_DIR}/web-ui/main/css/"* "${PNET_HTML}/main/css/" 2>/dev/null || true
+fi
+if [ -d "${SCRIPT_DIR}/web-ui/assets-common" ]; then
+    mkdir -p "${PNET_HTML}/assets-common/js"
+    cp -rf "${SCRIPT_DIR}/web-ui/assets-common/"* "${PNET_HTML}/assets-common/" 2>/dev/null || true
+fi
 if [ -f "${SCRIPT_DIR}/web-ui/main/pnet-features.js" ]; then
     cp -f "${SCRIPT_DIR}/web-ui/main/pnet-features.js" "${PNET_HTML}/main/js/pnet-features.js"
 fi
@@ -108,6 +116,57 @@ data = re.sub(r"\"samesite\"\s*=>\s*\"Strict\"", "\"samesite\" => \"Lax\"", data
 with open(target, "w") as f:
     f.write(data)
 ' "$target_php" 2>/dev/null || true
+    fi
+done
+
+# Harmonize Branding API & Theme Validation across all 10 Enterprise Themes
+if [ -f "${PNET_HTML}/branding/api.php" ]; then
+    python3 -c '
+import re
+target = "'"${PNET_HTML}/branding/api.php"'"
+with open(target, "r") as f:
+    content = f.read()
+valid_themes = "[\x27light\x27, \x27dark\x27, \x27nord\x27, \x27ocean-teal\x27, \x27mint-teal\x27, \x27macos-26-dark\x27, \x27solarized-light\x27, \x27high-contrast\x27, \x27high-contrast-light\x27, \x27dracula\x27, \x27cyberpunk\x27, \x27matrix\x27, \x27solarized\x27]"
+content = re.sub(r"in_array\(\$value,\s*\[[^\]]+\],\s*true\)", f"in_array($value, {valid_themes}, true)", content)
+with open(target, "w") as f:
+    f.write(content)
+' 2>/dev/null || true
+fi
+
+if [ -f "${PNET_HTML}/assets-common/js/pnq-branding.js" ]; then
+    python3 -c '
+import re
+target = "'"${PNET_HTML}/assets-common/js/pnq-branding.js"'"
+with open(target, "r") as f:
+    content = f.read()
+valid_themes_js = "[\x27light\x27, \x27dark\x27, \x27nord\x27, \x27ocean-teal\x27, \x27mint-teal\x27, \x27macos-26-dark\x27, \x27solarized-light\x27, \x27high-contrast\x27, \x27high-contrast-light\x27, \x27dracula\x27, \x27cyberpunk\x27, \x27matrix\x27, \x27solarized\x27]"
+content = re.sub(r"\[\x27light\x27,\s*\x27dark\x27[^\ challenge\]]*\]\.indexOf", f"{valid_themes_js}.indexOf", content)
+with open(target, "w") as f:
+    f.write(content)
+' 2>/dev/null || true
+fi
+
+# Harmonize Branding Storage Config
+if [ -f "/opt/unetlab/data/branding/config.json" ]; then
+    python3 -c '
+import json
+p = "/opt/unetlab/data/branding/config.json"
+try:
+    with open(p, "r") as f:
+        d = json.load(f)
+    if d.get("theme_profile") in ["ocean-teal", "dark", None, ""]:
+        d["theme_profile"] = "nord"
+        with open(p, "w") as f:
+            json.dump(d, f)
+except Exception:
+    pass
+' 2>/dev/null || true
+fi
+
+# Optimize Apache headers so HTML is revalidated immediately without stale caching
+for c_file in /etc/apache2/conf-available/azambasha-optimization.conf /etc/apache2/conf-available/azamlabs-optimization.conf; do
+    if [ -f "$c_file" ]; then
+        sed -i 's/<FilesMatch "\\.(php|json)$">/<FilesMatch "\\.(php|json|html|htm)$">/g' "$c_file" 2>/dev/null || true
     fi
 done
 

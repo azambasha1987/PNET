@@ -428,6 +428,14 @@ class PNetReleaseEngine:
                     overlays.append(("opt/unetlab/html/main/css/theme-engine.css", theme_css, 0o644))
                     overlays.append(("opt/unetlab/html/themes/default/css/theme-engine.css", theme_css, 0o644))
 
+            # Assets common (pnq-theme.js, etc.)
+            web_assets = self.custom_feat_dir / "web-ui" / "assets-common"
+            if web_assets.is_dir():
+                for f in web_assets.rglob("*"):
+                    if f.is_file():
+                        rel = f.relative_to(web_assets).as_posix()
+                        overlays.append((f"opt/unetlab/html/assets-common/{rel}", f, 0o644))
+
             # Ops-Center / docked console
             web_ops = self.custom_feat_dir / "web-ui" / "ops-center"
             if web_ops.is_dir():

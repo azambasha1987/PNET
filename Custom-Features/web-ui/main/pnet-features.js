@@ -2004,7 +2004,12 @@
 
     function getCurrentTheme() {
       var t = null;
-      try { t = localStorage.getItem('pnq.main.theme') || localStorage.getItem('pnq_active_palette'); } catch (e) {}
+      try {
+        t = localStorage.getItem('pnq.appearance.theme') ||
+            localStorage.getItem('pnq.main.theme') ||
+            localStorage.getItem('pnq_active_palette');
+      } catch (e) {}
+      if (t === 'ocean-teal') t = 'nord';
       if (!t || !ENTERPRISE_THEMES.some(function(th) { return th.id === t; })) {
         t = 'nord';
       }
@@ -2012,20 +2017,36 @@
     }
 
     function applyEnterpriseTheme(themeId) {
+      if (themeId === 'ocean-teal') themeId = 'nord';
       var themeObj = ENTERPRISE_THEMES.find(function(t) { return t.id === themeId; }) || ENTERPRISE_THEMES[0];
       var themeName = themeObj.name;
+      var mode = themeObj.light ? 'light' : 'dark';
 
       try {
         localStorage.setItem('pnq.main.theme', themeId);
         localStorage.setItem('pnq_active_palette', themeId);
         localStorage.setItem('pnq.canvasflow.theme', themeId);
+        localStorage.setItem('pnq.appearance.theme', themeId);
       } catch (e) {}
 
-      document.documentElement.dataset.theme = themeId;
-      document.documentElement.setAttribute('data-theme', themeId);
+      document.documentElement.dataset.theme = mode;
+      document.documentElement.dataset.themeProfile = themeId;
+      document.documentElement.setAttribute('data-theme', mode);
+      document.documentElement.setAttribute('data-theme-profile', themeId);
+      if (document.body) {
+        document.body.dataset.theme = mode;
+        document.body.dataset.themeProfile = themeId;
+        document.body.style.background = 'var(--pnq-bg, ' + themeObj.bg + ')';
+        document.body.className = document.body.className.replace(/\bpnq-[a-z0-9_-]+\b/g, '').trim() + ' pnq-' + themeId + ' pnq-' + mode;
+      }
       document.documentElement.style.background = 'var(--pnq-bg, ' + themeObj.bg + ')';
-      document.body.style.background = 'var(--pnq-bg, ' + themeObj.bg + ')';
-      document.body.className = document.body.className.replace(/\bpnq-[a-z0-9_-]+\b/g, '').trim() + ' pnq-' + themeId;
+
+      if (window.PnqTheme && typeof window.PnqTheme.apply === 'function') {
+        window.PnqTheme.apply(themeId, true);
+      }
+      if (window.PnqTheme && typeof window.PnqTheme.save === 'function') {
+        window.PnqTheme.save(themeId).catch(function() {});
+      }
 
       if (window.PnqApp && typeof window.PnqApp.toast === 'function') {
         window.PnqApp.toast('Theme applied: ' + themeName, 'ok');
@@ -2048,7 +2069,7 @@
       }
 
       try {
-        window.dispatchEvent(new CustomEvent('pnq:theme-change', { detail: { theme: themeId, palette: themeObj } }));
+        window.dispatchEvent(new CustomEvent('pnq:theme-change', { detail: { theme: themeId, profile: themeId, mode: mode, palette: themeObj } }));
       } catch (e) {}
     }
 
@@ -2057,9 +2078,18 @@
 
     // 1. Initial theme load
     var activeTheme = getCurrentTheme();
-    document.documentElement.dataset.theme = activeTheme;
-    if (!document.body.classList.contains('pnq-' + activeTheme)) {
-      document.body.classList.add('pnq-' + activeTheme);
+    var activeObj = ENTERPRISE_THEMES.find(function(t) { return t.id === activeTheme; }) || ENTERPRISE_THEMES[0];
+    var activeMode = activeObj.light ? 'light' : 'dark';
+    document.documentElement.dataset.theme = activeMode;
+    document.documentElement.dataset.themeProfile = activeTheme;
+    document.documentElement.setAttribute('data-theme', activeMode);
+    document.documentElement.setAttribute('data-theme-profile', activeTheme);
+    if (document.body) {
+      document.body.dataset.theme = activeMode;
+      document.body.dataset.themeProfile = activeTheme;
+      if (!document.body.classList.contains('pnq-' + activeTheme)) {
+        document.body.classList.add('pnq-' + activeTheme);
+      }
     }
 
     // 2. Inject Topbar Palette Picker Dropdown

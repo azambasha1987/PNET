@@ -5,6 +5,8 @@
    ============================================================================ */
 
 /* 1. Nord Arctic (Default) */
+:root[data-theme-profile="nord"],
+:root[data-theme-profile="ocean-teal"],
 :root[data-theme="nord"] {
 	--pnq-primary:        #242933;
 	--pnq-primary-light:  #2e3440;
@@ -37,6 +39,7 @@
 }
 
 /* 2. Dracula Gothic */
+:root[data-theme-profile="dracula"],
 :root[data-theme="dracula"] {
 	--pnq-primary:        #191a21;
 	--pnq-primary-light:  #21222c;
@@ -69,6 +72,7 @@
 }
 
 /* 3. Cyberpunk Neon */
+:root[data-theme-profile="cyberpunk"],
 :root[data-theme="cyberpunk"] {
 	--pnq-primary:        #0d041a;
 	--pnq-primary-light:  #190833;
@@ -101,6 +105,7 @@
 }
 
 /* 4. Retro Terminal (Matrix) */
+:root[data-theme-profile="matrix"],
 :root[data-theme="matrix"] {
 	--pnq-primary:        #000a02;
 	--pnq-primary-light:  #001505;
@@ -133,6 +138,7 @@
 }
 
 /* 5. Solarized NOC */
+:root[data-theme-profile="solarized"],
 :root[data-theme="solarized"] {
 	--pnq-primary:        #001920;
 	--pnq-primary-light:  #00212b;
@@ -165,6 +171,7 @@
 }
 
 /* 6. Solarized Light */
+:root[data-theme-profile="solarized-light"],
 :root[data-theme="solarized-light"] {
 	--pnq-primary:        #fdf6e3;
 	--pnq-primary-light:  #eee8d5;
@@ -197,6 +204,7 @@
 }
 
 /* 7. High Contrast */
+:root[data-theme-profile="high-contrast"],
 :root[data-theme="high-contrast"] {
 	--pnq-primary:        #000000;
 	--pnq-primary-light:  #0a0a0a;
@@ -229,6 +237,7 @@
 }
 
 /* 8. High Contrast Light */
+:root[data-theme-profile="high-contrast-light"],
 :root[data-theme="high-contrast-light"] {
 	--pnq-primary:        #ffffff;
 	--pnq-primary-light:  #f0f0f0;
@@ -261,7 +270,8 @@
 }
 
 /* 9. Obsidian Slate */
-:root[data-theme="dark"] {
+:root[data-theme-profile="dark"],
+:root[data-theme-profile="obsidian"] {
 	--pnq-primary:        #0f172a;
 	--pnq-primary-light:  #1e293b;
 	--pnq-primary-hover:  #334155;
@@ -293,7 +303,7 @@
 }
 
 /* 10. Crisp Daylight */
-:root[data-theme="light"] {
+:root[data-theme-profile="light"] {
 	--pnq-primary:        #25332c;
 	--pnq-primary-light:  #3c5146;
 	--pnq-primary-hover:  #2e3e35;
