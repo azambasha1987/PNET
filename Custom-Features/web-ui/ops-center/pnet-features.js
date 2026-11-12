@@ -2082,16 +2082,44 @@
       } catch (e) {}
     }
 
-    // Listen to theme changes initiated elsewhere (e.g. System settings route #/system)
-    window.addEventListener('pnq:theme-applied', function(e) {
+    // Robust 4-layer synchronization with System Settings route (#/system) and core dashboard
+    function handleThemeEvent(e) {
       var prof = (e.detail && (e.detail.profile || e.detail.theme)) || null;
       if (prof) applyEnterpriseTheme(prof, true);
-    });
-    window.addEventListener('pnq:theme-change', function(e) {
-      if (e.detail && e.detail.source === 'server' && e.detail.profile) {
-        applyEnterpriseTheme(e.detail.profile, true);
+    }
+    document.addEventListener('pnq:theme-applied', handleThemeEvent);
+    window.addEventListener('pnq:theme-applied', handleThemeEvent);
+    document.addEventListener('pnq:theme-change', handleThemeEvent);
+    window.addEventListener('pnq:theme-change', handleThemeEvent);
+
+    // Immediate capture-phase click handler for System settings theme tiles
+    document.addEventListener('click', function(e) {
+      var opt = e.target && e.target.closest && e.target.closest('.theme-option[data-theme-profile]');
+      if (opt) {
+        var prof = opt.getAttribute('data-theme-profile');
+        if (prof) {
+          applyEnterpriseTheme(prof, false);
+        }
       }
-    });
+    }, true);
+
+    // DOM MutationObserver safeguard on root element
+    if (window.MutationObserver) {
+      var lastObservedProfile = null;
+      var rootObserver = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+          var m = mutations[i];
+          if (m.type === 'attributes' && m.attributeName === 'data-theme-profile') {
+            var cur = document.documentElement.getAttribute('data-theme-profile');
+            if (cur && cur !== lastObservedProfile) {
+              lastObservedProfile = cur;
+              applyEnterpriseTheme(cur, true);
+            }
+          }
+        }
+      });
+      rootObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme-profile'] });
+    }
 
     window.applyEnterpriseTheme = applyEnterpriseTheme;
     window.ENTERPRISE_THEMES = ENTERPRISE_THEMES;
