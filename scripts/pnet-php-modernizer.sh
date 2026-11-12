@@ -83,17 +83,23 @@ PYEOF
 
 
 # 3. Ensure Session Cookie Compatibility in api.php and functions.php
-API_PHP="/opt/unetlab/html/api.php"
-if [ -f "$API_PHP" ]; then
-    sed -i 's/"secure" *=> *true/"secure" => (!empty($_SERVER["HTTPS"]) \&\& $_SERVER["HTTPS"] !== "off")/g' "$API_PHP" 2>/dev/null || true
-    sed -i 's/"samesite" *=> *"Strict"/"samesite" => "Lax"/g' "$API_PHP" 2>/dev/null || true
-    echo "      -> Modernized session cookie attributes in api.php"
-fi
+for target_php in /opt/unetlab/html/api.php /opt/unetlab/html/includes/functions.php; do
+    if [ -f "$target_php" ]; then
+        python3 -c '
+import sys, re
+target = sys.argv[1]
+with open(target, "r") as f:
+    data = f.read()
+data = re.sub(r"\"secure\"\s*=>\s*true", "\"secure\" => ((!empty($_SERVER[\"HTTPS\"]) && $_SERVER[\"HTTPS\"] !== \"off\") || (isset($_SERVER[\"SERVER_PORT\"]) && $_SERVER[\"SERVER_PORT\"] == 443) || (isset($_SERVER[\"HTTP_X_FORWARDED_PROTO\"]) && $_SERVER[\"HTTP_X_FORWARDED_PROTO\"] === \"https\"))", data)
+data = re.sub(r"\"samesite\"\s*=>\s*\"Strict\"", "\"samesite\" => \"Lax\"", data)
+with open(target, "w") as f:
+    f.write(data)
+' "$target_php" 2>/dev/null || true
+        echo "      -> Modernized session cookie attributes in $(basename "$target_php")"
+    fi
+done
 FUNCS_PHP="/opt/unetlab/html/includes/functions.php"
 if [ -f "$FUNCS_PHP" ]; then
-    sed -i 's/"secure" *=> *true/"secure" => (!empty($_SERVER["HTTPS"]) \&\& $_SERVER["HTTPS"] !== "off")/g' "$FUNCS_PHP" 2>/dev/null || true
-    sed -i 's/"samesite" *=> *"Strict"/"samesite" => "Lax"/g' "$FUNCS_PHP" 2>/dev/null || true
-    echo "      -> Modernized session cookie attributes in functions.php"
 
     # Harden unlockFile and unlockSession against Slim ErrorException on missing/race lock files
     python3 - << 'PYFUNCEOF' 2>/dev/null || true

@@ -357,14 +357,20 @@ CONFIG_EOF
     a2enconf "php${PHP_VER}-fpm" 2>/dev/null || a2enconf php-fpm 2>/dev/null || true
 
     # Patch Cookie Compatibility in api.php and functions.php for HTTP & HTTPS
-    if [ -f /opt/unetlab/html/api.php ]; then
-        sed -i 's/"secure" *=> *true/"secure" => (!empty($_SERVER["HTTPS"]) \&\& $_SERVER["HTTPS"] !== "off")/g' /opt/unetlab/html/api.php 2>/dev/null || true
-        sed -i 's/"samesite" *=> *"Strict"/"samesite" => "Lax"/g' /opt/unetlab/html/api.php 2>/dev/null || true
-    fi
-    if [ -f /opt/unetlab/html/includes/functions.php ]; then
-        sed -i 's/"secure" *=> *true/"secure" => (!empty($_SERVER["HTTPS"]) \&\& $_SERVER["HTTPS"] !== "off")/g' /opt/unetlab/html/includes/functions.php 2>/dev/null || true
-        sed -i 's/"samesite" *=> *"Strict"/"samesite" => "Lax"/g' /opt/unetlab/html/includes/functions.php 2>/dev/null || true
-    fi
+    for target_php in /opt/unetlab/html/api.php /opt/unetlab/html/includes/functions.php; do
+        if [ -f "$target_php" ]; then
+            python3 -c '
+import sys, re
+target = sys.argv[1]
+with open(target, "r") as f:
+    data = f.read()
+data = re.sub(r"\"secure\"\s*=>\s*true", "\"secure\" => ((!empty($_SERVER[\"HTTPS\"]) && $_SERVER[\"HTTPS\"] !== \"off\") || (isset($_SERVER[\"SERVER_PORT\"]) && $_SERVER[\"SERVER_PORT\"] == 443) || (isset($_SERVER[\"HTTP_X_FORWARDED_PROTO\"]) && $_SERVER[\"HTTP_X_FORWARDED_PROTO\"] === \"https\"))", data)
+data = re.sub(r"\"samesite\"\s*=>\s*\"Strict\"", "\"samesite\" => \"Lax\"", data)
+with open(target, "w") as f:
+    f.write(data)
+' "$target_php" 2>/dev/null || true
+        fi
+    done
 
     # Ensure systemd rate-limit immunity for PHP-FPM and Apache2 (prevents start-limit-hit)
     for svc_name in php8.5-fpm php8.4-fpm php8.3-fpm php8.2-fpm php8.1-fpm php-fpm apache2; do

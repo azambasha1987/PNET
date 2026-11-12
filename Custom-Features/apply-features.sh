@@ -95,6 +95,22 @@ if [ -d "${SCRIPT_DIR}/patches/html/includes" ]; then
     cp -rf "${SCRIPT_DIR}/patches/html/includes/"* "${PNET_HTML}/includes/" 2>/dev/null || true
 fi
 
+# Ensure API Session Cookie Compatibility for HTTP and HTTPS
+for target_php in "${PNET_HTML}/api.php" "${PNET_HTML}/includes/functions.php"; do
+    if [ -f "$target_php" ]; then
+        python3 -c '
+import sys, re
+target = sys.argv[1]
+with open(target, "r") as f:
+    data = f.read()
+data = re.sub(r"\"secure\"\s*=>\s*true", "\"secure\" => ((!empty($_SERVER[\"HTTPS\"]) && $_SERVER[\"HTTPS\"] !== \"off\") || (isset($_SERVER[\"SERVER_PORT\"]) && $_SERVER[\"SERVER_PORT\"] == 443) || (isset($_SERVER[\"HTTP_X_FORWARDED_PROTO\"]) && $_SERVER[\"HTTP_X_FORWARDED_PROTO\"] === \"https\"))", data)
+data = re.sub(r"\"samesite\"\s*=>\s*\"Strict\"", "\"samesite\" => \"Lax\"", data)
+with open(target, "w") as f:
+    f.write(data)
+' "$target_php" 2>/dev/null || true
+    fi
+done
+
 # Deploy HTTP Webconsole streaming bridge
 if [ -f "${SCRIPT_DIR}/scripts/http_ws_bridge.py" ]; then
     mkdir -p /opt/pnet-webconsole/backend 2>/dev/null || true
