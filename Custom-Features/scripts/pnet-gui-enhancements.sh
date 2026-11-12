@@ -746,17 +746,22 @@ if os.path.isfile(actions_file):
 if (typeof window !== 'undefined') {
   window.addEventListener('click', function(e) {
     var t = e.target;
-    var el = t && t.closest ? t.closest('.action-nodesconsole, [data-path="nodes/console"], #context-menu a, .context-menu-item') : null;
-    if (el && window.azamSequencedConsole && !window.azamSequencedConsole.isBusy) {
+    var el = t && t.closest ? t.closest('.action-nodesconsole, [data-path="nodes/console"], .action-openconsole-all, .action-openconsole-group, .action-seq-console, #pnq-btn-seq-console, #context-menu a, .context-menu-item') : null;
+    var seqEngine = window.pnetSequencedConsole || window.azamSequencedConsole;
+    if (el && seqEngine && !seqEngine.isBusy) {
       var txt = (el.innerText || el.textContent || '').toLowerCase();
-      if (el.classList.contains('action-nodesconsole') || el.getAttribute('data-path') === 'nodes/console' || txt.indexOf('console to all') !== -1 || txt.indexOf('all nodes console') !== -1) {
-        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-        window.azamSequencedConsole.launch({ mode: 'all' });
-        return false;
-      } else if (txt.indexOf('console to selected') !== -1 || txt.indexOf('selected nodes console') !== -1) {
-        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-        window.azamSequencedConsole.launch({ mode: 'selected' });
-        return false;
+      var isSeq = el.classList.contains('action-seq-console') || el.id === 'pnq-btn-seq-console' || txt.indexOf('seq') !== -1;
+      var isHtml5 = (typeof window.pnqHtml5Mode === 'function') ? window.pnqHtml5Mode() : (window.HTML5 == 1);
+      if (!isHtml5 || isSeq) {
+        if (el.classList.contains('action-nodesconsole') || el.classList.contains('action-openconsole-all') || el.classList.contains('action-seq-console') || el.getAttribute('data-path') === 'nodes/console' || txt.indexOf('console to all') !== -1 || txt.indexOf('all nodes console') !== -1 || txt.indexOf('seq console') !== -1) {
+          e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+          seqEngine.launch({ mode: 'all' });
+          return false;
+        } else if (txt.indexOf('console to selected') !== -1 || txt.indexOf('selected nodes console') !== -1) {
+          e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+          seqEngine.launch({ mode: 'selected' });
+          return false;
+        }
       }
     }
   }, true);

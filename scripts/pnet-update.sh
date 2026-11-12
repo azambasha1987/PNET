@@ -212,31 +212,52 @@ sync_from_github() {
         cp -f "${src_repo}"/html/templates/intel/*.yml /opt/unetlab/html/templates/ 2>/dev/null || true
     fi
     if [ -d "${src_repo}/html/azam-ops" ]; then
-        mkdir -p /opt/unetlab/html 2>/dev/null || true
-        cp -rf "${src_repo}"/html/azam-ops /opt/unetlab/html/ 2>/dev/null || true
-        for tdir in /opt/unetlab/html/themes/*/js; do
-            if [ -d "$tdir" ]; then
-                cp -f "${src_repo}/html/azam-ops/azamlabs-features.js" "${tdir}/" 2>/dev/null || true
-                cp -f "${src_repo}/html/azam-ops/azamlabs-sequenced-console.js" "${tdir}/" 2>/dev/null || true
-            fi
-        done
-        # Inject or refresh cache-buster in theme index.html
+        mkdir -p /opt/unetlab/html/pnet-ops /opt/unetlab/html/themes/default/js /opt/unetlab/html/main/js 2>/dev/null || true
+        # Copy web-ui ops-center & sequenced console assets
+        local ops_src="${src_repo}/Custom-Features/web-ui/ops-center"
+        if [ ! -d "$ops_src" ] && [ -d "${src_repo}/html/azam-ops" ]; then
+            ops_src="${src_repo}/html/azam-ops"
+        fi
+        if [ -d "$ops_src" ]; then
+            cp -rf "${ops_src}"/* /opt/unetlab/html/pnet-ops/ 2>/dev/null || true
+            for tdir in /opt/unetlab/html/themes/*/js; do
+                if [ -d "$tdir" ]; then
+                    for js_file in pnet-features.js pnet-sequenced-console.js pnet-docked-console.js pnet-cli-syntax.js; do
+                        [ -f "${ops_src}/${js_file}" ] && cp -f "${ops_src}/${js_file}" "${tdir}/${js_file}" 2>/dev/null || true
+                    done
+                fi
+            done
+        fi
+        # Copy webconsole script
+        if [ -f "${src_repo}/Custom-Features/web-ui/main/pnetlab-webconsole.js" ]; then
+            cp -f "${src_repo}/Custom-Features/web-ui/main/pnetlab-webconsole.js" /opt/unetlab/html/themes/default/js/pnetlab-webconsole.js 2>/dev/null || true
+            cp -f "${src_repo}/Custom-Features/web-ui/main/pnetlab-webconsole.js" /opt/unetlab/themes/default/js/pnetlab-webconsole.js 2>/dev/null || true
+        fi
+        # Inject or refresh cache-buster and Seq Console button in theme index.html
         local cache_ts="$(date +%s)"
         for th_idx in /opt/unetlab/html/themes/*/index.html; do
             if [ -f "$th_idx" ]; then
-                for js_name in azamlabs-features.js azamlabs-sequenced-console.js; do
+                for js_name in pnet-features.js pnet-sequenced-console.js pnet-docked-console.js pnet-cli-syntax.js azamlabs-features.js azamlabs-sequenced-console.js; do
                     if grep -q "$js_name" "$th_idx"; then
                         sed -i "s|/themes/[^/]*/js/${js_name}[^\"]*|/themes/default/js/${js_name}?v=${cache_ts}|g" "$th_idx" 2>/dev/null || true
                     else
                         sed -i "/<\/body>/i <script src=\"/themes/default/js/${js_name}?v=${cache_ts}\"></script>" "$th_idx" 2>/dev/null || true
                     fi
                 done
+                if ! grep -q "action-seq-console" "$th_idx"; then
+                    sed -i 's|class="pnq-btn action-openconsole-all"[^>]*>.*</button>|&\n\t\t<button type="button" class="pnq-btn action-seq-console" id="pnq-btn-seq-console" title="⚡ Sequenced Console (SecureCRT & HTML5) — Natural order R → SW → SVR → VPC" aria-label="Sequenced Console"><i class="fa fa-bolt" aria-hidden="true" style="color:#38bdf8;"></i><span class="pnq-label" style="color:#7dd3fc;">Seq Console</span></button>|' "$th_idx" 2>/dev/null || true
+                fi
             fi
         done
-        # Ensure actions.js has top-level sequenced console priority hook
+        # Ensure actions.js has top-level sequenced console priority hook & context menu entry
         local act_js="/opt/unetlab/html/themes/default/js/actions.js"
-        if [ -f "$act_js" ] && ! grep -q "PNetLab Sequenced Console Priority Hook" "$act_js"; then
-            sed -i '1i // === PNetLab Sequenced Console Priority Hook ===\nif (typeof window !== "undefined") {\n  window.addEventListener("click", function(e) {\n    var t = e.target;\n    var el = t && t.closest ? t.closest(".action-nodesconsole, [data-path=\\"nodes/console\\"], #context-menu a, .context-menu-item") : null;\n    if (el && window.azamSequencedConsole && !window.azamSequencedConsole.isBusy) {\n      var txt = (el.innerText || el.textContent || "").toLowerCase();\n      if (el.classList.contains("action-nodesconsole") || el.getAttribute("data-path") === "nodes/console" || txt.indexOf("console to all") !== -1 || txt.indexOf("all nodes console") !== -1) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.azamSequencedConsole.launch({ mode: "all" });\n        return false;\n      } else if (txt.indexOf("console to selected") !== -1 || txt.indexOf("selected nodes console") !== -1) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.azamSequencedConsole.launch({ mode: "selected" });\n        return false;\n      }\n    }\n  }, true);\n}\n' "$act_js" 2>/dev/null || true
+        if [ -f "$act_js" ]; then
+            if ! grep -q "PNetLab Sequenced Console Priority Hook" "$act_js"; then
+                sed -i '1i // === PNetLab Sequenced Console Priority Hook ===\nif (typeof window !== "undefined") {\n  window.addEventListener("click", function(e) {\n    var t = e.target;\n    var el = t && t.closest ? t.closest(".action-nodesconsole, [data-path=\\"nodes/console\\"], .action-openconsole-all, .action-openconsole-group, .action-seq-console, #pnq-btn-seq-console, #context-menu a, .context-menu-item") : null;\n    if (el && window.pnetSequencedConsole && !window.pnetSequencedConsole.isBusy) {\n      var txt = (el.innerText || el.textContent || "").toLowerCase();\n      var isSeq = el.classList.contains("action-seq-console") || el.id === "pnq-btn-seq-console" || txt.indexOf("seq") !== -1;\n      var isHtml5 = (typeof window.pnqHtml5Mode === "function") ? window.pnqHtml5Mode() : (window.HTML5 == 1);\n      if (!isHtml5 || isSeq) {\n        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();\n        window.pnetSequencedConsole.launch({ mode: "all" });\n        return false;\n      }\n    }\n  }, true);\n}\n' "$act_js" 2>/dev/null || true
+            fi
+            if ! grep -q "action-seq-console" "$act_js"; then
+                sed -i 's|body += '\''<li><a class="action-openconsole-all"[^>]*>.*</a></li>'\'';|&\n    body += '\''<li><a class="action-seq-console" href="javascript:void(0)"><i class="fa fa-bolt" style="color:#38bdf8;margin-right:7px;"></i> '\'' + lang("⚡ Sequenced Console (SecureCRT)") + '\''</a></li>'\'';|' "$act_js" 2>/dev/null || true
+            fi
         fi
     fi
     if [ -d "${src_repo}/html/main" ] && [ -d "/opt/unetlab/html/main/js" ]; then
