@@ -464,6 +464,11 @@ class PNetReleaseEngine:
                 for f in patches_inc.glob("*.php"):
                     overlays.append((f"opt/unetlab/html/includes/{f.name}", f, 0o644))
 
+            # Client Windows integration zip overlay (SecureCRT & Wireshark protocol wrapper)
+            win_zip = self.custom_feat_dir / "patches" / "html" / "files" / "windows.zip"
+            if win_zip.is_file():
+                overlays.append(("opt/unetlab/html/files/windows.zip", win_zip, 0o644))
+
             # Custom-Features: Schema definitions
             feat_schema = self.custom_feat_dir / "schema"
             if feat_schema.is_dir():

@@ -14,13 +14,11 @@ param (
     [switch]$Uninstall
 )
 
-# Elevate to Admin if needed
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsPrincipalScope]::Administrator)
-if (-not $isAdmin) {
-    Write-Host "[*] Requesting Administrator privileges to register SecureCRT Protocol Handler..." -ForegroundColor Yellow
-    Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    exit 0
-}
+# Check Admin rights (optional - user-level HKCU registration works without elevation)
+$isAdmin = $false
+try {
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+} catch {}
 
 $InstallDir = "$env:ProgramData\PNetLab"
 $SecureCRTWrapper = "$InstallDir\pnetlab-securecrt.bat"
@@ -41,9 +39,13 @@ Write-Host "============================================================" -Foreg
 
 # 1. Locate SecureCRT.exe
 $SecureCRTPaths = @(
+    "C:\Program Files\VanDyke Software\SecureCRT.exe",
     "C:\Program Files\VanDyke Software\SecureCRT\SecureCRT.exe",
+    "C:\Program Files (x86)\VanDyke Software\SecureCRT.exe",
     "C:\Program Files (x86)\VanDyke Software\SecureCRT\SecureCRT.exe",
+    "$env:LOCALAPPDATA\Programs\VanDyke Software\SecureCRT.exe",
     "$env:LOCALAPPDATA\Programs\VanDyke Software\SecureCRT\SecureCRT.exe",
+    "$env:ProgramFiles\VanDyke Software\SecureCRT.exe",
     "$env:ProgramFiles\VanDyke Software\SecureCRT\SecureCRT.exe"
 )
 
@@ -67,8 +69,98 @@ if (-not $FoundSecureCRT) {
 
 Write-Host "[1/3] SecureCRT Executable: $FoundSecureCRT" -ForegroundColor Green
 
-# 2. Create Smart Wrapper Batch Script
+# 2. Create Smart Wrapper Scripts (Batch & VBScript for EVE-NG / PNetLab compatibility)
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+$VanDykeAppDir = "$env:APPDATA\VanDyke"
+if (Test-Path $VanDykeAppDir) {
+    $VbsWrapper = "$VanDykeAppDir\eve_telnet.vbs"
+} else {
+    $VbsWrapper = "$InstallDir\eve_telnet.vbs"
+}
+
+$VbsContent = @'
+' ============================================================
+' PNetLab & EVE-NG SecureCRT Telnet Integration Wrapper
+' Automatically docks sessions into named SecureCRT tabs (/T /N "<Session>")
+' Supports telnet://<host>:<port>#<device_name> and telnet://<host>:<port>
+' ============================================================
+Set WshShell = CreateObject("WScript.Shell")
+Set args = WScript.Arguments
+
+Function DecodeURL(sText)
+    Dim i, char, decoded
+    decoded = ""
+    i = 1
+    Do While i <= Len(sText)
+        char = Mid(sText, i, 1)
+        If char = "+" Then
+            decoded = decoded & " "
+            i = i + 1
+        ElseIf char = "%" And i + 2 <= Len(sText) Then
+            On Error Resume Next
+            decoded = decoded & Chr("&H" & Mid(sText, i + 1, 2))
+            If Err.Number <> 0 Then
+                decoded = decoded & Mid(sText, i, 3)
+                Err.Clear
+            End If
+            On Error GoTo 0
+            i = i + 3
+        Else
+            decoded = decoded & char
+            i = i + 1
+        End If
+    Loop
+    DecodeURL = decoded
+End Function
+
+If args.Count > 0 Then
+    raw = args(0)
+    raw = Replace(raw, Chr(34), "")
+    raw = Replace(raw, "telnet://", "")
+    raw = Replace(raw, "telnet:", "")
+    raw = Replace(raw, "/", "")
+    raw = Trim(raw)
+
+    sessionTitle = ""
+    If InStr(raw, "#") > 0 Then
+        hashParts = Split(raw, "#")
+        raw = hashParts(0)
+        sessionTitle = DecodeURL(hashParts(1))
+    End If
+
+    parts = Split(raw, ":")
+    If UBound(parts) >= 1 Then
+        host = parts(0)
+        port = parts(1)
+
+        If Trim(sessionTitle) = "" Then
+            sessionTitle = host & ":" & port
+        End If
+
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        scrtPath = ""
+        candidates = Array(_
+            "C:\Program Files\VanDyke Software\SecureCRT.exe",_
+            "C:\Program Files\VanDyke Software\SecureCRT\SecureCRT.exe",_
+            "C:\Program Files (x86)\VanDyke Software\SecureCRT.exe",_
+            "C:\Program Files (x86)\VanDyke Software\SecureCRT\SecureCRT.exe"_
+        )
+        For Each c In candidates
+            If fso.FileExists(c) Then
+                scrtPath = c
+                Exit For
+            End If
+        Next
+        If scrtPath = "" Then scrtPath = "C:\Program Files\VanDyke Software\SecureCRT.exe"
+
+        cmd = Chr(34) & scrtPath & Chr(34) & " /T /N " & Chr(34) & sessionTitle & Chr(34) & " /TELNET " & host & " " & port
+        WshShell.Run cmd, 1, False
+    End If
+End If
+'@
+
+Set-Content -Path $VbsWrapper -Value $VbsContent -Encoding ASCII
+Write-Host "[2/3] SecureCRT VBS Wrapper Created: $VbsWrapper" -ForegroundColor Green
 
 $BatchContent = @"
 @echo off
@@ -79,7 +171,9 @@ setlocal enabledelayedexpansion
 :: Input: telnet://<HOST>:<PORT>#<DEVICE_NAME> or telnet://<HOST>:<PORT>
 :: ============================================================
 set "RAW_URL=%~1"
+set "RAW_URL=!RAW_URL:"=!"
 set "RAW_URL=!RAW_URL:telnet://=!"
+set "RAW_URL=!RAW_URL:telnet:=!"
 set "RAW_URL=!RAW_URL:/=!"
 
 :: Check if fragment (#DEVICE_NAME) exists
@@ -108,17 +202,20 @@ if not "!NAME!"=="" (
 Set-Content -Path $SecureCRTWrapper -Value $BatchContent -Encoding ASCII
 Write-Host "[2/3] SecureCRT Launcher Wrapper Created: $SecureCRTWrapper" -ForegroundColor Green
 
-# 3. Register 'telnet://' in Windows Registry
+# 3. Register 'telnet://' in Windows Registry (HKCR and HKCU for absolute user precedence)
 Write-Host "[3/3] Registering Windows 'telnet://' Protocol Handler for SecureCRT..." -ForegroundColor Yellow
 
-$regPath = "Registry::HKEY_CLASSES_ROOT\telnet"
-New-Item -Path $regPath -Force | Out-Null
-Set-ItemProperty -Path $regPath -Name "(default)" -Value "URL:Telnet Protocol (PNetLab SecureCRT)" | Out-Null
-Set-ItemProperty -Path $regPath -Name "URL Protocol" -Value "" | Out-Null
+$handlerCommand = "wscript.exe `"$VbsWrapper`" `"%1`""
 
-$cmdPath = "$regPath\shell\open\command"
-New-Item -Path $cmdPath -Force | Out-Null
-Set-ItemProperty -Path $cmdPath -Name "(default)" -Value "`"$SecureCRTWrapper`" `"%1`"" | Out-Null
+foreach ($rootKey in @("Registry::HKEY_CLASSES_ROOT\telnet", "Registry::HKEY_CURRENT_USER\SOFTWARE\Classes\telnet", "Registry::HKEY_CURRENT_USER\SOFTWARE\Classes\SecureCRT.telnet")) {
+    New-Item -Path $rootKey -Force -ErrorAction SilentlyContinue | Out-Null
+    Set-ItemProperty -Path $rootKey -Name "(default)" -Value "URL:Telnet Protocol (PNetLab SecureCRT)" -ErrorAction SilentlyContinue | Out-Null
+    Set-ItemProperty -Path $rootKey -Name "URL Protocol" -Value "" -ErrorAction SilentlyContinue | Out-Null
+
+    $cmdPath = "$rootKey\shell\open\command"
+    New-Item -Path $cmdPath -Force -ErrorAction SilentlyContinue | Out-Null
+    Set-ItemProperty -Path $cmdPath -Name "(default)" -Value $handlerCommand -ErrorAction SilentlyContinue | Out-Null
+}
 
 Write-Host "`n============================================================" -ForegroundColor Cyan
 Write-Host "  [SUCCESS] 1-Click SecureCRT Protocol Registered on Windows! " -ForegroundColor Green
