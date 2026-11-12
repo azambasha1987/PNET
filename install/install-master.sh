@@ -158,6 +158,7 @@ if [ -f /usr/src/pnetlab-bridge-1.0/dkms.conf ]; then
     if [ -n "$CURRENT_KVER" ]; then
         dkms build -m pnetlab-bridge -v 1.0 -k "$CURRENT_KVER" 2>/dev/null || true
         dkms install -m pnetlab-bridge -v 1.0 -k "$CURRENT_KVER" 2>/dev/null || true
+        update-initramfs -u -k "$CURRENT_KVER" 2>/dev/null || true
     fi
 fi
 
