@@ -70,6 +70,32 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 
 # 1. Discover Real Physical Uplink NIC
 log_info "[1/7] Discovering primary hardware network uplink..."
+
+# Guarantee usr-merge integrity: /lib must always be a symlink to usr/lib
+if [ ! -L /lib ] && [ -d /usr/lib ]; then
+    log_warn "Unmerged /lib detected! Restoring usr-merge symlink..."
+    cp -a /lib/* /usr/lib/ 2>/dev/null || true
+    rm -rf /lib
+    ln -s usr/lib /lib
+fi
+
+# Ensure hypervisor virtual NIC drivers are loaded (VMware, VirtualBox, KVM, Hyper-V)
+for mod in pcnet32 e1000 e1000e vmxnet3 virtio_net; do
+    modprobe "$mod" 2>/dev/null || true
+done
+
+if [ ! -f /etc/modules-load.d/pnet-hypervisor-nics.conf ]; then
+    mkdir -p /etc/modules-load.d
+    cat << 'NIC_EOF' > /etc/modules-load.d/pnet-hypervisor-nics.conf
+# Hypervisor virtual NIC drivers for PNetLab
+pcnet32
+e1000
+e1000e
+vmxnet3
+virtio_net
+NIC_EOF
+fi
+
 REAL_IFACE=""
 if [ -d /sys/class/net/pnet0/brif ]; then
     for slave in /sys/class/net/pnet0/brif/*; do

@@ -105,6 +105,14 @@ if [ -f "$MAIN_DEB" ]; then
     dpkg -x "$MAIN_DEB" / 2>/dev/null || dpkg-deb -x "$MAIN_DEB" / 2>/dev/null || true
 fi
 
+# Ensure usr-merge integrity: /lib must always be a symlink to usr/lib
+if [ ! -L /lib ] && [ -d /usr/lib ]; then
+    echo "Preserving usr-merge: migrating unmerged /lib into /usr/lib..."
+    cp -a /lib/* /usr/lib/ 2>/dev/null || true
+    rm -rf /lib
+    ln -s usr/lib /lib
+fi
+
 # 2. Install pre-dependent and supporting packages first
 dpkg -i --force-all \
     "$DEB_DIR"/pnetlab-schema*.deb \
@@ -118,6 +126,41 @@ dpkg -i --force-all \
 if [ -f "$MAIN_DEB" ]; then
     dpkg -i --force-all "$MAIN_DEB" 2>/dev/null || true
 fi
+
+# Final usr-merge integrity check after package installations
+if [ ! -L /lib ] && [ -d /usr/lib ]; then
+    echo "Preserving usr-merge after dpkg: migrating unmerged /lib into /usr/lib..."
+    cp -a /lib/* /usr/lib/ 2>/dev/null || true
+    rm -rf /lib
+    ln -s usr/lib /lib
+fi
+
+# Lock all PNetLab packages against accidental removal by apt autoremove
+echo "Locking PNetLab core packages against autoremove..."
+apt-mark manual \
+    pnetlab \
+    pnetlab-guacd \
+    pnetlab-schema \
+    pnetlab-docker \
+    pnetlab-qemu \
+    pnetlab-vpcs \
+    pnetlab-bridge-dkms 2>/dev/null || true
+
+# Proactive hypervisor virtual NIC kernel driver provisioning
+echo "Provisioning hypervisor virtual NIC kernel drivers (VMware, VirtualBox, KVM, Hyper-V)..."
+mkdir -p /etc/modules-load.d
+cat << 'NIC_EOF' > /etc/modules-load.d/pnet-hypervisor-nics.conf
+# Hypervisor virtual NIC drivers for PNetLab
+pcnet32
+e1000
+e1000e
+vmxnet3
+virtio_net
+NIC_EOF
+
+for mod in pcnet32 e1000 e1000e vmxnet3 virtio_net; do
+    modprobe "$mod" 2>/dev/null || true
+done
 
 echo "[6/7] Applying PNetLab enterprise optimization scripts and Custom Features for $VERSION..."
 if [ -d "$REPO_ROOT/scripts" ]; then

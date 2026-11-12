@@ -20,6 +20,19 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq 2>/dev/null || true
 apt-get install -y -qq python3-yaml python3-pip python3-setuptools 2>/dev/null || true
 
+# Guarantee usr-merge integrity: /lib must always be a symlink to usr/lib
+if [ ! -L /lib ] && [ -d /usr/lib ]; then
+    echo "Restoring usr-merge: migrating unmerged /lib into /usr/lib..."
+    cp -a /lib/* /usr/lib/ 2>/dev/null || true
+    rm -rf /lib
+    ln -s usr/lib /lib
+fi
+
+# Ensure hypervisor virtual NIC drivers are loaded (VMware, VirtualBox, KVM, Hyper-V)
+for mod in pcnet32 e1000 e1000e vmxnet3 virtio_net; do
+    modprobe "$mod" 2>/dev/null || true
+done
+
 # 2. Discover Primary Physical Network Interface
 REAL_IFACE=""
 for iface in $(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d'@' -f1); do

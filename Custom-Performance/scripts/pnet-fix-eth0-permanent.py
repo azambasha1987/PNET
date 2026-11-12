@@ -25,6 +25,22 @@ def main():
     print("    Applying Permanent eth0 & OVF Setup Modernization Fix   ")
     print("=" * 60)
 
+    # 0. Guarantee usr-merge integrity and proactive NIC driver loading
+    if not os.path.islink("/lib") and os.path.isdir("/usr/lib"):
+        try:
+            print("  [!] Unmerged /lib detected, restoring usr-merge symlink...")
+            subprocess.run("cp -a /lib/* /usr/lib/ 2>/dev/null || true", shell=True)
+            shutil.rmtree("/lib", ignore_errors=True)
+            os.symlink("usr/lib", "/lib")
+        except Exception:
+            pass
+
+    for mod in ["pcnet32", "e1000", "e1000e", "vmxnet3", "virtio_net"]:
+        try:
+            subprocess.run(["modprobe", mod], capture_output=True, timeout=5)
+        except Exception:
+            pass
+
     # 1. Discover primary physical interface
     real_iface = "ens33"
     try:

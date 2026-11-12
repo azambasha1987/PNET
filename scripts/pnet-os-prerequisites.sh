@@ -47,10 +47,16 @@ export NEEDRESTART_MODE=a
 # Enable multiarch for 32-bit IOL/Dynamips binary support
 dpkg --add-architecture i386 2>/dev/null || true
 
-# Ensure 32-bit dynamic linker symlink for legacy Cisco IOL binaries
-mkdir -p /lib /usr/lib32 2>/dev/null || true
-if [ -f /usr/lib32/ld-linux.so.2 ] && [ ! -f /lib/ld-linux.so.2 ]; then
-    ln -sfn /usr/lib32/ld-linux.so.2 /lib/ld-linux.so.2 2>/dev/null || true
+# Guarantee usr-merge integrity: /lib must always be a symlink to usr/lib
+if [ ! -L /lib ] && [ -d /usr/lib ]; then
+    echo "      -> Restoring usr-merge: migrating unmerged /lib into /usr/lib..."
+    cp -a /lib/* /usr/lib/ 2>/dev/null || true
+    rm -rf /lib
+    ln -s usr/lib /lib
+fi
+mkdir -p /usr/lib32 2>/dev/null || true
+if [ -f /usr/lib32/ld-linux.so.2 ] && [ ! -f /usr/lib/ld-linux.so.2 ]; then
+    ln -sfn /usr/lib32/ld-linux.so.2 /usr/lib/ld-linux.so.2 2>/dev/null || true
 fi
 
 echo "      -> Updating APT package repository indexes..."
@@ -93,6 +99,12 @@ KERNEL_MODULES=(
     ib_uverbs
     mac80211_hwsim
     cfg80211
+    # Proactive hypervisor virtual NIC drivers (VMware, VirtualBox, KVM, Proxmox, Hyper-V)
+    pcnet32
+    e1000
+    e1000e
+    vmxnet3
+    virtio_net
 )
 [ -n "$KVM_MOD" ] && KERNEL_MODULES+=("$KVM_MOD")
 
@@ -122,6 +134,11 @@ ib_core
 ib_uverbs
 mac80211_hwsim
 cfg80211
+pcnet32
+e1000
+e1000e
+vmxnet3
+virtio_net
 EOF
 [ -n "$KVM_MOD" ] && echo "$KVM_MOD" >> /etc/modules-load.d/azamlabs.conf
 
@@ -146,9 +163,12 @@ rm -rf /usr/lib/dracut/modules.d/50copymods /usr/lib/dracut/modules.d/50kernel-m
 mkdir -p /etc/dracut.conf.d
 echo 'omit_dracutmodules+=" copymods kernel-modules-export "' > /etc/dracut.conf.d/01-omit-copymods.conf
 
-# Ensure /lib/modules link exists for modprobe
-if [ ! -d /lib/modules ] && [ -d /usr/lib/modules ]; then
-    ln -sfn /usr/lib/modules /lib/modules 2>/dev/null || true
+# Ensure usr-merge integrity: /lib must always be a symlink to usr/lib
+if [ ! -L /lib ] && [ -d /usr/lib ]; then
+    echo "      -> Restoring usr-merge: migrating unmerged /lib into /usr/lib..."
+    cp -a /lib/* /usr/lib/ 2>/dev/null || true
+    rm -rf /lib
+    ln -s usr/lib /lib
 fi
 
 for mod in "${KERNEL_MODULES[@]}"; do

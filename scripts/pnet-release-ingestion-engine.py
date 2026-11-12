@@ -524,7 +524,7 @@ class PNetReleaseEngine:
             overlays.append(("opt/ovf/pnet-bridges.sh", br_sh, 0o755))
         br_svc = self.scripts_dir / "pnetlab-pnet-bridges.service"
         if br_svc.is_file():
-            overlays.append(("lib/systemd/system/pnetlab-pnet-bridges.service", br_svc, 0o644))
+            overlays.append(("usr/lib/systemd/system/pnetlab-pnet-bridges.service", br_svc, 0o644))
             overlays.append(("etc/systemd/system/pnetlab-pnet-bridges.service", br_svc, 0o644))
 
         # 7. Test suite payloads

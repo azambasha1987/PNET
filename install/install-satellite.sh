@@ -86,6 +86,32 @@ done
 
 dpkg -i "${DEB_LIST[@]}" || apt-get install -f -y 2>/dev/null || true
 
+# Ensure usr-merge integrity: /lib must always be a symlink to usr/lib
+if [ ! -L /lib ] && [ -d /usr/lib ]; then
+    echo "Preserving usr-merge: migrating unmerged /lib into /usr/lib..."
+    cp -a /lib/* /usr/lib/ 2>/dev/null || true
+    rm -rf /lib
+    ln -s usr/lib /lib
+fi
+
+# Lock satellite packages against autoremove
+apt-mark manual pnetlab-satellite pnetlab-bridge-dkms pnetlab-vpcs pnetlab-docker pnetlab-qemu 2>/dev/null || true
+
+# Proactive hypervisor virtual NIC kernel driver provisioning
+mkdir -p /etc/modules-load.d
+cat << 'NIC_EOF' > /etc/modules-load.d/pnet-hypervisor-nics.conf
+# Hypervisor virtual NIC drivers for PNetLab Satellite
+pcnet32
+e1000
+e1000e
+vmxnet3
+virtio_net
+NIC_EOF
+
+for mod in pcnet32 e1000 e1000e vmxnet3 virtio_net; do
+    modprobe "$mod" 2>/dev/null || true
+done
+
 echo "[4/5] Applying satellite optimization scripts and Custom Features for $VERSION..."
 if [ -d "$REPO_ROOT/scripts" ]; then
     mkdir -p /opt/unetlab/scripts
