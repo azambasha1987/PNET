@@ -144,3 +144,4 @@
 		if (event.key === CACHE_KEY || event.key === 'pnq.main.theme') refresh(true);
 	});
 })(window);
+
