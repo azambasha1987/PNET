@@ -1990,16 +1990,16 @@
   /* ── 6.8.93 Capability: Multi-Theme Engine & System Settings Integration ── */
   (function initThemeManagementSuiteHook() {
     var ENTERPRISE_THEMES = [
-      { id: 'nord',                name: 'Nord Arctic (Default)', desc: 'Frosted Polar Slate & Cyan', dot: '#88c0d0', bg: '#242933', light: false },
-      { id: 'solarized-light',     name: 'Solarized Light',       desc: 'Warm Light Parchment & Cyan', dot: '#268bd2', bg: '#fdf6e3', light: true },
-      { id: 'high-contrast',       name: 'High Contrast',         desc: 'OLED Black & Pure White',     dot: '#00ffff', bg: '#000000', light: false },
-      { id: 'high-contrast-light', name: 'High Contrast Light',   desc: 'Stark Daylight White & Ink',   dot: '#0000cc', bg: '#ffffff', light: true },
-      { id: 'dark',                name: 'Obsidian Slate',        desc: 'Neutral Charcoal Dark',       dot: '#3b82f6', bg: '#0a0c10', light: false },
-      { id: 'light',               name: 'Crisp Daylight',        desc: 'Clean High-Contrast Daylight',dot: '#2563eb', bg: '#ffffff', light: true },
-      { id: 'solarized',           name: 'Solarized NOC',         desc: 'Deep Oceanic Teal',           dot: '#2aa198', bg: '#00212b', light: false },
-      { id: 'dracula',             name: 'Dracula Gothic',        desc: 'Dark Plum & Neon Pink',       dot: '#ff79c6', bg: '#1e1f29', light: false },
-      { id: 'cyberpunk',           name: 'Cyberpunk Neon',        desc: 'Synthwave Violet & Pink',     dot: '#00f2fe', bg: '#120726', light: false },
-      { id: 'matrix',              name: 'Retro Terminal',        desc: 'Phosphor Green Matrix',       dot: '#00ff66', bg: '#000000', light: false }
+      { id: 'nord',                name: 'Nord Arctic (Default)', desc: 'Frosted Polar Slate & Cyan', dot: '#88c0d0', bg: '#242933', primary: '#242933', surface: '#2e3440', light: false },
+      { id: 'solarized-light',     name: 'Solarized Light',       desc: 'Warm Light Parchment & Cyan', dot: '#268bd2', bg: '#fdf6e3', primary: '#fdf6e3', surface: '#eee8d5', light: true },
+      { id: 'high-contrast',       name: 'High Contrast',         desc: 'OLED Black & Pure White',     dot: '#00ffff', bg: '#000000', primary: '#000000', surface: '#0a0a0a', light: false },
+      { id: 'high-contrast-light', name: 'High Contrast Light',   desc: 'Stark Daylight White & Ink',   dot: '#0000cc', bg: '#ffffff', primary: '#ffffff', surface: '#f8f8f8', light: true },
+      { id: 'dark',                name: 'Obsidian Slate',        desc: 'Neutral Charcoal Dark',       dot: '#3b82f6', bg: '#0a0c10', primary: '#0f172a', surface: '#12151e', light: false },
+      { id: 'light',               name: 'Crisp Daylight',        desc: 'Clean High-Contrast Daylight',dot: '#2563eb', bg: '#f8fafc', primary: '#ffffff', surface: '#ffffff', light: true },
+      { id: 'solarized',           name: 'Solarized NOC',         desc: 'Deep Oceanic Teal',           dot: '#2aa198', bg: '#00212b', primary: '#001920', surface: '#002b36', light: false },
+      { id: 'dracula',             name: 'Dracula Gothic',        desc: 'Dark Plum & Neon Pink',       dot: '#ff79c6', bg: '#1e1f29', primary: '#191a21', surface: '#282a36', light: false },
+      { id: 'cyberpunk',           name: 'Cyberpunk Neon',        desc: 'Synthwave Violet & Pink',     dot: '#00f2fe', bg: '#120726', primary: '#0d041a', surface: '#1c0c3b', light: false },
+      { id: 'matrix',              name: 'Retro Terminal',        desc: 'Phosphor Green Matrix',       dot: '#00ff66', bg: '#000000', primary: '#000a02', surface: '#001404', light: false }
     ];
 
     function getCurrentTheme() {
@@ -2016,7 +2016,7 @@
       return t;
     }
 
-    function applyEnterpriseTheme(themeId) {
+    function applyEnterpriseTheme(themeId, skipSave) {
       if (themeId === 'ocean-teal') themeId = 'nord';
       var themeObj = ENTERPRISE_THEMES.find(function(t) { return t.id === themeId; }) || ENTERPRISE_THEMES[0];
       var themeName = themeObj.name;
@@ -2033,6 +2033,18 @@
       document.documentElement.dataset.themeProfile = themeId;
       document.documentElement.setAttribute('data-theme', mode);
       document.documentElement.setAttribute('data-theme-profile', themeId);
+
+      // Force immediate custom property update on root element for 0ms visual transformation
+      document.documentElement.style.setProperty('--pnq-primary', themeObj.primary);
+      document.documentElement.style.setProperty('--pnq-primary-gradient', themeObj.primary);
+      document.documentElement.style.setProperty('--labs-chrome-start', themeObj.surface);
+      document.documentElement.style.setProperty('--labs-chrome-end', themeObj.primary);
+      document.documentElement.style.setProperty('--labs-gradient-start', themeObj.surface);
+      document.documentElement.style.setProperty('--labs-gradient-end', themeObj.surface);
+      document.documentElement.style.setProperty('--pnq-bg', themeObj.bg);
+      document.documentElement.style.setProperty('--pnq-surface', themeObj.surface);
+      document.documentElement.style.setProperty('--pnq-accent', themeObj.dot);
+
       if (document.body) {
         document.body.dataset.theme = mode;
         document.body.dataset.themeProfile = themeId;
@@ -2044,22 +2056,13 @@
       if (window.PnqTheme && typeof window.PnqTheme.apply === 'function') {
         window.PnqTheme.apply(themeId, true);
       }
-      if (window.PnqTheme && typeof window.PnqTheme.save === 'function') {
+      if (!skipSave && window.PnqTheme && typeof window.PnqTheme.save === 'function') {
         window.PnqTheme.save(themeId).catch(function() {});
       }
 
-      if (window.PnqApp && typeof window.PnqApp.toast === 'function') {
+      if (window.PnqApp && typeof window.PnqApp.toast === 'function' && !skipSave) {
         window.PnqApp.toast('Theme applied: ' + themeName, 'ok');
       }
-
-      // Update System settings cards if visible
-      document.querySelectorAll('.pnet-theme-card').forEach(function(card) {
-        var isThis = card.dataset.themeId === themeId;
-        card.style.borderColor = isThis ? 'var(--pnq-accent, #38bdf8)' : 'var(--pnq-border, rgba(255,255,255,0.1))';
-        card.style.boxShadow = isThis ? '0 0 12px rgba(56,189,248,0.25)' : 'none';
-        var badge = card.querySelector('.pnet-theme-active-badge');
-        if (badge) badge.style.display = isThis ? 'inline-flex' : 'none';
-      });
 
       // Update Topbar button label/dot
       var topbarDot = document.getElementById('pnet-topbar-theme-dot');
@@ -2072,6 +2075,17 @@
         window.dispatchEvent(new CustomEvent('pnq:theme-change', { detail: { theme: themeId, profile: themeId, mode: mode, palette: themeObj } }));
       } catch (e) {}
     }
+
+    // Listen to theme changes initiated elsewhere (e.g. System settings route #/system)
+    window.addEventListener('pnq:theme-applied', function(e) {
+      var prof = (e.detail && (e.detail.profile || e.detail.theme)) || null;
+      if (prof) applyEnterpriseTheme(prof, true);
+    });
+    window.addEventListener('pnq:theme-change', function(e) {
+      if (e.detail && e.detail.source === 'server' && e.detail.profile) {
+        applyEnterpriseTheme(e.detail.profile, true);
+      }
+    });
 
     window.applyEnterpriseTheme = applyEnterpriseTheme;
     window.ENTERPRISE_THEMES = ENTERPRISE_THEMES;
@@ -2174,7 +2188,7 @@
     function injectSystemSettingsThemeCard() {
       if (location.hash !== '#/system' && location.hash !== '#system') return;
       var view = document.getElementById('view');
-      if (!view || document.getElementById('pnet-system-themes-card')) return;
+      if (!view || document.getElementById('pnet-system-themes-card') || view.querySelector('.theme-options')) return;
 
       var card = document.createElement('div');
       card.id = 'pnet-system-themes-card';
