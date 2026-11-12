@@ -32,13 +32,27 @@ import subprocess
 import sys
 import time
 
-CONF_PATH = "/etc/azamlabs-satellite/satd.conf"
-CERT_PATH = "/etc/azamlabs-satellite/satd-cert.pem"
-KEY_PATH = "/etc/azamlabs-satellite/satd-key.pem"
-BROKER_SOCK = "/run/azamlabs/broker.sock"
+CONF_PATH = "/etc/pnetlab-satellite/satd.conf"
+CERT_PATH = "/etc/pnetlab-satellite/satd-cert.pem"
+KEY_PATH = "/etc/pnetlab-satellite/satd-key.pem"
+BROKER_SOCK = "/run/pnetlab/broker.sock"
 LISTEN = ("0.0.0.0", 9050)
 MAX_REQUEST = 1048576
 ADDONS = "/opt/unetlab/addons"
+
+def get_broker_sock():
+    for p in ("/run/pnetlab/broker.sock", "/run/azamlabs/broker.sock"):
+        if os.path.exists(p):
+            return p
+    return "/run/pnetlab/broker.sock"
+
+def get_cert_paths():
+    for p_dir in ("/etc/pnetlab-satellite", "/etc/azamlabs-satellite"):
+        cp = os.path.join(p_dir, "satd-cert.pem")
+        kp = os.path.join(p_dir, "satd-key.pem")
+        if os.path.isfile(cp) and os.path.isfile(kp):
+            return cp, kp
+    return CERT_PATH, KEY_PATH
 
 # Verbs relayed verbatim to the local brokerd (which re-validates every arg).
 # `wrapper` is the long pole (node start can pull an image into qemu, IOL
@@ -55,6 +69,14 @@ FORWARD_VERBS = {
     "linkwatch_probe", "linkwatch_snapshot", "linkstats",
     "prototrace_start", "prototrace_stop", "prototrace_status",
     "prototrace_snapshot",
+    # live actions on a running satellite node: ACPI Shutdown (qemu_monitor)
+    # and link impairment (netem_set); brokerd re-validates both
+    "qemu_monitor", "netem_set",
+    # per-NIC Suspend/resume: bridge membership + guest/veth link state
+    "bridge_port", "qemu_setlink", "iface_linkstate",
+    # Sync Satellite: install the package set the master staged under
+    # /opt/unetlab/satdeb (brokerd spawns the installer and returns at once)
+    "satellite_self_update",
 }
 SLOW_VERBS = {"wrapper"}
 # the parallel overlay gather (node_show_many) telnets several local consoles
@@ -68,11 +90,16 @@ def log(msg):
 
 
 def load_conf():
-    with open(CONF_PATH) as f:
-        conf = json.load(f)
-    if not conf.get("psk") or not conf.get("host_id"):
-        raise RuntimeError("satd.conf missing psk/host_id")
-    return conf
+    for conf_candidate in (CONF_PATH, "/etc/pnetlab-satellite/satd.conf", "/etc/azamlabs-satellite/satd.conf"):
+        if os.path.isfile(conf_candidate):
+            try:
+                with open(conf_candidate) as f:
+                    conf = json.load(f)
+                if conf.get("psk") and conf.get("host_id"):
+                    return conf
+            except Exception:
+                pass
+    raise RuntimeError("satd.conf missing or invalid")
 
 
 def canonical(obj):
@@ -80,28 +107,24 @@ def canonical(obj):
 
 
 def pkg_version():
-    # AzamLabs authoritative dynamic version resolution
+    # Dynamic version resolution supporting both PNetLab and AzamLabs
     base_ver = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "VERSION")
     local_ver = os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")
-    for v_path in ("/opt/unetlab/VERSION", "/opt/azambasha/VERSION", "/etc/azamlabs-version", base_ver, local_ver):
+    for v_path in ("/opt/pnet/VERSION", "/opt/PNET/VERSION", "/opt/unetlab/VERSION", "/opt/azambasha/VERSION", "/etc/azamlabs-version", base_ver, local_ver):
         try:
             if os.path.isfile(v_path):
                 with open(v_path, "r", encoding="utf-8") as f:
-                    p_ver = ""
-                    v_ver = ""
-                    for line in f:
-                        line = line.strip()
+                    content = f.read().strip()
+                    for line in content.splitlines():
                         if line.startswith("PACKAGE_VERSION="):
-                            p_ver = line.split("=", 1)[1].strip()
+                            return line.split("=", 1)[1].strip()
                         elif line.startswith("VERSION="):
-                            v_ver = line.split("=", 1)[1].strip()
-                    if p_ver:
-                        return p_ver
-                    if v_ver:
-                        return v_ver
+                            return line.split("=", 1)[1].strip()
+                    if content and "\n" not in content:
+                        return content
         except Exception:
             pass
-    for pkg in ("azamlabs-satellite", "azamlabs"):
+    for pkg in ("pnetlab-satellite", "pnetlab", "azamlabs-satellite", "azamlabs"):
         try:
             rc = subprocess.run(
                 ["dpkg-query", "-W", "-f", "${Version}", pkg],
@@ -119,7 +142,7 @@ def broker_forward(verb, args, timeout):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.settimeout(timeout)
     try:
-        s.connect(BROKER_SOCK)
+        s.connect(get_broker_sock())
         s.sendall((json.dumps({"verb": verb, "args": args}) + "\n").encode())
         buf = b""
         while not buf.endswith(b"\n") and len(buf) < MAX_REQUEST:
@@ -317,7 +340,7 @@ class Handler(socketserver.StreamRequestHandler):
         conf = self.server.conf
         peer = self.client_address[0]
         nonce = secrets.token_hex(16)
-        hello = {"hello": "azamlabs-satd", "version": self.server.version,
+        hello = {"hello": "pnetlab-satd", "version": self.server.version,
                  "host_id": int(conf["host_id"]), "nonce": nonce}
         try:
             self.wfile.write((json.dumps(hello) + "\n").encode())
@@ -399,7 +422,8 @@ def main():
     conf = load_conf()
     ensure_iourc()
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    ctx.load_cert_chain(CERT_PATH, KEY_PATH)
+    cert_path, key_path = get_cert_paths()
+    ctx.load_cert_chain(cert_path, key_path)
     srv = Server(LISTEN, Handler, ctx)
     srv.conf = conf
     srv.version = pkg_version()

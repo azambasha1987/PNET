@@ -3262,11 +3262,14 @@ def _satellite_role():
     """True on a cluster satellite: SATELLITE_CONF is a root-owned regular
     file (lstat, so a symlink does not count). Checked per call because a
     join can happen while brokerd runs."""
-    try:
-        st = os.lstat(SATELLITE_CONF)
-    except OSError:
-        return False
-    return statmod.S_ISREG(st.st_mode) and st.st_uid == 0
+    for conf in (SATELLITE_CONF, "/etc/azamlabs-satellite/satd.conf", "/opt/unetlab/data/satellite.json"):
+        try:
+            st = os.lstat(conf)
+            if statmod.S_ISREG(st.st_mode) and st.st_uid == 0:
+                return True
+        except OSError:
+            pass
+    return False
 
 
 def _require_local_db():
@@ -8534,6 +8537,9 @@ def _capture_reap(keep):
 def _capture_reconcile():
     """Broker start (and verb capture_reconcile): remove capture containers of
     lab sessions that are gone. DB or docker error -> change nothing."""
+    if _satellite_role():
+        log("capture_reconcile: satellite, no lab DB, nothing changed")
+        return None
     try:
         labs = {int(r[0]) for r in _mysql_rows(
             "SELECT lab_session_id FROM lab_sessions;") if r and r[0].isdigit()}

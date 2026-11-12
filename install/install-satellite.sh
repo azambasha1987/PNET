@@ -71,6 +71,11 @@ apt-get install -y --no-install-recommends \
     rsync \
     ifupdown 2>/dev/null || true
 
+# Start and enable docker service immediately
+systemctl enable --now docker 2>/dev/null || true
+# Silence non-virtualization daemons that spam SCSI / modem warnings on VMs
+systemctl disable --now multipathd ModemManager 2>/dev/null || true
+
 echo "[3/5] Installing PNetLab Satellite packages for $VERSION..."
 # If conflicting master package (pnetlab) is installed on this satellite node, remove it cleanly
 if dpkg -s pnetlab >/dev/null 2>&1; then
@@ -148,6 +153,9 @@ if [ -d "$REPO_ROOT/scripts" ]; then
     mkdir -p /opt/unetlab/scripts
     cp -rf "$REPO_ROOT/scripts/." /opt/unetlab/scripts/
     chmod +x /opt/unetlab/scripts/*.sh /opt/unetlab/scripts/*.py 2>/dev/null || true
+    # Standardize socket and configuration directory symlinks
+    mkdir -p /run/pnetlab /etc/pnetlab-satellite /etc/azamlabs-satellite 2>/dev/null || true
+    ln -sfn /run/pnetlab /run/azamlabs 2>/dev/null || true
 fi
 
 # ==============================================================================

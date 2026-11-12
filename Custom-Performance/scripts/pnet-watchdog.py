@@ -199,6 +199,8 @@ def handle_signal(signum, frame):
     global RUNNING
     logging.info(f"[watchdog] Received signal {signum}, shutting down gracefully.")
     RUNNING = False
+    remove_pid()
+    sys.exit(0)
 
 
 def cleanup_orphaned_interfaces():
