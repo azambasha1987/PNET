@@ -2985,7 +2985,8 @@
       } else {
         // Native Client (SecureCRT / PuTTY / Windows Terminal)
         var nativeUrl = url;
-        var passTabNames = localStorage.getItem('pnq_seq_tab_names') !== 'false';
+        // Ensure pure numeric telnet port by default so direct SecureCRT / PuTTY calls never fail
+        var passTabNames = localStorage.getItem('pnq_seq_tab_names') === 'true';
         if (passTabNames && nativeUrl.indexOf('telnet://') === 0 && nativeUrl.indexOf('#') === -1) {
           nativeUrl += '#' + encodeURIComponent(nodeName);
         } else if (!passTabNames && nativeUrl.indexOf('#') !== -1) {
