@@ -145,7 +145,7 @@ readonly -a DOCKER_PACKAGES=(
     docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 )
 readonly -a BASE_PACKAGES=(
-    ca-certificates curl gnupg iproute2 iputils-ping mysql-server openssl php8.5-fpm python3-pip uml-utilities
+    ca-certificates curl gnupg iproute2 python3-pyroute2 iputils-ping mysql-server openssl php8.5-fpm python3-pip uml-utilities
     # inotify-tools: docker_image_watcher.sh (config_scripts) shells out to
     # `inotifywait`, stderr-suppressed, so a missing binary makes
     # pnetlab-docker-image-watcher.service exit clean and silently do nothing

@@ -166,7 +166,7 @@ export DEBIAN_FRONTEND=noninteractive
 dpkg --configure -a 2>/dev/null || true
 
 apt-get update -qq 2>/dev/null || true
-apt-get install -y -qq docker.io containerd nodejs python3-websockets python3-pip python3-httpx unzip 2>/dev/null || true
+apt-get install -y -qq docker.io containerd nodejs python3-websockets python3-pip python3-httpx python3-pyroute2 unzip 2>/dev/null || true
 apt-get -f install -y -qq 2>/dev/null || true
 dpkg --configure -a 2>/dev/null || true
 
