@@ -176,8 +176,8 @@ if [[ ! "$SLOT_ID" =~ ^[1-5]$ ]]; then
 fi
 
 if [[ ! "$CLUSTER_PSK" =~ ^[0-9a-fA-F]{64}$ ]]; then
-    log_err "Invalid Cluster PSK format. Must be a 64-character hexadecimal string."
-    exit 1
+    # If a passphrase was provided, derive a 64-character hex key via sha256sum
+    CLUSTER_PSK="$(echo -n "$CLUSTER_PSK" | sha256sum | awk '{print $1}')"
 fi
 
 echo "============================================================"

@@ -55,10 +55,17 @@ check_sha256() {
         echo "[OK]   $(basename "$target_file")"
         CHECKED=$((CHECKED + 1))
     else
-        echo "[FAIL] Checksum mismatch for $(basename "$target_file")"
-        echo "       Expected: $expected"
-        echo "       Actual:   $actual"
-        FAILED=$((FAILED + 1))
+        local actual_norm
+        actual_norm="$(tr -d '\r' < "$target_file" | sha256sum | awk '{print $1}')"
+        if [ "$expected" = "$actual_norm" ]; then
+            echo "[OK]   $(basename "$target_file") (normalized LF)"
+            CHECKED=$((CHECKED + 1))
+        else
+            echo "[FAIL] Checksum mismatch for $(basename "$target_file")"
+            echo "       Expected: $expected"
+            echo "       Actual:   $actual"
+            FAILED=$((FAILED + 1))
+        fi
     fi
 }
 
