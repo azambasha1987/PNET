@@ -62,41 +62,43 @@
 
     // Categorize device by name and template (Routers, Switches, Servers, VPCs, Others)
     getCategory: function(node) {
-      var name = String((node && (this.getNodeDisplayName(node) || node.name || node.title)) || '').toUpperCase();
-      var tpl = String((node && node.template) || '').toLowerCase();
-      var ntype = String((node && node.type) || '').toLowerCase();
+      if (!node) return 'others';
+      var name = String((this.getNodeDisplayName(node) || node.name || node.title) || '').toUpperCase().trim();
+      var tpl = String(node.template || '').toLowerCase().trim();
+      var ntype = String(node.type || '').toLowerCase().trim();
 
-      // 1. Explicit user-given name patterns take TOP priority!
-      // Routers (R1..Rn, Router-1, Core-1, Edge-1, GW-1)
-      if (/^(R|ROUTER|CORE|EDGE|AGG|GW|VIOS[\-_]?R)(\b|\d|[-_]|$)/i.test(name)) {
-        return 'routers';
-      }
-      // Switches (SW1..SWn, Switch-1, Leaf-1, Spine-1, Access-1, Dist-1)
-      if (/^(SW|SWITCH|LEAF|SPINE|ACCESS|DIST|VIOS[\-_]?L2)(\b|\d|[-_]|$)/i.test(name)) {
-        return 'switches';
-      }
-      // Servers (Server-1, Server-2, Sever-1, Sever-2 typo tolerance, SRV-1, SVR-1, Host-1, Linux-1, Win-1, Docker-1)
-      if (/^(SERVER|SEVER|SRV|SVR|HOST|NODE|LINUX|UBUNTU|DEBIAN|CENTOS|WIN|DOCKER)(\b|\d|[-_]|$)/i.test(name)) {
-        return 'servers';
-      }
-      // VPCs / Users / Clients (user-1, user-2, VPC-1, PC-1, Client-1, Workstation-1)
-      if (/^(USER|USR|VPC|VPCS|PC|CLIENT|WORKSTATION)(\b|\d|[-_]|$)/i.test(name)) {
+      // 1. TOP PRIORITY: Pure VPCS hardware / virtualization type!
+      // In PNetLab/EVE-NG, anything with type='vpcs' or template='vpcs' is 100% a VPCS node.
+      // Even if named SERVER-1, Host-1, Client-1, Laptop-1, User-1, External-Server-1, or PC-1,
+      // it must be categorized as 'vpcs' so ALL VPCS devices stay together in sequence.
+      if (tpl === 'vpcs' || ntype === 'vpcs' || /^(USER|USR|VPC|VPCS|PC|CLIENT|WORKSTATION|LAPTOP|DESKTOP)(\b|\d|[-_\s]|$)/i.test(name)) {
         return 'vpcs';
       }
 
-      // 2. Secondary fallback by template / virtualization type
-      if (tpl === 'vpcs' || ntype === 'vpcs') {
+      // 2. End-user client / workstation devices
+      if (/^(USER|USR|VPC|CLIENT|WORKSTATION|LAPTOP|DESKTOP|WINCLIENT)(\b|\d|[-_\s]|$)/i.test(name)) {
         return 'vpcs';
       }
-      if (/server|linux|windows|docker/i.test(tpl)) {
-        return 'servers';
-      }
-      if (/switch|l2/i.test(tpl)) {
+
+      // 3. Switches (DCSW, SW, SWITCH, CSW, DSW, ASW, ESW, LSW, VSW, NXOS, NEXUS, N9K, CAT, CATALYST, LEAF, SPINE, etc.)
+      if (/^(DC[-_]?SW|C[-_]?SW|D[-_]?SW|A[-_]?SW|E[-_]?SW|L[-_]?SW|V[-_]?SW|SW|SWITCH|LEAF|SPINE|ACCESS|DIST|NXOS|NEXUS|N9K|N7K|N5K|CAT|CATALYST|VIOS[\-_]?L2|IOSV[\-_]?L2)(\b|\d|[-_\s]|$)/i.test(name) ||
+          /switch|l2|viosl2|nxos|nexus/i.test(tpl)) {
         return 'switches';
       }
-      if (/router/i.test(tpl)) {
+
+      // 4. Routers (R, ROUTER, CORE, EDGE, AGG, GW, GATEWAY, BORDER, BR, ABR, ASBR, PE, P, CE, CSR, XRV, etc.)
+      if (/^(R|ROUTER|CORE|EDGE|AGG|GW|GATEWAY|BORDER|BR|ABR|ASBR|PE|P|CE|CSR|XR|XRV|XRV9K|VIOS[\-_]?R|VIOSR|IOSV)(\b|\d|[-_\s]|$)/i.test(name) ||
+          /^(EXTERNAL[-_]NETWORK)(\b|\d|[-_\s]|$)/i.test(name) ||
+          /router|vios|csr1000v|xrv/i.test(tpl)) {
         return 'routers';
       }
+
+      // 5. Real Servers (Linux, Windows, Docker, Ostinato, etc.)
+      if (/^(SERVER|SEVER|SRV|SVR|HOST|NODE|LINUX|UBUNTU|DEBIAN|CENTOS|RHEL|WIN|WINDOWS|DOCKER|WEB|DNS|DHCP|RADIUS|TACACS|NTP|SYSLOG|OSTINATO)(\b|\d|[-_\s]|$)/i.test(name) ||
+          /server|linux|windows|docker|ostinato/i.test(tpl)) {
+        return 'servers';
+      }
+
       return 'others';
     },
 
@@ -104,7 +106,8 @@
       if (!node) return '';
       if (node.name && String(node.name).trim()) return String(node.name).trim();
       var domEl = document.getElementById('node' + node.id) || 
-                  document.querySelector('.node_frame[data-path="' + node.id + '"]');
+                  document.querySelector('.node_frame[data-path="' + node.id + '"]') ||
+                  document.querySelector('.svelte-flow__node[data-id="' + node.id + '"]');
       if (domEl) {
         var label = domEl.querySelector('.node_name, .node-name, .node_title, label, span, p');
         if (label && label.textContent && label.textContent.trim()) {
@@ -163,11 +166,29 @@
     getNodes: function(mode) {
       var rawList = [];
       if (mode === 'selected') {
-        if (window.freeSelectedNodes && window.freeSelectedNodes.length > 0) {
+        // 1. SvelteFlow Canvas Selection (PNetLab 6)
+        var svelteNodes = document.querySelectorAll('.svelte-flow__node.selected, [data-id].selected');
+        if (svelteNodes && svelteNodes.length > 0) {
+          svelteNodes.forEach(function(el) {
+            var nid = el.getAttribute('data-id') || el.getAttribute('data-nodeid') || el.getAttribute('data-path');
+            if (nid) {
+              var n = (window.nodes && window.nodes[nid]) ||
+                      (window.PNQStore && window.PNQStore.state && window.PNQStore.state.nodes && window.PNQStore.state.nodes[nid]) ||
+                      { id: nid, name: el.getAttribute('data-name') || ('node_' + nid), status: 2 };
+              rawList.push(n);
+            }
+          });
+        }
+
+        // 2. Legacy freeSelectedNodes (Lasso mode)
+        if (!rawList.length && window.freeSelectedNodes && window.freeSelectedNodes.length > 0) {
           rawList = window.freeSelectedNodes.map(function(n) {
             return (window.nodes && window.nodes[n.path]) || n;
           });
-        } else if (typeof $ !== 'undefined') {
+        }
+
+        // 3. Legacy jQuery UI selection
+        if (!rawList.length && typeof $ !== 'undefined') {
           $('.node_frame.ui-selected, .node_frame.free-selected').each(function() {
             var id = $(this).data('path') || $(this).attr('data-path') || (this.id || '').replace(/^node/, '');
             if (id && window.nodes && window.nodes[id]) {
@@ -184,6 +205,15 @@
             rawList.push(node);
           }
         }
+        // Fallback to PNQStore if window.nodes had nothing
+        if (!rawList.length && window.PNQStore && window.PNQStore.state && window.PNQStore.state.nodes) {
+          var snodes = window.PNQStore.state.nodes;
+          for (var sid in snodes) {
+            if (snodes[sid] && (snodes[sid].status !== 0 && snodes[sid].status !== '0' && snodes[sid].status !== false)) {
+              rawList.push(snodes[sid]);
+            }
+          }
+        }
         // Fallback: If none active, take all nodes in topology
         if (!rawList.length) {
           for (var id2 in window.nodes) {
@@ -193,9 +223,9 @@
       }
       // Canvas DOM fallback: if rawList is still empty, scan canvas node frames
       if (!rawList.length && typeof document !== 'undefined') {
-        var domFrames = document.querySelectorAll('.node_frame');
+        var domFrames = document.querySelectorAll('.svelte-flow__node, .node_frame');
         domFrames.forEach(function(df) {
-          var nid = df.getAttribute('data-path') || (df.id || '').replace(/^node/, '');
+          var nid = df.getAttribute('data-id') || df.getAttribute('data-path') || (df.id || '').replace(/^node/, '');
           var nname = df.getAttribute('data-name') || (df.querySelector('.node_name, .node-name, label, span') ? df.querySelector('.node_name, .node-name, label, span').textContent.trim() : ('Node_' + nid));
           var domA = df.querySelector('a');
           var durl = domA ? (domA.getAttribute('href') || '') : '';
@@ -217,16 +247,30 @@
       if (node.url && node.url !== '#' && node.url.indexOf('javascript:') === -1) {
         url = node.url;
       } else {
-        var domNode = document.getElementById('node' + node.id) || 
-                      document.querySelector('.node_frame[data-path="' + node.id + '"]');
-        var domA = domNode ? domNode.querySelector('a') : null;
-        var domHref = domA ? (domA.getAttribute('href') || domA.href) : '';
-        if (domHref && domHref !== '#' && domHref.indexOf('javascript:') === -1) {
-          url = domHref;
+        var storeNode = (window.PNQStore && window.PNQStore.state && window.PNQStore.state.nodes && window.PNQStore.state.nodes[node.id]) || null;
+        if (storeNode && storeNode.url && storeNode.url !== '#' && storeNode.url.indexOf('javascript:') === -1) {
+          url = storeNode.url;
         } else {
-          var port = node.port || (32768 + parseInt(node.id, 10));
-          url = proto + '://' + host + ':' + port;
+          var domNode = document.getElementById('node' + node.id) || 
+                        document.querySelector('.node_frame[data-path="' + node.id + '"]') ||
+                        document.querySelector('.svelte-flow__node[data-id="' + node.id + '"]');
+          var domA = domNode ? domNode.querySelector('a') : null;
+          var domHref = domA ? (domA.getAttribute('href') || domA.href) : '';
+          if (domHref && domHref !== '#' && domHref.indexOf('javascript:') === -1) {
+            url = domHref;
+          } else {
+            var port = node.port || (storeNode && storeNode.port) || (window.nodes && window.nodes[node.id] && window.nodes[node.id].port);
+            if (!port) port = 32768 + parseInt(node.id, 10);
+            url = proto + '://' + host + ':' + port;
+          }
         }
+      }
+
+      // Substitute hostname if missing in url (e.g. telnet://:30020)
+      if (url.indexOf('telnet://:') === 0) {
+        url = 'telnet://' + host + url.substring(9);
+      } else if (url.indexOf('ssh://:') === 0) {
+        url = 'ssh://' + host + url.substring(6);
       }
 
       var isHtml5 = (typeof window.pnqHtml5Mode === 'function' ? window.pnqHtml5Mode() : (window.HTML5 == 1 || (window.server && window.server.user && window.server.user.html5 == 1))) ||
@@ -258,28 +302,29 @@
           nativeUrl = nativeUrl.split('#')[0];
         }
 
-        // 1. In-place top-level link trigger without target="_blank"
-        // This delivers protocol URL to Windows ShellExecute for SecureCRT without opening blank tabs
-        var link = document.createElement('a');
-        link.href = nativeUrl;
-        link.style.cssText = 'position:absolute;left:-9999px;top:-9999px;opacity:0.01;pointer-events:none;';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(function() {
-          if (link.parentNode) link.parentNode.removeChild(link);
-        }, 2500);
-
-        // 2. Sandboxed iframe protocol fallback for browsers requiring subframe hints
+        // Standard CSP-compliant anchor dispatch hands protocol directly to OS (SecureCRT)
+        // without blank tabs and without duplicate iframe races
         try {
-          var ifr = document.createElement('iframe');
-          ifr.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;border:none;opacity:0.01;pointer-events:none;';
-          ifr.setAttribute('sandbox', 'allow-scripts allow-top-navigation allow-top-navigation-to-custom-protocols');
-          ifr.src = nativeUrl;
-          document.body.appendChild(ifr);
+          var link = document.createElement('a');
+          link.href = nativeUrl;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
           setTimeout(function() {
-            if (ifr.parentNode) ifr.parentNode.removeChild(ifr);
-          }, 3000);
-        } catch (e) {}
+            if (link.parentNode) link.parentNode.removeChild(link);
+          }, 100);
+        } catch (e) {
+          // Fallback iframe protocol handler for subframe-isolated browsers
+          try {
+            var ifr = document.createElement('iframe');
+            ifr.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;border:none;opacity:0.01;pointer-events:none;';
+            ifr.src = nativeUrl;
+            document.body.appendChild(ifr);
+            setTimeout(function() { if (ifr.parentNode) ifr.parentNode.removeChild(ifr); }, 2000);
+          } catch (e2) {
+            try { window.location.href = nativeUrl; } catch (e3) {}
+          }
+        }
       }
     },
 

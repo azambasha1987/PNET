@@ -637,7 +637,7 @@ class PNetReleaseEngine:
                                 ti.uname = "root"
                                 ti.gname = "root"
                                 dst_tar.addfile(ti, io.BytesIO(data))
-                            # Ensure themes/default/js/actions.js includes Sequenced Console context menu entry
+                            # Ensure themes/default/js/actions.js includes Sequenced Console context menu entry and routing
                             elif clean_name in ("opt/unetlab/html/themes/default/js/actions.js", "opt/unetlab/themes/default/js/actions.js"):
                                 f_obj = src_tar.extractfile(member)
                                 act_content = f_obj.read().decode("utf-8", errors="ignore") if f_obj else ""
@@ -647,6 +647,46 @@ class PNetReleaseEngine:
                                         "body += '<li><a class=\"action-openconsole-all\"",
                                         menu_entry + "    body += '<li><a class=\"action-openconsole-all\""
                                     )
+                                # Intercept legacy action-openconsole-all / group handler to route to Sequenced Console
+                                if "window.pnetSequencedConsole.launch" not in act_content and "$(document).on('click', '.action-openconsole-all" in act_content:
+                                    seq_handler_interception = """$(document).on('click', '.action-openconsole-all, .action-openconsole-group', function (e) {
+    $('#context-menu').remove();
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.pnetSequencedConsole && typeof window.pnetSequencedConsole.launch === 'function') {
+        var isFreeSelectMode = $("#lab-viewport").hasClass("freeSelectMode");
+        window.pnetSequencedConsole.launch({ mode: isFreeSelectMode ? 'selected' : 'all' });
+        return false;
+    }"""
+                                    act_content = act_content.replace(
+                                        "$(document).on('click', '.action-openconsole-all, .action-openconsole-group', function (e) {\n    $('#context-menu').remove();",
+                                        seq_handler_interception
+                                    )
+                                if "PNetLab Sequenced Console Priority Hook" not in act_content:
+                                    hook_header = """// === PNetLab Sequenced Console Priority Hook ===
+if (typeof window !== "undefined") {
+  window.addEventListener("click", function(e) {
+    var t = e.target;
+    var el = t && t.closest ? t.closest(".action-nodesconsole, [data-path=\\"nodes/console\\"], .action-openconsole-all, .action-openconsole-group, .action-seq-console, #pnq-btn-seq-console, #context-menu a, .context-menu-item") : null;
+    if (el && window.pnetSequencedConsole && !window.pnetSequencedConsole.isBusy) {
+      var txt = (el.innerText || el.textContent || "").toLowerCase();
+      var isSeq = el.classList.contains("action-seq-console") || el.id === "pnq-btn-seq-console" || txt.indexOf("seq") !== -1;
+      var isAll = el.classList.contains("action-openconsole-all") || el.classList.contains("action-nodesconsole") || el.getAttribute("data-path") === "nodes/console" || txt.indexOf("console to all") !== -1 || txt.indexOf("all nodes console") !== -1;
+      var isSel = el.classList.contains("action-openconsole-group") || txt.indexOf("console to selected") !== -1 || txt.indexOf("selected nodes console") !== -1;
+      if (isSeq || isAll) {
+        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+        window.pnetSequencedConsole.launch({ mode: "all" });
+        return false;
+      } else if (isSel) {
+        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+        window.pnetSequencedConsole.launch({ mode: "selected" });
+        return false;
+      }
+    }
+  }, true);
+}
+"""
+                                    act_content = hook_header + act_content
                                 data = act_content.encode("utf-8")
                                 ti = tarfile.TarInfo(name=member.name)
                                 ti.size = len(data)

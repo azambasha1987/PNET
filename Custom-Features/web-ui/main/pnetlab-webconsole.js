@@ -1532,7 +1532,12 @@
     if (!hit) return;
     e.preventDefault();
     e.stopPropagation();
-    openHtml5AwareConsoleAll();
+    var isGroup = hit.classList.contains('action-openconsole-group') || (hit.getAttribute('data-action') === 'openconsole-group');
+    if (!html5Mode() && window.pnetSequencedConsole && typeof window.pnetSequencedConsole.launch === 'function') {
+      window.pnetSequencedConsole.launch({ mode: isGroup ? 'selected' : 'all' });
+    } else {
+      openHtml5AwareConsoleAll();
+    }
   }, true);
 
   // Dedicated Sequenced Console trigger (.action-seq-console / #pnq-btn-seq-console)
