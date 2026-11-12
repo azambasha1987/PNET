@@ -73,6 +73,10 @@ apt-get install -y --no-install-recommends \
     zstd \
     curl \
     git \
+    docker.io \
+    libcairo2 \
+    libxcb-render0 \
+    libxcb-shm0 \
     libvirt-daemon-system \
     qemu-kvm 2>/dev/null || true
 
