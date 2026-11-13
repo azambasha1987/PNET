@@ -700,6 +700,22 @@ if (typeof window !== "undefined") {
                                 ti.uname = "root"
                                 ti.gname = "root"
                                 dst_tar.addfile(ti, io.BytesIO(data))
+                            # Enforce Natural Ascending Sort in modern Svelte Islands export modal
+                            elif "islands/js/labs-workspace" in clean_name and clean_name.endswith(".js"):
+                                f_obj = src_tar.extractfile(member)
+                                isl_content = f_obj.read().decode("utf-8", errors="ignore") if f_obj else ""
+                                t_island = 'var r=a.body&&a.body.data||{folders:[],labs:[]},e=(r.folders||[]).filter(function(q){return q.name!==".."}),n=r.labs||[];'
+                                r_island = 'var r=a.body&&a.body.data||{folders:[],labs:[]},e=(r.folders||[]).filter(function(q){return q.name!==".."}).sort(function(a,b){return(a.name||"").localeCompare(b.name||"",undefined,{numeric:!0,sensitivity:"base"})}),n=(r.labs||[]).slice().sort(function(a,b){return(a.file||a.name||"").localeCompare(b.file||b.name||"",undefined,{numeric:!0,sensitivity:"base"})});'
+                                if t_island in isl_content:
+                                    isl_content = isl_content.replace(t_island, r_island)
+                                data = isl_content.encode("utf-8")
+                                ti = tarfile.TarInfo(name=member.name)
+                                ti.size = len(data)
+                                ti.mode = member.mode
+                                ti.mtime = int(datetime.datetime.now().timestamp())
+                                ti.uname = "root"
+                                ti.gname = "root"
+                                dst_tar.addfile(ti, io.BytesIO(data))
                             else:
                                 f_obj = src_tar.extractfile(member) if member.isreg() else None
                                 dst_tar.addfile(member, f_obj)
