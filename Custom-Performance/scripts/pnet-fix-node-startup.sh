@@ -27,14 +27,8 @@ echo "============================================================"
 echo "[1/7] Deploying universal tunctl TAP driver and sudoers grants..."
 mkdir -p /etc/sudoers.d /usr/local/bin /opt/unetlab/wrappers 2>/dev/null || true
 
-# Write valid sudoers configuration for www-data & root
-cat << 'EOF' > /etc/sudoers.d/unetlab
-Defaults:www-data !use_pty
-www-data ALL=(ALL) NOPASSWD: ALL
-root ALL=(ALL) NOPASSWD: ALL
-EOF
-chmod 0440 /etc/sudoers.d/unetlab
-visudo -c >/dev/null 2>&1 || true
+# Clean up retired legacy sudoers configuration (pnetlab-brokerd handles root verbs)
+rm -f /etc/sudoers.d/unetlab 2>/dev/null || true
 
 # Deploy native tunctl drop-in shim using iproute2
 cat << 'EOF' > /usr/local/bin/tunctl
@@ -125,13 +119,16 @@ echo "  [✔] Universal tunctl driver active and sudoers permissions granted"
 # --- 2. Ensure QEMU Binaries & /opt/qemu Symlink ---
 echo "[2/7] Setting up QEMU system dispatch, UEFI firmware & /opt/qemu symlinks..."
 mkdir -p /opt/unetlab/addons/qemu /usr/share/qemu /usr/share/OVMF 2>/dev/null || true
-if [ ! -L /opt/qemu ] && [ -d /opt/qemu ]; then
-    mkdir -p /opt/qemu/bin /opt/qemu/share/qemu 2>/dev/null || true
+if [ -d /opt/qemu-native ]; then
+    ln -sfn /opt/qemu-native /opt/qemu 2>/dev/null || true
+elif [ -d /opt/qemu-10.2.1 ]; then
+    ln -sfn /opt/qemu-10.2.1 /opt/qemu 2>/dev/null || true
 else
-    ln -sfn /usr /opt/qemu 2>/dev/null || true
+    mkdir -p /opt/qemu-native/bin /opt/qemu-native/share/qemu 2>/dev/null || true
+    ln -sfn /usr/bin/qemu-system-x86_64 /opt/qemu-native/bin/qemu-system-x86_64 2>/dev/null || true
+    ln -sfn /usr/bin/qemu-img /opt/qemu-native/bin/qemu-img 2>/dev/null || true
+    ln -sfn /opt/qemu-native /opt/qemu 2>/dev/null || true
 fi
-ln -sfn /usr/bin/qemu-system-x86_64 /opt/qemu/bin/qemu-system-x86_64 2>/dev/null || true
-ln -sfn /usr/bin/qemu-img /opt/qemu/bin/qemu-img 2>/dev/null || true
 
 # Deploy OVMF UEFI firmware symlinks for NX-OS 9000v and UEFI appliances
 ln -sfn /opt/unetlab/scripts/OVMF-20160813.fd /usr/share/qemu/OVMF-sata.fd 2>/dev/null || true

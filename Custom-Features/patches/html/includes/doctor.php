@@ -121,8 +121,9 @@ function doctor_run()
         $checks[] = doctor_check('qemu default', 'fail', '/opt/qemu symlink missing',
             'repoint /opt/qemu to the installed modern /opt/qemu-* tree; ldconfig');
     } else {
-        $bin = '/opt/' . basename($qemu) . '/bin/qemu-system-x86_64';
-        if (!is_dir('/opt/' . basename($qemu)) || !is_executable($bin)) {
+        $targetDir = (str_starts_with($qemu, '/') && is_dir($qemu)) ? $qemu : ('/opt/' . basename($qemu));
+        $bin = $targetDir . '/bin/qemu-system-x86_64';
+        if (!is_dir($targetDir) || !is_executable($bin)) {
             $checks[] = doctor_check('qemu default', 'fail', "$qemu (target/binary missing)",
                 'repoint /opt/qemu to the installed modern /opt/qemu-* tree; ldconfig');
         } else {
@@ -154,7 +155,7 @@ function doctor_run()
     $checks[] = doctor_check(
         'disk space',
         $availG >= 10 ? 'ok' : ($availG >= 2 ? 'warn' : 'fail'),
-        "${availG}G free on /opt/unetlab",
+        "{$availG}G free on /opt/unetlab",
         "rm -rf /opt/unetlab/tmp/pnetlab-*; docker image prune -f  # as root"
     );
 
