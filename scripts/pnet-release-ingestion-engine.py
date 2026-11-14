@@ -251,6 +251,9 @@ class PNetReleaseEngine:
                         if clean_m == "control" and f_obj:
                             text = f_obj.read().decode("utf-8", errors="ignore")
                             updated_text = re.sub(r"^Version:.*$", f"Version: {new_version}", text, flags=re.MULTILINE)
+                            if "pnetlab-docker" in deb_path.name:
+                                updated_text = re.sub(r"Pre-Depends:\s*(?:docker\.io\s*\|\s*)?docker-engine", "Pre-Depends: docker.io | docker-engine", updated_text)
+                                updated_text = re.sub(r"Depends:\s*(?:docker\.io\s*\|\s*)?docker-engine", "Depends: docker.io | docker-engine", updated_text)
                             data = updated_text.encode("utf-8")
                             ti = tarfile.TarInfo(name=member.name)
                             ti.size = len(data)

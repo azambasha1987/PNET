@@ -343,38 +343,43 @@ with open(cert_path, "r") as f:
     der = ssl.PEM_cert_to_DER_cert(f.read())
 cert_fp = "sha256:" + hashlib.sha256(der).hexdigest()
 
-pkg_ver = "6.8.90resolute1"
+pkg_ver = "6.8.93resolute1"
 found_ver = False
-for v_file in ("/opt/unetlab/VERSION", "/opt/azambasha/VERSION", "/etc/azamlabs-version"):
-    try:
-        if os.path.isfile(v_file):
-            with open(v_file, "r", encoding="utf-8") as vf:
-                v_pkg = ""
-                v_rel = ""
-                for line in vf:
-                    line = line.strip()
-                    if line.startswith("PACKAGE_VERSION="):
-                        v_pkg = line.split("=", 1)[1].strip()
-                    elif line.startswith("VERSION="):
-                        v_rel = line.split("=", 1)[1].strip()
-                if v_pkg:
-                    pkg_ver = v_pkg
-                    found_ver = True
-                    break
-                if v_rel:
-                    pkg_ver = v_rel
-                    found_ver = True
-                    break
-    except Exception:
-        pass
+for pkg in ("pnetlab-satellite", "pnetlab", "azamlabs-satellite", "azamlabs"):
+    p = subprocess.run(["dpkg-query", "-W", "-f", "${Version}", pkg],
+                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if p.returncode == 0 and p.stdout:
+        ver = p.stdout.decode().strip()
+        if ver:
+            pkg_ver = ver
+            found_ver = True
+            break
 
 if not found_ver:
-    for pkg in ("azamlabs-satellite", "azamlabs"):
-        p = subprocess.run(["dpkg-query", "-W", "-f", "${Version}", pkg],
-                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        if p.returncode == 0 and p.stdout:
-            pkg_ver = p.stdout.decode().strip()
-            break
+    for v_file in ("/opt/unetlab/version", "/opt/unetlab/VERSION", "/opt/azambasha/VERSION", "/etc/azamlabs-version", "/etc/pnetlab-version"):
+        try:
+            if os.path.isfile(v_file):
+                with open(v_file, "r", encoding="utf-8") as vf:
+                    v_pkg = ""
+                    v_rel = ""
+                    for line in vf:
+                        line = line.strip()
+                        if line.startswith("PACKAGE_VERSION="):
+                            v_pkg = line.split("=", 1)[1].strip()
+                        elif line.startswith("VERSION="):
+                            v_rel = line.split("=", 1)[1].strip()
+                        elif line and not v_pkg and not v_rel:
+                            v_rel = line
+                    if v_pkg:
+                        pkg_ver = v_pkg
+                        found_ver = True
+                        break
+                    if v_rel:
+                        pkg_ver = v_rel
+                        found_ver = True
+                        break
+        except Exception:
+            pass
 
 body = {
     "host_id": slot,
