@@ -714,6 +714,8 @@ printf '%s\n' "$PSK" | run_root "pnet-satellite-join --master $MASTER_IP --id $S
     >> "$LOG" 2>&1 || fail "join failed — see cluster/jobs/${JOB}.log on the master"
 run_root 'systemctl enable --now pnetlab-satd.service && systemctl is-active --quiet pnetlab-satd.service' \
     </dev/null >> "$LOG" 2>&1 || fail "satellite service failed after join — see cluster/jobs/${JOB}.log on the master"
+run_root 'mkdir -p /opt/unetlab/satdeb && chmod 0755 /opt/unetlab/satdeb && rm -rf /root/satdeb && ln -sfn /opt/unetlab/satdeb /root/satdeb' \
+    </dev/null >> "$LOG" 2>&1 || true
 
 # ── 4.5 deploy Custom-Performance suite (4.1 to 4.13) ─────────────────────────
 upd "running" 92 "deploying Custom-Performance suite to $NAME"

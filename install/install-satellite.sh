@@ -312,6 +312,12 @@ elif [ -f "$REPO_ROOT/Custom-Features/apply-features.sh" ]; then
     bash "$REPO_ROOT/Custom-Features/apply-features.sh" --satellite || true
 fi
 
+# Prepare satdeb staging directory and symlink for cluster package sync
+mkdir -p /opt/unetlab/satdeb
+chmod 0755 /opt/unetlab/satdeb
+rm -rf /root/satdeb 2>/dev/null || true
+ln -sfn /opt/unetlab/satdeb /root/satdeb 2>/dev/null || true
+
 echo "[5/5] Starting satellite services..."
 systemctl daemon-reload || true
 systemctl unmask pnetlab-satd.service 2>/dev/null || true

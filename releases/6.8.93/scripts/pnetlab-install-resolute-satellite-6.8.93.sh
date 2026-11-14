@@ -279,6 +279,12 @@ ldconfig >> "$LOG" 2>&1 || die "ldconfig failed after qemu-compat-libs extractio
 # the workspace ownership DB-independently); on a joined re-run it heals.
 /opt/unetlab/wrappers/unl_wrapper -a fixpermissions >> "$LOG" 2>&1 || warn "fixpermissions warnings (expected pre-join)"
 
+# Ensure satdeb staging directory and symlink exist for cluster package sync
+mkdir -p /opt/unetlab/satdeb
+chmod 0755 /opt/unetlab/satdeb
+rm -rf /root/satdeb 2>/dev/null || true
+ln -sfn /opt/unetlab/satdeb /root/satdeb 2>/dev/null || true
+
 # Custom-Performance Hook (Subsystems 4.1 through 4.13)
 if [ -f "$SCRIPT_DIR/apply-performance.sh" ]; then
     log "Applying Custom-Performance suite (4.1 through 4.13)..."

@@ -447,6 +447,12 @@ print(f"Direct Python join succeeded for {name} ({ip}) on Master {master}.")
 PYJOIN
 fi
 
+# Ensure satdeb staging directory and symlink exist for cluster package sync
+mkdir -p /opt/unetlab/satdeb
+chmod 0755 /opt/unetlab/satdeb
+rm -rf /root/satdeb 2>/dev/null || true
+ln -sfn /opt/unetlab/satdeb /root/satdeb 2>/dev/null || true
+
 # Step 6: Verify Remote Master MySQL Connectivity
 log_info "[6/7] Validating remote Master MySQL connectivity from Satellite..."
 if [ -f "$DB_CONF_PATH" ]; then
